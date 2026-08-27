@@ -61,7 +61,9 @@ export function NotALMApp() {
     setChunkCount(data.chunkCount);
     if (data.status.kind === "ready") {
       setReady(true);
-      setBackend((data.status.backend as "hash" | "bekko") || "hash");
+      const b = (data.status.backend as "hash" | "bekko") || "hash";
+      setBackend(b);
+      if (b === "bekko") setUpgrading(false);
     }
     return data;
   }, []);
@@ -72,10 +74,16 @@ export function NotALMApp() {
 
     const boot = async () => {
       try {
-        await refreshStatus();
+        const first = await refreshStatus();
         if (cancelled) return;
         setReady(true);
-        // Prefer bekko — upgrade in background then poll
+
+        if (first.status.backend === "bekko") {
+          setUpgrading(false);
+          return;
+        }
+
+        // Prefer bekko — upgrade then poll until backend flips
         setUpgrading(true);
         void fetch("/api/status", { method: "POST" })
           .then(async (res) => {
@@ -87,24 +95,29 @@ export function NotALMApp() {
                     ? `bekko 読込失敗（ハッシュで続行）: ${data.error}`
                     : "bekko 読込失敗（ハッシュで続行）",
                 );
+                setUpgrading(false);
               }
               await refreshStatus();
             }
           })
-          .finally(() => {
-            if (!cancelled) setUpgrading(false);
+          .catch((e) => {
+            if (!cancelled) {
+              setError(e instanceof Error ? e.message : "bekko 読込失敗");
+              setUpgrading(false);
+            }
           });
 
         const poll = async () => {
           if (cancelled) return;
           const data = await refreshStatus();
-          if (!data.bekkoReady) {
-            timer = setTimeout(poll, 2000);
+          const onBekko = data.status.backend === "bekko";
+          if (!onBekko) {
+            timer = setTimeout(poll, 1500);
           } else {
             setUpgrading(false);
           }
         };
-        timer = setTimeout(poll, 1500);
+        timer = setTimeout(poll, 1000);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "起動に失敗しました");
@@ -244,8 +257,14 @@ export function NotALMApp() {
             を連鎖させるだけの装置。言語モデルではないのに、会話が成立して見える。
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="font-mono text-[11px]">
-              {backend === "bekko" ? "bekko-a8m" : "hash→bekko"}
+            <Badge
+              variant="secondary"
+              className={cn(
+                "font-mono text-[11px]",
+                backend === "bekko" && "bg-[var(--nalm-accent-soft)]",
+              )}
+            >
+              {backend === "bekko" ? "bekko-a8m" : "hash (boot)"}
             </Badge>
             <Badge variant="outline" className="max-w-[min(100%,22rem)] truncate font-mono text-[11px]">
               {modelId}
@@ -253,10 +272,10 @@ export function NotALMApp() {
             <Badge variant="outline" className="font-mono text-[11px]">
               chunks: {chunkCount || "—"}
             </Badge>
-            {(upgrading || backend !== "bekko") && (
+            {upgrading && (
               <Badge variant="outline" className="gap-1 font-mono text-[11px]">
                 <Loader2 className="size-3 animate-spin" />
-                {progress || "loading bekko"}
+                {progress || "bekko 読込中"}
               </Badge>
             )}
           </div>
