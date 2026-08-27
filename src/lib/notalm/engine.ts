@@ -114,8 +114,9 @@ export class ChunkKVEngine {
   ): MatchHit[] {
     const scored: MatchHit[] = [];
     for (const chunk of this.index) {
+      // Hard filter: bot replies must come from bot values, user predictions from user values
+      if (preferSpeaker && chunk.speaker !== preferSpeaker) continue;
       let score = cosine(queryVec, chunk.embedding);
-      if (preferSpeaker && chunk.speaker === preferSpeaker) score += 0.035;
       if (this.usedIds.has(chunk.id)) score -= 0.12;
       scored.push({
         chunk: {

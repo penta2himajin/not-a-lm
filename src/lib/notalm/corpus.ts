@@ -46,8 +46,15 @@ export const CHUNK_CORPUS: ChunkRecord[] = [
   // --- what are you ---
   {
     id: "who-1",
-    key: "あなたは誰 何もの 何者 LM 言語モデル ですか",
+    key: "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ",
     value: "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。",
+    speaker: "bot",
+    tags: ["自己紹介"],
+  },
+  {
+    id: "who-1b",
+    key: "お前誰？ お前は誰 君だれ あんた誰",
+    value: "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
     speaker: "bot",
     tags: ["自己紹介"],
   },
