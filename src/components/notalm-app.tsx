@@ -12,16 +12,16 @@ import type { ChatMessage, TraceStep } from "@/lib/notalm/types";
 const SUGGESTIONS = [
   "お前誰？",
   "仕組み教えて",
-  "既存の似た仕組みある？",
-  "天気どう？",
-  "連鎖デモお願い",
-  "会話になってるように見える？",
+  "Who are you?",
+  "How does it work?",
+  "你是谁？",
+  "讲讲原理",
 ];
 
 type StatusPayload = {
   modelId: string;
   progress: string;
-  bekkoReady: boolean;
+  denseReady: boolean;
   chunkCount: number;
   status: {
     kind: string;
@@ -41,7 +41,7 @@ type ChatPayload = {
 
 export function NotALMApp() {
   const [ready, setReady] = useState(false);
-  const [backend, setBackend] = useState<"hash" | "bekko">("hash");
+  const [backend, setBackend] = useState<"hash" | "dense">("hash");
   const [modelId, setModelId] = useState("…");
   const [progress, setProgress] = useState("起動中…");
   const [upgrading, setUpgrading] = useState(false);
@@ -61,9 +61,9 @@ export function NotALMApp() {
     setChunkCount(data.chunkCount);
     if (data.status.kind === "ready") {
       setReady(true);
-      const b = (data.status.backend as "hash" | "bekko") || "hash";
+      const b = (data.status.backend as "hash" | "dense") || "hash";
       setBackend(b);
-      if (b === "bekko") setUpgrading(false);
+      if (b === "dense") setUpgrading(false);
     }
     return data;
   }, []);
@@ -78,12 +78,12 @@ export function NotALMApp() {
         if (cancelled) return;
         setReady(true);
 
-        if (first.status.backend === "bekko") {
+        if (first.status.backend === "dense") {
           setUpgrading(false);
           return;
         }
 
-        // Prefer bekko — upgrade then poll until backend flips
+        // Prefer the dense multilingual model — upgrade then poll until backend flips
         setUpgrading(true);
         void fetch("/api/status", { method: "POST" })
           .then(async (res) => {
@@ -92,8 +92,8 @@ export function NotALMApp() {
               if (!res.ok) {
                 setError(
                   typeof data.error === "string"
-                    ? `bekko 読込失敗（ハッシュで続行）: ${data.error}`
-                    : "bekko 読込失敗（ハッシュで続行）",
+                    ? `モデル読込失敗（ハッシュで続行）: ${data.error}`
+                    : "モデル読込失敗（ハッシュで続行）",
                 );
                 setUpgrading(false);
               }
@@ -102,7 +102,7 @@ export function NotALMApp() {
           })
           .catch((e) => {
             if (!cancelled) {
-              setError(e instanceof Error ? e.message : "bekko 読込失敗");
+              setError(e instanceof Error ? e.message : "モデル読込失敗");
               setUpgrading(false);
             }
           });
@@ -110,8 +110,8 @@ export function NotALMApp() {
         const poll = async () => {
           if (cancelled) return;
           const data = await refreshStatus();
-          const onBekko = data.status.backend === "bekko";
-          if (!onBekko) {
+          const onDense = data.status.backend === "dense";
+          if (!onDense) {
             timer = setTimeout(poll, 1500);
           } else {
             setUpgrading(false);
@@ -151,7 +151,7 @@ export function NotALMApp() {
     });
     const data = (await res.json()) as ChatPayload;
     if (!res.ok) throw new Error(data.error || "predict failed");
-    if (data.backend === "bekko" || data.backend === "hash") {
+    if (data.backend === "dense" || data.backend === "hash") {
       setBackend(data.backend);
     }
     setModelId(data.modelId);
@@ -247,24 +247,24 @@ export function NotALMApp() {
       <div className="relative mx-auto flex min-h-dvh max-w-6xl flex-col px-4 py-6 md:px-6 md:py-8">
         <header className="mb-6 animate-in-fade md:mb-8">
           <p className="font-mono text-[11px] tracking-[0.22em] text-[var(--nalm-ink-mute)] uppercase">
-            bekko-a8m · chunk-kv · no generation
+            multilingual · chunk-kv · no generation
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-display)] text-4xl leading-none tracking-tight text-[var(--nalm-ink)] md:text-6xl">
             NOT A LM
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--nalm-ink-soft)] md:text-base">
-            埋め込みモデルで会話パターンを探し、チャンクKVの value
-            を連鎖させるだけの装置。言語モデルではないのに、会話が成立して見える。
+            多言語埋め込みで会話パターンを探し、チャンクKVの value
+            を連鎖させるだけの装置。日本語・英語・中国語で話せるが、言語モデルではない。
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Badge
               variant="secondary"
               className={cn(
                 "font-mono text-[11px]",
-                backend === "bekko" && "bg-[var(--nalm-accent-soft)]",
+                backend === "dense" && "bg-[var(--nalm-accent-soft)]",
               )}
             >
-              {backend === "bekko" ? "bekko-a8m" : "hash (boot)"}
+              {backend === "dense" ? "multilingual-MiniLM" : "hash (boot)"}
             </Badge>
             <Badge variant="outline" className="max-w-[min(100%,22rem)] truncate font-mono text-[11px]">
               {modelId}
@@ -275,7 +275,7 @@ export function NotALMApp() {
             {upgrading && (
               <Badge variant="outline" className="gap-1 font-mono text-[11px]">
                 <Loader2 className="size-3 animate-spin" />
-                {progress || "bekko 読込中"}
+                {progress || "モデル読込中"}
               </Badge>
             )}
           </div>
@@ -369,7 +369,7 @@ export function NotALMApp() {
               {busy && (
                 <div className="flex items-center gap-2 text-xs text-[var(--nalm-ink-mute)]">
                   <Loader2 className="size-3.5 animate-spin" />
-                  bekko 近傍探索中…
+                  近傍探索中…
                 </div>
               )}
               <div ref={bottomRef} />
@@ -420,7 +420,7 @@ export function NotALMApp() {
                 チャンクKVトレース
               </div>
               <p className="mt-1 text-xs text-[var(--nalm-ink-mute)]">
-                user↔bot ペアを局所クラスタリングし、指数加重平均した bekko クエリ。
+                user↔bot ペアを局所クラスタリングし、指数加重平均した多言語クエリ。
               </p>
             </div>
 
@@ -438,6 +438,7 @@ export function NotALMApp() {
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <span className="font-mono text-[10px] text-[var(--nalm-ink-mute)]">
                         {tr.latencyMs}ms · top-{tr.hits.length}
+                        {tr.queryLang ? ` · ${tr.queryLang}` : ""}
                       </span>
                       <Badge variant="secondary" className="text-[10px]">
                         {tr.chosen.chunk.speaker} / {tr.chosen.chunk.id}
@@ -520,13 +521,13 @@ export function NotALMApp() {
               埋め込みは{" "}
               <a
                 className="underline decoration-[var(--nalm-accent)] underline-offset-2 hover:text-[var(--nalm-ink)]"
-                href="https://huggingface.co/hotchpotch/bekko-embedding-v1-a8m"
+                href="https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
                 target="_blank"
                 rel="noreferrer"
               >
-                hotchpotch/bekko-embedding-v1-a8m
+                paraphrase-multilingual-MiniLM-L12-v2
               </a>
-              。起動直後はハッシュで仮索引し、bekko 準備後に差し替える。
+              （ja/en/zh）。起動直後はハッシュで仮索引し、多言語モデル準備後に差し替える。
             </div>
           </aside>
         </div>

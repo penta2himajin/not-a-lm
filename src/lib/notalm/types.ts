@@ -1,5 +1,8 @@
 export type Speaker = "user" | "bot";
 
+/** Supported corpus / query languages (v1: ja, en, zh-Hans) */
+export type Lang = "ja" | "en" | "zh";
+
 export type ChunkRecord = {
   id: string;
   /** Key: conversational context pattern that triggers this chunk */
@@ -8,6 +11,10 @@ export type ChunkRecord = {
   value: string;
   /** Who speaks the value */
   speaker: Speaker;
+  /** Language of key/value; used to route replies to the query's language */
+  lang: Lang;
+  /** Language-neutral claim id shared across localized variants (for future cross-lingual work) */
+  claim?: string;
   tags: string[];
 };
 
@@ -21,6 +28,8 @@ export type MatchHit = {
 };
 
 export type TraceStep = {
+  /** Detected query language used to filter candidates */
+  queryLang?: Lang;
   /** Legacy one-line query description */
   queryText: string;
   /** Exponential weighted query composition details */
@@ -58,5 +67,5 @@ export type ChatMessage = {
 
 export type EngineStatus =
   | { kind: "booting"; detail: string }
-  | { kind: "ready"; backend: "hash" | "bekko"; chunkCount: number }
+  | { kind: "ready"; backend: "hash" | "dense"; chunkCount: number }
   | { kind: "error"; message: string };
