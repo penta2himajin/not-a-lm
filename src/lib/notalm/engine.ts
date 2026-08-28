@@ -10,6 +10,7 @@ import {
 } from "./embed";
 import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
+import { isRerankerReady, rerankScores } from "./rerank";
 import type {
   ChatMessage,
   ChunkRecord,
@@ -20,7 +21,21 @@ import type {
   TraceStep,
 } from "./types";
 
+/** Final number of hits shown in the trace */
 const TOP_K = 5;
+/**
+ * Bi-encoder candidates fed into the cross-encoder reranker. The reranker
+ * scores one pair at a time, so this also bounds per-turn latency. The
+ * recall-oriented bi-encoder keeps the right chunk in this window in practice.
+ */
+const RERANK_CANDIDATES = 10;
+/**
+ * Confidence gate: if the best cross-encoder score is below this, treat the
+ * turn as "no close match" and gracefully refuse (reply-mode only).
+ * With fp32 bge-reranker-base, in-corpus matches score ~0.1–0.99 while clearly
+ * out-of-corpus queries top out below ~0.01, so a low threshold separates them.
+ */
+const RERANK_MIN_SCORE = 0.03;
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
@@ -104,6 +119,7 @@ export class ChunkKVEngine {
     queryVec: Float32Array,
     preferSpeaker?: "user" | "bot",
     lang?: Lang,
+    limit: number = TOP_K,
   ): MatchHit[] {
     const scored: MatchHit[] = [];
     for (const chunk of this.index) {
@@ -127,7 +143,37 @@ export class ChunkKVEngine {
       });
     }
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, TOP_K);
+    return scored.slice(0, limit);
+  }
+
+  /**
+   * Stage 2: re-score bi-encoder candidates with the cross-encoder against the
+   * chunk key (trigger context), apply the reuse penalty, and re-sort.
+   * Returns the reordered hits (already sliced to TOP_K).
+   */
+  private async rerank(
+    query: string,
+    candidates: MatchHit[],
+  ): Promise<MatchHit[]> {
+    // Rerank on the raw cross-encoder score. Anti-repetition is already handled
+    // in the bi-encoder candidate selection (usedIds penalty); applying another
+    // penalty here would wipe out valid low-scoring matches and trip the
+    // confidence gate into false refusals.
+    const scores = await rerankScores(
+      query,
+      candidates.map((h) => h.chunk.key),
+    );
+    const reranked = candidates.map((h, i) => ({ ...h, rerankScore: scores[i] }));
+    reranked.sort((a, b) => (b.rerankScore ?? 0) - (a.rerankScore ?? 0));
+    return reranked.slice(0, TOP_K);
+  }
+
+  /** The graceful "no close match" chunk for a language (reply-mode refusal). */
+  private refusalChunk(lang: Lang): ChunkRecord | undefined {
+    return (
+      this.index.find((c) => c.claim === "limit-1" && c.lang === lang) ??
+      this.index.find((c) => c.claim === "limit-3" && c.lang === lang)
+    );
   }
 
   async predictNext(
@@ -148,14 +194,70 @@ export class ChunkKVEngine {
       latestUser,
       this.backend,
     );
-    let hits = this.search(composed.vector, preferSpeaker, queryLang);
+
+    // Stage 1: bi-encoder retrieval. Pull a wider candidate set when the
+    // reranker is available so stage 2 has room to reorder.
+    const useReranker = isRerankerReady();
+    const candidateK = useReranker ? RERANK_CANDIDATES : TOP_K;
+    let candidates = this.search(
+      composed.vector,
+      preferSpeaker,
+      queryLang,
+      candidateK,
+    );
     // Fallback: if the corpus has nothing in the detected language, drop the
     // language filter rather than returning nothing.
-    if (hits.length === 0) {
-      hits = this.search(composed.vector, preferSpeaker);
+    if (candidates.length === 0) {
+      candidates = this.search(composed.vector, preferSpeaker, undefined, candidateK);
     }
-    const chosen = hits[0];
+
+    // Stage 2: cross-encoder rerank against the chunk key (trigger context).
+    const rerankQuery = composed.anchorText || latestUser?.trim() || "";
+    let hits = candidates;
+    let reranked = false;
+    if (useReranker && candidates.length > 0 && rerankQuery) {
+      try {
+        hits = await this.rerank(rerankQuery, candidates);
+        reranked = true;
+      } catch {
+        hits = candidates.slice(0, TOP_K);
+      }
+    } else {
+      hits = candidates.slice(0, TOP_K);
+    }
+
+    let chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
+
+    // Confidence gate (reply-mode only): if the best cross-encoder score is
+    // below threshold, nothing in the corpus is a close match — refuse
+    // gracefully with the language's "no close key" chunk instead of pasting
+    // an off-target reply.
+    const topRerankScore = reranked ? chosen.rerankScore : undefined;
+    let lowConfidence = false;
+    if (
+      reranked &&
+      preferSpeaker === "bot" &&
+      (topRerankScore ?? 0) < RERANK_MIN_SCORE
+    ) {
+      const refusal = this.refusalChunk(queryLang);
+      if (refusal) {
+        lowConfidence = true;
+        chosen = {
+          chunk: {
+            id: refusal.id,
+            key: refusal.key,
+            value: refusal.value,
+            speaker: refusal.speaker,
+            lang: refusal.lang,
+            claim: refusal.claim,
+            tags: refusal.tags,
+          },
+          score: chosen.score,
+          rerankScore: chosen.rerankScore,
+        };
+      }
+    }
 
     this.usedIds.add(chosen.chunk.id);
     if (this.usedIds.size > 24) {
@@ -174,6 +276,9 @@ export class ChunkKVEngine {
       },
       trace: {
         queryLang,
+        reranked,
+        topRerankScore,
+        lowConfidence,
         queryText,
         querySummary: composed.summary,
         queryTurns: composed.turns.map((t) => ({

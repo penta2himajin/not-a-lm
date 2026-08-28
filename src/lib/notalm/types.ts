@@ -24,12 +24,21 @@ export type IndexedChunk = ChunkRecord & {
 
 export type MatchHit = {
   chunk: ChunkRecord;
+  /** Stage-1 bi-encoder cosine score (with reuse penalty applied) */
   score: number;
+  /** Stage-2 cross-encoder relevance in [0,1]; present when reranked */
+  rerankScore?: number;
 };
 
 export type TraceStep = {
   /** Detected query language used to filter candidates */
   queryLang?: Lang;
+  /** Whether the cross-encoder reranker reordered the candidates */
+  reranked?: boolean;
+  /** Best cross-encoder relevance score for this turn (when reranked) */
+  topRerankScore?: number;
+  /** True when the best score was below the confidence gate → graceful refusal */
+  lowConfidence?: boolean;
   /** Legacy one-line query description */
   queryText: string;
   /** Exponential weighted query composition details */
