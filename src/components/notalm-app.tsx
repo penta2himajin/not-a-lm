@@ -420,7 +420,7 @@ export function NotALMApp() {
                 チャンクKVトレース
               </div>
               <p className="mt-1 text-xs text-[var(--nalm-ink-mute)]">
-                クエリ埋め込みに近いキーと、選ばれた value。ここが「予測」の正体。
+                各ターンの bekko ベクトルを指数加重平均したクエリと、近いキー。
               </p>
             </div>
 
@@ -443,9 +443,28 @@ export function NotALMApp() {
                         {tr.chosen.chunk.speaker} / {tr.chosen.chunk.id}
                       </Badge>
                     </div>
-                    <p className="mb-2 line-clamp-2 font-mono text-[11px] text-[var(--nalm-ink-mute)]">
-                      Q: {tr.queryText}
+                    <p className="mb-2 font-mono text-[11px] text-[var(--nalm-ink-mute)]">
+                      {tr.querySummary || tr.queryText}
                     </p>
+                    {tr.queryTurns && tr.queryTurns.length > 0 && (
+                      <ul className="mb-2 space-y-1 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
+                        {tr.queryTurns.map((qt, qi) => (
+                          <li
+                            key={`${qi}-${qt.text.slice(0, 12)}`}
+                            className={cn(
+                              "flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5",
+                              !qt.included && "opacity-40 line-through",
+                            )}
+                          >
+                            <span>{qt.role === "user" ? "U" : "B"}</span>
+                            <span className="max-w-[12rem] truncate">{qt.text}</span>
+                            <span>
+                              w={qt.finalWeight.toFixed(2)} sim={qt.anchorSimilarity.toFixed(2)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <Separator className="my-2" />
                     <ul className="space-y-1.5">
                       {tr.hits.map((h, j) => (

@@ -2,13 +2,13 @@ import { CHUNK_CORPUS } from "./corpus";
 import {
   BEKKO_MODEL_ID,
   cosine,
-  embed,
   embedMany,
   getBekkoProgress,
   isBekkoReady,
   loadBekko,
   type EmbedBackend,
 } from "./embed";
+import { composeQueryVector } from "./query-vector";
 import type {
   ChatMessage,
   ChunkRecord,
@@ -18,17 +18,7 @@ import type {
   TraceStep,
 } from "./types";
 
-const RECENT_TURNS = 4;
 const TOP_K = 5;
-
-function buildQueryText(history: ChatMessage[], latestUser?: string): string {
-  const recent = history.slice(-RECENT_TURNS);
-  const lines = recent.map(
-    (m) => `${m.role === "user" ? "User" : "Bot"}: ${m.text}`,
-  );
-  if (latestUser) lines.push(`User: ${latestUser}`);
-  return lines.join("\n");
-}
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
@@ -143,9 +133,12 @@ export class ChunkKVEngine {
     }
 
     const t0 = performance.now();
-    const queryText = buildQueryText(history, latestUser);
-    const queryVec = await embed(queryText, this.backend);
-    const hits = this.search(queryVec, preferSpeaker);
+    const composed = await composeQueryVector(
+      history,
+      latestUser,
+      this.backend,
+    );
+    const hits = this.search(composed.vector, preferSpeaker);
     const chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
 
@@ -153,6 +146,8 @@ export class ChunkKVEngine {
     if (this.usedIds.size > 24) {
       this.usedIds = new Set([...this.usedIds].slice(-12));
     }
+
+    const queryText = composed.summary;
 
     return {
       message: {
@@ -164,6 +159,15 @@ export class ChunkKVEngine {
       },
       trace: {
         queryText,
+        querySummary: composed.summary,
+        queryTurns: composed.turns.map((t) => ({
+          role: t.role,
+          text: t.text,
+          age: t.age,
+          finalWeight: t.finalWeight,
+          anchorSimilarity: t.anchorSimilarity,
+          included: t.included,
+        })),
         hits,
         chosen,
         latencyMs: Math.round(performance.now() - t0),

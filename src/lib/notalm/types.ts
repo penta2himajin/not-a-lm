@@ -21,7 +21,18 @@ export type MatchHit = {
 };
 
 export type TraceStep = {
+  /** Legacy one-line query description */
   queryText: string;
+  /** Exponential weighted query composition details */
+  querySummary?: string;
+  queryTurns?: {
+    role: Speaker;
+    text: string;
+    age: number;
+    finalWeight: number;
+    anchorSimilarity: number;
+    included: boolean;
+  }[];
   hits: MatchHit[];
   chosen: MatchHit;
   latencyMs: number;
