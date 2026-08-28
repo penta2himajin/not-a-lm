@@ -420,7 +420,7 @@ export function NotALMApp() {
                 チャンクKVトレース
               </div>
               <p className="mt-1 text-xs text-[var(--nalm-ink-mute)]">
-                各ターンの bekko ベクトルを指数加重平均したクエリと、近いキー。
+                user↔bot ペアを局所クラスタリングし、指数加重平均した bekko クエリ。
               </p>
             </div>
 
@@ -446,7 +446,30 @@ export function NotALMApp() {
                     <p className="mb-2 font-mono text-[11px] text-[var(--nalm-ink-mute)]">
                       {tr.querySummary || tr.queryText}
                     </p>
-                    {tr.queryTurns && tr.queryTurns.length > 0 && (
+                    {tr.queryPairs && tr.queryPairs.length > 0 && (
+                      <ul className="mb-2 space-y-1.5 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
+                        {tr.queryPairs.map((qp) => (
+                          <li
+                            key={`pair-${qp.index}`}
+                            className={cn(!qp.included && "opacity-40 line-through")}
+                          >
+                            <div className="flex flex-wrap gap-x-1.5">
+                              <span>P{qp.index}</span>
+                              <span className="max-w-[10rem] truncate">U: {qp.userText}</span>
+                              <span>a={qp.anchorSimilarity.toFixed(2)}</span>
+                              {qp.chainSimilarity != null && (
+                                <span>c={qp.chainSimilarity.toFixed(2)}</span>
+                              )}
+                              {qp.included && <span>w={qp.finalWeight.toFixed(2)}</span>}
+                            </div>
+                            {qp.botText && (
+                              <div className="truncate opacity-80">B: {qp.botText}</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {tr.queryTurns && tr.queryTurns.length > 0 && !tr.queryPairs?.length && (
                       <ul className="mb-2 space-y-1 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
                         {tr.queryTurns.map((qt, qi) => (
                           <li

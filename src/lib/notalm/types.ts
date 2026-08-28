@@ -32,6 +32,16 @@ export type TraceStep = {
     finalWeight: number;
     anchorSimilarity: number;
     included: boolean;
+    pairIndex?: number;
+  }[];
+  queryPairs?: {
+    index: number;
+    userText: string;
+    botText?: string;
+    anchorSimilarity: number;
+    chainSimilarity?: number;
+    included: boolean;
+    finalWeight: number;
   }[];
   hits: MatchHit[];
   chosen: MatchHit;
