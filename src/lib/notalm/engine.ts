@@ -1,19 +1,21 @@
 import { CHUNK_CORPUS } from "./corpus";
 import {
-  BEKKO_MODEL_ID,
+  DENSE_MODEL_ID,
   cosine,
   embedMany,
-  getBekkoProgress,
-  isBekkoReady,
-  loadBekko,
+  getDenseProgress,
+  isDenseReady,
+  loadDense,
   type EmbedBackend,
 } from "./embed";
+import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
 import type {
   ChatMessage,
   ChunkRecord,
   EngineStatus,
   IndexedChunk,
+  Lang,
   MatchHit,
   TraceStep,
 } from "./types";
@@ -28,7 +30,7 @@ export class ChunkKVEngine {
 
   get status(): EngineStatus {
     if (this.index.length === 0) {
-      return { kind: "booting", detail: getBekkoProgress() || "起動中" };
+      return { kind: "booting", detail: getDenseProgress() || "起動中" };
     }
     return {
       kind: "ready",
@@ -42,13 +44,13 @@ export class ChunkKVEngine {
   }
 
   get modelId(): string {
-    return this.backend === "bekko" ? BEKKO_MODEL_ID : "hash-ngram-384";
+    return this.backend === "dense" ? DENSE_MODEL_ID : "hash-ngram-384";
   }
 
-  /** Instant hash index so the UI can talk while bekko downloads */
+  /** Instant hash index so the UI can talk while the dense model downloads */
   async ensureHash(): Promise<void> {
     if (this.index.length > 0 && this.backend === "hash") return;
-    if (this.index.length > 0 && this.backend === "bekko") return;
+    if (this.index.length > 0 && this.backend === "dense") return;
 
     this.backend = "hash";
     const vectors = await embedMany(
@@ -61,30 +63,30 @@ export class ChunkKVEngine {
     }));
   }
 
-  /** Load bekko-a8m and rebuild the chunk KV index */
-  async ensureBekko(
+  /** Load the multilingual dense model and rebuild the chunk KV index */
+  async ensureDense(
     onProgress?: (msg: string) => void,
   ): Promise<{ upgraded: boolean }> {
-    if (this.backend === "bekko" && isBekkoReady() && this.index.length > 0) {
+    if (this.backend === "dense" && isDenseReady() && this.index.length > 0) {
       return { upgraded: false };
     }
 
     if (!this.initPromise) {
       this.initPromise = (async () => {
-        await loadBekko(onProgress);
-        onProgress?.("チャンクキーを bekko で埋め込み中…");
+        await loadDense(onProgress);
+        onProgress?.("チャンクキーを埋め込み中…");
         const vectors = await embedMany(
           CHUNK_CORPUS.map((c) => c.key),
-          "bekko",
+          "dense",
           (done, total) => onProgress?.(`チャンク ${done}/${total}`),
         );
-        this.backend = "bekko";
+        this.backend = "dense";
         this.index = CHUNK_CORPUS.map((c, i) => ({
           ...c,
           embedding: vectors[i],
         }));
         this.usedIds.clear();
-        onProgress?.("bekko-a8m インデックス完了");
+        onProgress?.("多言語インデックス完了");
       })().finally(() => {
         this.initPromise = null;
       });
@@ -101,11 +103,14 @@ export class ChunkKVEngine {
   private search(
     queryVec: Float32Array,
     preferSpeaker?: "user" | "bot",
+    lang?: Lang,
   ): MatchHit[] {
     const scored: MatchHit[] = [];
     for (const chunk of this.index) {
       // Hard filter: bot replies must come from bot values, user predictions from user values
       if (preferSpeaker && chunk.speaker !== preferSpeaker) continue;
+      // Hard filter: reply in the same language as the query
+      if (lang && chunk.lang !== lang) continue;
       let score = cosine(queryVec, chunk.embedding);
       if (this.usedIds.has(chunk.id)) score -= 0.12;
       scored.push({
@@ -114,6 +119,8 @@ export class ChunkKVEngine {
           key: chunk.key,
           value: chunk.value,
           speaker: chunk.speaker,
+          lang: chunk.lang,
+          claim: chunk.claim,
           tags: chunk.tags,
         },
         score,
@@ -133,12 +140,20 @@ export class ChunkKVEngine {
     }
 
     const t0 = performance.now();
+    const queryLang = latestUser?.trim()
+      ? detectLang(latestUser)
+      : detectLangFromHistory(history);
     const composed = await composeQueryVector(
       history,
       latestUser,
       this.backend,
     );
-    const hits = this.search(composed.vector, preferSpeaker);
+    let hits = this.search(composed.vector, preferSpeaker, queryLang);
+    // Fallback: if the corpus has nothing in the detected language, drop the
+    // language filter rather than returning nothing.
+    if (hits.length === 0) {
+      hits = this.search(composed.vector, preferSpeaker);
+    }
     const chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
 
@@ -158,6 +173,7 @@ export class ChunkKVEngine {
         score: chosen.score,
       },
       trace: {
+        queryLang,
         queryText,
         querySummary: composed.summary,
         queryTurns: composed.turns.map((t) => ({

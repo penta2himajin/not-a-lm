@@ -1,8 +1,8 @@
 # NOT A LM
 
-埋め込みモデルとチャンク KV で会話パターンを連鎖予測するデモです。**言語モデルではありません。** 次トークン生成はせず、近いキーのセリフ断片を返すだけなのに、会話が成立して見える／感じる、という実験です。
+埋め込みモデルとチャンク KV で会話パターンを連鎖予測するデモです。**言語モデルではありません。** 次トークン生成はせず、近いキーのセリフ断片を返すだけなのに、会話が成立して見える／感じる、という実験です。日本語・英語・中国語(簡体)の3言語コーパスに対応し、入力言語を判定して同じ言語のチャンクを返します。
 
-埋め込みには [hotchpotch/bekko-embedding-v1-a8m](https://huggingface.co/hotchpotch/bekko-embedding-v1-a8m) を使います（起動直後はハッシュ埋め込みで仮索引し、bekko 準備後に差し替え）。
+埋め込みには多言語モデル [paraphrase-multilingual-MiniLM-L12-v2](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2) を使います（起動直後はハッシュ埋め込みで仮索引し、多言語モデル準備後に差し替え）。モデル選定の比較は [`docs/embedding-model-selection.md`](docs/embedding-model-selection.md) を参照。
 
 ## 仕組み
 
@@ -22,7 +22,7 @@ npm run dev -- --port 43123
 
 ブラウザで [http://127.0.0.1:43123](http://127.0.0.1:43123) を開きます。
 
-初回は bekko の ONNX などを取得するため時間がかかります。キャッシュは `/tmp/bekko-cache`（`BEKKO_CACHE_DIR` で変更可）。
+初回は多言語モデルの ONNX などを取得するため時間がかかります。キャッシュは `/tmp/notalm-embed-cache`（`EMBED_CACHE_DIR` で変更可）。
 
 ## 操作
 
@@ -33,4 +33,4 @@ npm run dev -- --port 43123
 ## スタック
 
 - Next.js (App Router) + TypeScript + Tailwind + shadcn/ui
-- `@huggingface/transformers` 経由の bekko-a8m
+- `@huggingface/transformers` 経由の paraphrase-multilingual-MiniLM-L12-v2（多言語埋め込み）

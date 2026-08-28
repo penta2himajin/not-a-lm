@@ -10,11 +10,15 @@ export const QUERY_DECAY_LAMBDA = 0.55;
 /** Extra multiplier on the anchor (newest) pair */
 export const QUERY_ANCHOR_BOOST = 2.5;
 
-/** Pair must be this similar to anchor to enter the cluster (anchor always kept) */
-export const QUERY_PAIR_ANCHOR_MIN = 0.25;
+/**
+ * Pair must be this similar to anchor to enter the cluster (anchor always kept).
+ * Tuned for multilingual-MiniLM's cosine scale, which sits higher than bekko's
+ * (distinct topics ~0.3–0.5, related turns higher); see docs/embedding-model-selection.md.
+ */
+export const QUERY_PAIR_ANCHOR_MIN = 0.4;
 
 /** Adjacent pairs must exceed this to stay in the same local topic chain */
-export const QUERY_PAIR_CHAIN_MIN = 0.32;
+export const QUERY_PAIR_CHAIN_MIN = 0.5;
 
 /** Blend user vs bot when building a pair embedding (keys are user-trigger-like) */
 export const PAIR_USER_WEIGHT = 0.78;
@@ -147,7 +151,7 @@ async function embedPair(
  * 2. Walk backward from anchor while chain + anchor similarity hold
  * 3. Oldest→newest exponential weighted average of pair vectors
  *
- * Cosine on L2-normalized bekko vectors ≡ dot product; standard for retrieval.
+ * Cosine on L2-normalized dense vectors ≡ dot product; standard for retrieval.
  */
 export async function composeQueryVector(
   history: ChatMessage[],
@@ -258,10 +262,11 @@ export async function composeQueryVector(
       included: included[i],
       pairIndex: i,
     });
-    if (pairs[i].botText) {
+    const botText = pairs[i].botText;
+    if (botText) {
       turnDetails.push({
         role: "bot",
-        text: pairs[i].botText,
+        text: botText,
         age,
         baseWeight,
         finalWeight: included[i] ? turnWeightBot : 0,

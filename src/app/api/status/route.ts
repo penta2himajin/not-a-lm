@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBekkoProgress, isBekkoReady } from "@/lib/notalm/embed";
+import { getDenseProgress, isDenseReady } from "@/lib/notalm/embed";
 import { getEngine } from "@/lib/notalm/engine";
 
 export const runtime = "nodejs";
@@ -10,9 +10,9 @@ export async function GET() {
   const engine = getEngine();
   await engine.ensureHash();
 
-  // Kick off bekko load in background if not started
-  if (!isBekkoReady()) {
-    void engine.ensureBekko().catch(() => {
+  // Kick off dense-model load in background if not started
+  if (!isDenseReady()) {
+    void engine.ensureDense().catch(() => {
       /* surfaced via progress / status */
     });
   }
@@ -21,8 +21,8 @@ export async function GET() {
   return NextResponse.json({
     status,
     modelId: engine.modelId,
-    progress: getBekkoProgress(),
-    bekkoReady: isBekkoReady(),
+    progress: getDenseProgress(),
+    denseReady: isDenseReady(),
     chunkCount: engine.corpus.length,
   });
 }
@@ -30,19 +30,19 @@ export async function GET() {
 export async function POST() {
   const engine = getEngine();
   try {
-    await engine.ensureBekko();
+    await engine.ensureDense();
     return NextResponse.json({
       ok: true,
       status: engine.status,
       modelId: engine.modelId,
-      progress: getBekkoProgress(),
+      progress: getDenseProgress(),
     });
   } catch (e) {
     return NextResponse.json(
       {
         ok: false,
-        error: e instanceof Error ? e.message : "bekko load failed",
-        progress: getBekkoProgress(),
+        error: e instanceof Error ? e.message : "dense load failed",
+        progress: getDenseProgress(),
         status: engine.status,
       },
       { status: 500 },

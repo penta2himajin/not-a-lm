@@ -1,12 +1,15 @@
 /**
  * Embedding backends for NOT A LM.
- * Primary: hotchpotch/bekko-embedding-v1-a8m (official Transformers.js / ONNX path)
- * Fallback: feature-hashing n-grams while bekko boots
+ * Primary: Xenova/paraphrase-multilingual-MiniLM-L12-v2 (multilingual, 384-d,
+ *   symmetric similarity; official Transformers.js / ONNX path)
+ * Fallback: feature-hashing n-grams while the dense model boots
  */
 
-export type EmbedBackend = "hash" | "bekko";
+export type EmbedBackend = "hash" | "dense";
 
-export const BEKKO_MODEL_ID = "hotchpotch/bekko-embedding-v1-a8m";
+export const DENSE_MODEL_ID = "Xenova/paraphrase-multilingual-MiniLM-L12-v2";
+/** Short label for UI/status; the repo id above is verbose. */
+export const DENSE_MODEL_LABEL = "multilingual-MiniLM-L12";
 const HASH_DIM = 384;
 
 function fnv1a(str: string): number {
@@ -38,7 +41,7 @@ function wordTokens(text: string): string[] {
   return text.split(" ").filter(Boolean);
 }
 
-/** Instant fallback embedder (same dim as bekko: 384) */
+/** Instant fallback embedder (same dim as the dense model: 384) */
 export function hashEmbed(text: string, dim = HASH_DIM): Float32Array {
   const vec = new Float32Array(dim);
   const normed = normalizeText(text);
@@ -87,25 +90,25 @@ type Extractor = (
   dims?: number[];
 }>;
 
-let bekkoPipe: Extractor | null = null;
-let bekkoLoading: Promise<void> | null = null;
+let densePipe: Extractor | null = null;
+let denseLoading: Promise<void> | null = null;
 let lastProgress = "idle";
 
-export function getBekkoProgress(): string {
+export function getDenseProgress(): string {
   return lastProgress;
 }
 
-export function isBekkoReady(): boolean {
-  return bekkoPipe != null;
+export function isDenseReady(): boolean {
+  return densePipe != null;
 }
 
-export async function loadBekko(
+export async function loadDense(
   onProgress?: (msg: string) => void,
 ): Promise<void> {
-  if (bekkoPipe) return;
-  if (bekkoLoading) return bekkoLoading;
+  if (densePipe) return;
+  if (denseLoading) return denseLoading;
 
-  bekkoLoading = (async () => {
+  denseLoading = (async () => {
     const report = (msg: string) => {
       lastProgress = msg;
       onProgress?.(msg);
@@ -116,13 +119,17 @@ export async function loadBekko(
     env.allowLocalModels = false;
     // Cache under /tmp in cloud / server
     if (typeof process !== "undefined") {
-      env.cacheDir = process.env.BEKKO_CACHE_DIR || "/tmp/bekko-cache";
+      env.cacheDir =
+        process.env.EMBED_CACHE_DIR ||
+        process.env.BEKKO_CACHE_DIR ||
+        "/tmp/notalm-embed-cache";
     }
 
-    report(`${BEKKO_MODEL_ID} を取得中…`);
-    // Official bekko docs: dtype "fp32" → onnx/model.onnx (compact int8 embeddings)
-    bekkoPipe = (await pipeline("feature-extraction", BEKKO_MODEL_ID, {
-      dtype: "fp32",
+    report(`${DENSE_MODEL_ID} を取得中…`);
+    // int8 (q8) keeps the download small and CPU inference fast; the L12 model
+    // still separates topics well at this quantization (see docs).
+    densePipe = (await pipeline("feature-extraction", DENSE_MODEL_ID, {
+      dtype: "q8",
       device: "cpu",
       progress_callback: (p: {
         status?: string;
@@ -137,15 +144,15 @@ export async function loadBekko(
       },
     })) as unknown as Extractor;
 
-    report("bekko-a8m ready");
+    report(`${DENSE_MODEL_LABEL} ready`);
   })();
 
   try {
-    await bekkoLoading;
+    await denseLoading;
   } catch (e) {
-    bekkoLoading = null;
-    bekkoPipe = null;
-    lastProgress = e instanceof Error ? e.message : "bekko load failed";
+    denseLoading = null;
+    densePipe = null;
+    lastProgress = e instanceof Error ? e.message : "dense load failed";
     throw e;
   }
 }
@@ -189,9 +196,9 @@ export async function embed(
   text: string,
   backend: EmbedBackend,
 ): Promise<Float32Array> {
-  if (backend === "hash" || !bekkoPipe) return hashEmbed(text);
+  if (backend === "hash" || !densePipe) return hashEmbed(text);
 
-  const out = await bekkoPipe(text, { pooling: "mean", normalize: true });
+  const out = await densePipe(text, { pooling: "mean", normalize: true });
   return tensorToRows(out, 1)[0];
 }
 
@@ -200,7 +207,7 @@ export async function embedMany(
   backend: EmbedBackend,
   onProgress?: (done: number, total: number) => void,
 ): Promise<Float32Array[]> {
-  if (backend === "hash" || !bekkoPipe) {
+  if (backend === "hash" || !densePipe) {
     return texts.map((t, i) => {
       onProgress?.(i + 1, texts.length);
       return hashEmbed(t);
@@ -211,7 +218,7 @@ export async function embedMany(
   const batchSize = 4;
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
-    const out = await bekkoPipe(batch, { pooling: "mean", normalize: true });
+    const out = await densePipe(batch, { pooling: "mean", normalize: true });
     results.push(...tensorToRows(out, batch.length));
     onProgress?.(Math.min(i + batch.length, texts.length), texts.length);
   }
