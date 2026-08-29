@@ -5,8 +5,10 @@ export type Lang = "ja" | "en" | "zh";
 
 export type ChunkRecord = {
   id: string;
-  /** Key: conversational context pattern that triggers this chunk */
+  /** Keyword-bag key: used only as the cross-encoder confidence-gate input */
   key: string;
+  /** Natural-sentence key: used for bi-encoder ranking (better topic separation) */
+  natKey: string;
   /** Value: next utterance predicted for this pattern */
   value: string;
   /** Who speaks the value */

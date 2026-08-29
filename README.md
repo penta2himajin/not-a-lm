@@ -6,10 +6,10 @@
 
 ## 仕組み
 
-1. 会話パターンを `(key, value)` チャンクとして保持（キー＝文脈、値＝次の発話）
+1. 会話パターンをチャンクとして保持。各チャンクは自然文キー(`natKey`＝ランキング用)・キーワード列キー(`key`＝ゲート用)・値(`value`)を持つ
 2. 直近の会話を多言語モデルで埋め込み
-3. キー埋め込みとの cosine 近傍で候補を取得（Stage 1）
-4. cross-encoder リランカーで `(query, key)` を再採点して最終選択（Stage 2）。最良スコアが低ければ「わからない」を返す（信頼度ゲート）
+3. 自然文キーとの cosine 近傍で選択（Stage 1・ランキング）
+4. 上位候補のキーワード列キーを cross-encoder で採点し信頼度ゲート（Stage 2）。最良スコアが低ければ「わからない」を返す
 5. 履歴に足して再検索 → **連鎖予測**
 
 2段検索（bi-encoder → cross-encoder）と信頼度ゲートの詳細は [`docs/reranker-and-confidence-gate.md`](docs/reranker-and-confidence-gate.md) を参照。
@@ -37,4 +37,4 @@ npm run dev -- --port 43123
 
 - Next.js (App Router) + TypeScript + Tailwind + shadcn/ui
 - `@huggingface/transformers` 経由の paraphrase-multilingual-MiniLM-L12-v2（多言語埋め込み）
-- 同 bge-reranker-base（多言語 cross-encoder リランカー, fp32）
+- 同 bge-reranker-base（多言語 cross-encoder, fp32・信頼度ゲート用）
