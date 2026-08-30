@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDenseProgress, isDenseReady } from "@/lib/notalm/embed";
+import {
+  RERANK_MODEL_LABEL,
+  getRerankerProgress,
+  isRerankerReady,
+  loadReranker,
+} from "@/lib/notalm/rerank";
 import { getEngine } from "@/lib/notalm/engine";
 
 export const runtime = "nodejs";
@@ -17,12 +23,22 @@ export async function GET() {
     });
   }
 
+  // Kick off reranker load in background (stage-2 quality upgrade)
+  if (!isRerankerReady()) {
+    void loadReranker().catch(() => {
+      /* surfaced via reranker progress */
+    });
+  }
+
   const status = engine.status;
   return NextResponse.json({
     status,
     modelId: engine.modelId,
     progress: getDenseProgress(),
     denseReady: isDenseReady(),
+    rerankerReady: isRerankerReady(),
+    rerankerLabel: RERANK_MODEL_LABEL,
+    rerankerProgress: getRerankerProgress(),
     chunkCount: engine.corpus.length,
   });
 }

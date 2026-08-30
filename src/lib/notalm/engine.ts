@@ -10,6 +10,7 @@ import {
 } from "./embed";
 import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
+import { isRerankerReady, rerankScores } from "./rerank";
 import type {
   ChatMessage,
   ChunkRecord,
@@ -20,7 +21,31 @@ import type {
   TraceStep,
 } from "./types";
 
+/** Final number of hits shown in the trace */
 const TOP_K = 5;
+/**
+ * How many bi-encoder top candidates the confidence gate re-checks with the
+ * cross-encoder. Ranking is done by the bi-encoder alone (over natural keys);
+ * the reranker is used only to gate, so we score a few top candidates' keyword
+ * keys and take the max as the confidence.
+ */
+const GATE_CANDIDATES = 3;
+/**
+ * Confidence gate: if the best cross-encoder score (over the top candidates'
+ * keyword keys) is below this, treat the turn as "no close match" and refuse
+ * gracefully (reply-mode only). Keyword keys separate in-corpus (~0.1–0.99)
+ * from out-of-corpus (~0) far better than natural keys do.
+ */
+const GATE_MIN_SCORE = 0.03;
+/**
+ * Cosine "rescue" against reranker false-refusals: if the gate would refuse but
+ * the ranking top-1's raw bi-encoder cosine is at least this high, the nearest
+ * corpus element is a clear match and the low reranker score was a fluke —
+ * answer instead of refusing. Used ONE-WAY only (refuse → answer); never to
+ * detect OOC (bi-encoder cosine separates in/out poorly; see the docs). Set
+ * high enough to sit above the OOC "overlap band".
+ */
+const RESCUE_COS = 0.7;
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
@@ -54,7 +79,7 @@ export class ChunkKVEngine {
 
     this.backend = "hash";
     const vectors = await embedMany(
-      CHUNK_CORPUS.map((c) => c.key),
+      CHUNK_CORPUS.map((c) => c.natKey),
       "hash",
     );
     this.index = CHUNK_CORPUS.map((c, i) => ({
@@ -76,7 +101,7 @@ export class ChunkKVEngine {
         await loadDense(onProgress);
         onProgress?.("チャンクキーを埋め込み中…");
         const vectors = await embedMany(
-          CHUNK_CORPUS.map((c) => c.key),
+          CHUNK_CORPUS.map((c) => c.natKey),
           "dense",
           (done, total) => onProgress?.(`チャンク ${done}/${total}`),
         );
@@ -104,6 +129,7 @@ export class ChunkKVEngine {
     queryVec: Float32Array,
     preferSpeaker?: "user" | "bot",
     lang?: Lang,
+    limit: number = TOP_K,
   ): MatchHit[] {
     const scored: MatchHit[] = [];
     for (const chunk of this.index) {
@@ -117,6 +143,7 @@ export class ChunkKVEngine {
         chunk: {
           id: chunk.id,
           key: chunk.key,
+          natKey: chunk.natKey,
           value: chunk.value,
           speaker: chunk.speaker,
           lang: chunk.lang,
@@ -127,7 +154,36 @@ export class ChunkKVEngine {
       });
     }
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, TOP_K);
+    return scored.slice(0, limit);
+  }
+
+  /**
+   * Stage 2 (gate only): score the top bi-encoder candidates' KEYWORD keys with
+   * the cross-encoder and return the max as a confidence signal. Ranking is not
+   * changed — the bi-encoder over natural keys already ranks best (the reranker
+   * does not improve ranking on this corpus); the cross-encoder is used only to
+   * decide whether anything is a close enough match. Also annotates each scored
+   * hit with its rerankScore for the trace.
+   */
+  private async gateConfidence(
+    query: string,
+    hits: MatchHit[],
+  ): Promise<number> {
+    const top = hits.slice(0, GATE_CANDIDATES);
+    const scores = await rerankScores(
+      query,
+      top.map((h) => h.chunk.key),
+    );
+    top.forEach((h, i) => (h.rerankScore = scores[i]));
+    return scores.length ? Math.max(...scores) : 0;
+  }
+
+  /** The graceful "no close match" chunk for a language (reply-mode refusal). */
+  private refusalChunk(lang: Lang): ChunkRecord | undefined {
+    return (
+      this.index.find((c) => c.claim === "limit-1" && c.lang === lang) ??
+      this.index.find((c) => c.claim === "limit-3" && c.lang === lang)
+    );
   }
 
   async predictNext(
@@ -148,14 +204,73 @@ export class ChunkKVEngine {
       latestUser,
       this.backend,
     );
-    let hits = this.search(composed.vector, preferSpeaker, queryLang);
+
+    // Stage 1 (ranking): bi-encoder over natural keys. This alone ranks best on
+    // this corpus; the cross-encoder does not improve ranking, so it is NOT used
+    // to reorder — only to gate (below).
+    let hits = this.search(composed.vector, preferSpeaker, queryLang, TOP_K);
     // Fallback: if the corpus has nothing in the detected language, drop the
     // language filter rather than returning nothing.
     if (hits.length === 0) {
-      hits = this.search(composed.vector, preferSpeaker);
+      hits = this.search(composed.vector, preferSpeaker, undefined, TOP_K);
     }
-    const chosen = hits[0];
+
+    let chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
+
+    // Raw bi-encoder cosine of the ranking top-1 (no reuse penalty) — the
+    // "how close is the nearest corpus element" signal, used only to rescue
+    // reranker false-refusals below.
+    const topEntry = this.index.find((c) => c.id === chosen.chunk.id);
+    const topCosine = topEntry
+      ? cosine(composed.vector, topEntry.embedding)
+      : 0;
+
+    // Stage 2 (gate only): score the top candidates' KEYWORD keys with the
+    // cross-encoder. Keyword keys separate in-corpus vs out-of-corpus far better
+    // than natural keys, so this is a reliable confidence signal.
+    const gateQuery = composed.anchorText || latestUser?.trim() || "";
+    let gated = false;
+    let topRerankScore: number | undefined;
+    let lowConfidence = false;
+    let rescued = false;
+    if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
+      try {
+        topRerankScore = await this.gateConfidence(gateQuery, hits);
+        gated = true;
+      } catch {
+        /* gate unavailable: fall through without refusing */
+      }
+    }
+
+    // Confidence gate (reply-mode only): if the best keyword-key score is below
+    // threshold, nothing in the corpus is a close match — refuse gracefully with
+    // the language's "no close key" chunk. One-way cosine rescue: if the nearest
+    // corpus element is very close (topCosine >= RESCUE_COS), the low reranker
+    // score is likely a fluke, so answer instead of refusing.
+    if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && topCosine >= RESCUE_COS) {
+      rescued = true;
+    }
+    if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && !rescued) {
+      const refusal = this.refusalChunk(queryLang);
+      if (refusal) {
+        lowConfidence = true;
+        chosen = {
+          chunk: {
+            id: refusal.id,
+            key: refusal.key,
+            natKey: refusal.natKey,
+            value: refusal.value,
+            speaker: refusal.speaker,
+            lang: refusal.lang,
+            claim: refusal.claim,
+            tags: refusal.tags,
+          },
+          score: chosen.score,
+          rerankScore: chosen.rerankScore,
+        };
+      }
+    }
 
     this.usedIds.add(chosen.chunk.id);
     if (this.usedIds.size > 24) {
@@ -174,6 +289,11 @@ export class ChunkKVEngine {
       },
       trace: {
         queryLang,
+        reranked: gated,
+        topRerankScore,
+        topCosine,
+        rescued,
+        lowConfidence,
         queryText,
         querySummary: composed.summary,
         queryTurns: composed.turns.map((t) => ({

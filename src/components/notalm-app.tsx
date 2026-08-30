@@ -22,6 +22,9 @@ type StatusPayload = {
   modelId: string;
   progress: string;
   denseReady: boolean;
+  rerankerReady?: boolean;
+  rerankerLabel?: string;
+  rerankerProgress?: string;
   chunkCount: number;
   status: {
     kind: string;
@@ -51,6 +54,7 @@ export function NotALMApp() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chunkCount, setChunkCount] = useState(0);
+  const [rerankerReady, setRerankerReady] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const refreshStatus = useCallback(async () => {
@@ -59,6 +63,7 @@ export function NotALMApp() {
     setModelId(data.modelId);
     setProgress(data.progress);
     setChunkCount(data.chunkCount);
+    setRerankerReady(!!data.rerankerReady);
     if (data.status.kind === "ready") {
       setReady(true);
       const b = (data.status.backend as "hash" | "dense") || "hash";
@@ -78,43 +83,47 @@ export function NotALMApp() {
         if (cancelled) return;
         setReady(true);
 
-        if (first.status.backend === "dense") {
+        const denseAlready = first.status.backend === "dense";
+        if (denseAlready) {
           setUpgrading(false);
-          return;
-        }
-
-        // Prefer the dense multilingual model — upgrade then poll until backend flips
-        setUpgrading(true);
-        void fetch("/api/status", { method: "POST" })
-          .then(async (res) => {
-            const data = await res.json();
-            if (!cancelled) {
-              if (!res.ok) {
-                setError(
-                  typeof data.error === "string"
-                    ? `モデル読込失敗（ハッシュで続行）: ${data.error}`
-                    : "モデル読込失敗（ハッシュで続行）",
-                );
+        } else {
+          // Prefer the dense multilingual model — upgrade then poll until backend flips
+          setUpgrading(true);
+          void fetch("/api/status", { method: "POST" })
+            .then(async (res) => {
+              const data = await res.json();
+              if (!cancelled) {
+                if (!res.ok) {
+                  setError(
+                    typeof data.error === "string"
+                      ? `モデル読込失敗（ハッシュで続行）: ${data.error}`
+                      : "モデル読込失敗（ハッシュで続行）",
+                  );
+                  setUpgrading(false);
+                }
+                await refreshStatus();
+              }
+            })
+            .catch((e) => {
+              if (!cancelled) {
+                setError(e instanceof Error ? e.message : "モデル読込失敗");
                 setUpgrading(false);
               }
-              await refreshStatus();
-            }
-          })
-          .catch((e) => {
-            if (!cancelled) {
-              setError(e instanceof Error ? e.message : "モデル読込失敗");
-              setUpgrading(false);
-            }
-          });
+            });
+        }
+
+        // Poll until both the dense model and reranker are ready (reranker
+        // loads in the background even when dense is already up).
+        if (denseAlready && first.rerankerReady) return;
 
         const poll = async () => {
           if (cancelled) return;
           const data = await refreshStatus();
           const onDense = data.status.backend === "dense";
-          if (!onDense) {
+          if (onDense) setUpgrading(false);
+          // Keep polling until both the dense model and reranker are ready.
+          if (!onDense || !data.rerankerReady) {
             timer = setTimeout(poll, 1500);
-          } else {
-            setUpgrading(false);
           }
         };
         timer = setTimeout(poll, 1000);
@@ -271,6 +280,15 @@ export function NotALMApp() {
             </Badge>
             <Badge variant="outline" className="font-mono text-[11px]">
               chunks: {chunkCount || "—"}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(
+                "font-mono text-[11px]",
+                rerankerReady && "bg-[var(--nalm-accent-soft)]",
+              )}
+            >
+              {rerankerReady ? "+rerank" : "rerank…"}
             </Badge>
             {upgrading && (
               <Badge variant="outline" className="gap-1 font-mono text-[11px]">
@@ -439,10 +457,31 @@ export function NotALMApp() {
                       <span className="font-mono text-[10px] text-[var(--nalm-ink-mute)]">
                         {tr.latencyMs}ms · top-{tr.hits.length}
                         {tr.queryLang ? ` · ${tr.queryLang}` : ""}
+                        {tr.reranked ? " · gated" : ""}
+                        {tr.topRerankScore != null
+                          ? ` · conf ${tr.topRerankScore.toFixed(2)}`
+                          : ""}
+                        {tr.topCosine != null ? ` · cos ${tr.topCosine.toFixed(2)}` : ""}
                       </span>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {tr.chosen.chunk.speaker} / {tr.chosen.chunk.id}
-                      </Badge>
+                      {tr.lowConfidence ? (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-400 text-[10px] text-amber-700"
+                        >
+                          low-confidence
+                        </Badge>
+                      ) : tr.rescued ? (
+                        <Badge
+                          variant="outline"
+                          className="border-sky-400 text-[10px] text-sky-700"
+                        >
+                          cos-rescued
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {tr.chosen.chunk.speaker} / {tr.chosen.chunk.id}
+                        </Badge>
+                      )}
                     </div>
                     <p className="mb-2 font-mono text-[11px] text-[var(--nalm-ink-mute)]">
                       {tr.querySummary || tr.queryText}
@@ -503,7 +542,11 @@ export function NotALMApp() {
                             <span>
                               #{j + 1} {h.chunk.id}
                             </span>
-                            <span>{h.score.toFixed(3)}</span>
+                            <span>
+                              {h.rerankScore != null
+                                ? `rr ${h.rerankScore.toFixed(3)} · cos ${h.score.toFixed(3)}`
+                                : h.score.toFixed(3)}
+                            </span>
                           </div>
                           <p className="mt-0.5 text-[var(--nalm-ink)]">
                             <span className="text-[var(--nalm-ink-mute)]">V:</span>{" "}
