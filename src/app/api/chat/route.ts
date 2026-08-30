@@ -10,6 +10,7 @@ type Body = {
   history?: ChatMessage[];
   userText?: string;
   mode?: "reply" | "predict-user";
+  generate?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -41,7 +42,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "userText required" }, { status: 400 });
     }
 
-    const result = await engine.reply(history, userText);
+    const result = await engine.reply(history, userText, {
+      generate: body.generate === true,
+    });
     return NextResponse.json({
       ...result,
       backend: engine.status.kind === "ready" ? engine.status.backend : "hash",

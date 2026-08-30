@@ -11,6 +11,7 @@ import {
 import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
 import { isRerankerReady, rerankScores } from "./rerank";
+import { isNliReady, nliClassify } from "./nli";
 import type {
   ChatMessage,
   ChunkRecord,
@@ -46,6 +47,17 @@ const GATE_MIN_SCORE = 0.03;
  * high enough to sit above the OOC "overlap band".
  */
 const RESCUE_COS = 0.7;
+/** Min NLI entailment probability to treat a query as presupposing the assertion */
+const NLI_ENTAIL_MIN = 0.5;
+/**
+ * Closed-set negation openers per language for grounded generation. The reply is
+ * this opener + the chunk's own (copied) value — no token generation.
+ */
+const NEGATION_OPENER: Record<Lang, string> = {
+  ja: "いいえ、そうではありません。",
+  en: "No, that's not the case. ",
+  zh: "不，并不是这样。",
+};
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
@@ -148,6 +160,8 @@ export class ChunkKVEngine {
           speaker: chunk.speaker,
           lang: chunk.lang,
           claim: chunk.claim,
+          assertion: chunk.assertion,
+          stance: chunk.stance,
           tags: chunk.tags,
         },
         score,
@@ -190,6 +204,7 @@ export class ChunkKVEngine {
     history: ChatMessage[],
     latestUser: string | undefined,
     preferSpeaker: "user" | "bot",
+    opts: { generate?: boolean } = {},
   ): Promise<{ message: ChatMessage; trace: TraceStep }> {
     if (this.index.length === 0) {
       await this.ensureHash();
@@ -277,18 +292,60 @@ export class ChunkKVEngine {
       this.usedIds = new Set([...this.usedIds].slice(-12));
     }
 
+    // Stage 3 (grounded generation, reply-mode + opt-in): if the chosen chunk is
+    // polarizable and the user's question presupposes its assertion (NLI
+    // entailment) while the chunk denies it, the presupposition is false —
+    // compose a correction = closed negation opener + the chunk's own value
+    // (copied, no token generation). Otherwise return the value as-is.
+    let replyText = chosen.chunk.value;
+    let generated = false;
+    let operation: "as-is" | "negate-correct" | undefined;
+    let nliLabel: string | undefined;
+    let nliScore: number | undefined;
+    if (
+      opts.generate &&
+      preferSpeaker === "bot" &&
+      !lowConfidence &&
+      isNliReady() &&
+      gateQuery &&
+      chosen.chunk.assertion &&
+      chosen.chunk.stance
+    ) {
+      try {
+        const nli = await nliClassify(gateQuery, chosen.chunk.assertion);
+        nliLabel = nli.label;
+        nliScore = nli.score;
+        operation = "as-is";
+        if (
+          nli.label.toLowerCase().includes("entail") &&
+          nli.entail >= NLI_ENTAIL_MIN &&
+          chosen.chunk.stance === "deny"
+        ) {
+          operation = "negate-correct";
+          generated = true;
+          replyText = NEGATION_OPENER[chosen.chunk.lang] + chosen.chunk.value;
+        }
+      } catch {
+        /* NLI unavailable: fall through with the as-is value */
+      }
+    }
+
     const queryText = composed.summary;
 
     return {
       message: {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         role: chosen.chunk.speaker,
-        text: chosen.chunk.value,
+        text: replyText,
         sourceChunkId: chosen.chunk.id,
         score: chosen.score,
       },
       trace: {
         queryLang,
+        generated,
+        operation,
+        nliLabel,
+        nliScore,
         reranked: gated,
         topRerankScore,
         topCosine,
@@ -321,8 +378,12 @@ export class ChunkKVEngine {
     };
   }
 
-  async reply(history: ChatMessage[], userText: string) {
-    return this.predictNext(history, userText, "bot");
+  async reply(
+    history: ChatMessage[],
+    userText: string,
+    opts: { generate?: boolean } = {},
+  ) {
+    return this.predictNext(history, userText, "bot", opts);
   }
 
   async predictUser(history: ChatMessage[]) {

@@ -6,6 +6,12 @@ import {
   isRerankerReady,
   loadReranker,
 } from "@/lib/notalm/rerank";
+import {
+  NLI_MODEL_LABEL,
+  getNliProgress,
+  isNliReady,
+  loadNli,
+} from "@/lib/notalm/nli";
 import { getEngine } from "@/lib/notalm/engine";
 
 export const runtime = "nodejs";
@@ -30,6 +36,13 @@ export async function GET() {
     });
   }
 
+  // Kick off NLI load in background (stage-3 grounded generation)
+  if (!isNliReady()) {
+    void loadNli().catch(() => {
+      /* surfaced via nli progress */
+    });
+  }
+
   const status = engine.status;
   return NextResponse.json({
     status,
@@ -39,6 +52,9 @@ export async function GET() {
     rerankerReady: isRerankerReady(),
     rerankerLabel: RERANK_MODEL_LABEL,
     rerankerProgress: getRerankerProgress(),
+    nliReady: isNliReady(),
+    nliLabel: NLI_MODEL_LABEL,
+    nliProgress: getNliProgress(),
     chunkCount: engine.corpus.length,
   });
 }
