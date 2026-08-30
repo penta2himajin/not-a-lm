@@ -457,10 +457,11 @@ export function NotALMApp() {
                       <span className="font-mono text-[10px] text-[var(--nalm-ink-mute)]">
                         {tr.latencyMs}ms · top-{tr.hits.length}
                         {tr.queryLang ? ` · ${tr.queryLang}` : ""}
-                        {tr.reranked ? " · reranked" : ""}
+                        {tr.reranked ? " · gated" : ""}
                         {tr.topRerankScore != null
-                          ? ` · rr ${tr.topRerankScore.toFixed(2)}`
+                          ? ` · conf ${tr.topRerankScore.toFixed(2)}`
                           : ""}
+                        {tr.topCosine != null ? ` · cos ${tr.topCosine.toFixed(2)}` : ""}
                       </span>
                       {tr.lowConfidence ? (
                         <Badge
@@ -468,6 +469,13 @@ export function NotALMApp() {
                           className="border-amber-400 text-[10px] text-amber-700"
                         >
                           low-confidence
+                        </Badge>
+                      ) : tr.rescued ? (
+                        <Badge
+                          variant="outline"
+                          className="border-sky-400 text-[10px] text-sky-700"
+                        >
+                          cos-rescued
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="text-[10px]">

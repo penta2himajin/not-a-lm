@@ -5,8 +5,10 @@ export type Lang = "ja" | "en" | "zh";
 
 export type ChunkRecord = {
   id: string;
-  /** Key: conversational context pattern that triggers this chunk */
+  /** Keyword-bag key: used only as the cross-encoder confidence-gate input */
   key: string;
+  /** Natural-sentence key: used for bi-encoder ranking (better topic separation) */
+  natKey: string;
   /** Value: next utterance predicted for this pattern */
   value: string;
   /** Who speaks the value */
@@ -37,6 +39,10 @@ export type TraceStep = {
   reranked?: boolean;
   /** Best cross-encoder relevance score for this turn (when reranked) */
   topRerankScore?: number;
+  /** Raw bi-encoder cosine of the ranking top-1 (nearest corpus element) */
+  topCosine?: number;
+  /** True when a low reranker score was overridden by a very-high top cosine */
+  rescued?: boolean;
   /** True when the best score was below the confidence gate → graceful refusal */
   lowConfidence?: boolean;
   /** Legacy one-line query description */
