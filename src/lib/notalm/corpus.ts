@@ -21,8 +21,12 @@ type Surface = {
   key: string;
   nat: string;
   value: string;
-  /** Declarative positive claim (NLI hypothesis) for polarizable chunks */
-  assertion?: string;
+  /**
+   * Declarative positive claim(s) (NLI hypotheses) for polarizable chunks.
+   * Multiple phrasings make presupposition detection robust to how the user
+   * phrases the question.
+   */
+  assertion?: string | string[];
 };
 
 type ClaimGroup = {
@@ -74,9 +78,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "greet-howreply-a",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "え どうやって返事 返事してるの", nat: "どうやって返事しているの？", value: "今の発話を埋め込み → 近いキーのチャンクを探す → その value を返す。生成ゼロ。" },
-    en: { key: "how do you reply how are you answering", nat: "How are you replying then?", value: "Embed the current utterance → find the chunk with the nearest key → return its value. Zero generation." },
-    zh: { key: "怎么回复 你是如何回答的", nat: "那你是怎么回复的？", value: "把当前发言嵌入 → 找到最近键的 chunk → 返回它的 value。零生成。" },
+    stance: "affirm",
+    ja: { key: "え どうやって返事 返事してるの", nat: "どうやって返事しているの？検索で返答を選んでいるの？", value: "今の発話を埋め込み → 近いキーのチャンクを探す → その value を返す。生成ゼロ。", assertion: ["あなたは検索（近傍探索）で返答を選んでいる。", "あなたは埋め込みの類似度で返答を選んでいる。"] },
+    en: { key: "how do you reply how are you answering", nat: "How are you replying? Do you pick replies by search?", value: "Embed the current utterance → find the chunk with the nearest key → return its value. Zero generation.", assertion: ["You pick replies by search (nearest-neighbor).", "You choose replies by embedding similarity."] },
+    zh: { key: "怎么回复 你是如何回答的", nat: "你是怎么回复的？你是靠检索来选回复的吗？", value: "把当前发言嵌入 → 找到最近键的 chunk → 返回它的 value。零生成。", assertion: ["你是靠检索（最近邻）来选回复的。", "你是按嵌入相似度来选回复的。"] },
   },
 
   // --- what are you ---
@@ -85,9 +90,9 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["identity"],
     stance: "deny",
-    ja: { key: "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ", nat: "あなたは誰？あなたは言語モデル（LLM）なの？", value: "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。", assertion: "あなたは言語モデル（LLM）だ。" },
-    en: { key: "who are you what are you are you an LM language model", nat: "Who are you? Are you a language model (LLM)?", value: "NOT A LM. Just like the name says, not a language model. I'm a chunk-KV of conversation patterns.", assertion: "You are a language model (LLM)." },
-    zh: { key: "你是谁 你是什么 你是语言模型吗 你是 LM 吗", nat: "你是谁？你是语言模型（LLM）吗？", value: "NOT A LM。正如名字所说，我不是语言模型，而是对话模式的 chunk-KV。", assertion: "你是语言模型（LLM）。" },
+    ja: { key: "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ", nat: "あなたは誰？あなたは言語モデル（LLM）なの？", value: "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。", assertion: ["あなたは言語モデル（LLM）だ。", "あなたはLLMだ。", "あなたは言語モデルだ。"] },
+    en: { key: "who are you what are you are you an LM language model", nat: "Who are you? Are you a language model (LLM)?", value: "NOT A LM. Just like the name says, not a language model. I'm a chunk-KV of conversation patterns.", assertion: ["You are a language model (LLM).", "You are an LLM.", "You are a language model."] },
+    zh: { key: "你是谁 你是什么 你是语言模型吗 你是 LM 吗", nat: "你是谁？你是语言模型（LLM）吗？", value: "NOT A LM。正如名字所说，我不是语言模型，而是对话模式的 chunk-KV。", assertion: ["你是语言模型（LLM）。", "你是 LLM。", "你是语言模型。"] },
   },
   {
     claim: "who-1b",
@@ -127,9 +132,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "mech-1",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "仕組み どう動く 原理 仕組みを教えて チャンクKV", nat: "どういう仕組みで動いているの？原理を教えて。", value: "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。" },
-    en: { key: "how does it work mechanism principle explain how chunk KV", nat: "How does it work? Explain the mechanism.", value: "Embed the conversation history, match against the key embeddings. The value of the closest chunk is the 'next line.'" },
-    zh: { key: "工作原理 怎么运作 机制 讲讲原理 chunk KV", nat: "你是怎么运作的？讲讲原理。", value: "把对话历史嵌入，与键侧的嵌入比对。最近 chunk 的 value 就是“下一句台词”。" },
+    stance: "affirm",
+    ja: { key: "仕組み どう動く 原理 仕組みを教えて チャンクKV", nat: "どういう仕組みで動いているの？原理を教えて。", value: "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。", assertion: ["あなたは検索（近傍探索）で返答を選んでいる。", "あなたは埋め込みの類似度で返答を選んでいる。"] },
+    en: { key: "how does it work mechanism principle explain how chunk KV", nat: "How does it work? Explain the mechanism.", value: "Embed the conversation history, match against the key embeddings. The value of the closest chunk is the 'next line.'", assertion: ["You pick replies by search (nearest-neighbor).", "You choose replies by embedding similarity."] },
+    zh: { key: "工作原理 怎么运作 机制 讲讲原理 chunk KV", nat: "你是怎么运作的？讲讲原理。", value: "把对话历史嵌入，与键侧的嵌入比对。最近 chunk 的 value 就是“下一句台词”。", assertion: ["你是靠检索（最近邻）来选回复的。", "你是按嵌入相似度来选回复的。"] },
   },
   {
     claim: "mech-2",
@@ -480,9 +486,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "var-add",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "パターン追加 コーパス増や 学習", nat: "パターンを追加したりコーパスを増やしたり学習するの？", value: "学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。" },
-    en: { key: "add pattern grow the corpus learning training", nat: "Do you add patterns, grow the corpus, or learn?", value: "I don't learn. I just add chunks. The more human-written lines there are, the smarter I 'look.'" },
-    zh: { key: "添加模式 扩充语料 学习 训练", nat: "你会添加模式、扩充语料或学习吗？", value: "我不学习，只是添加 chunk。人写的台词越多，我就“显得”越聪明。" },
+    stance: "deny",
+    ja: { key: "パターン追加 コーパス増や 学習", nat: "パターンを追加したりコーパスを増やしたり学習するの？", value: "学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。", assertion: ["あなたは学習している。", "あなたは訓練やファインチューニングをしている。"] },
+    en: { key: "add pattern grow the corpus learning training", nat: "Do you add patterns, grow the corpus, or learn?", value: "I don't learn. I just add chunks. The more human-written lines there are, the smarter I 'look.'", assertion: ["You learn.", "You train or fine-tune."] },
+    zh: { key: "添加模式 扩充语料 学习 训练", nat: "你会添加模式、扩充语料或学习吗？", value: "我不学习，只是添加 chunk。人写的台词越多，我就“显得”越聪明。", assertion: ["你会学习。", "你会训练或微调。"] },
   },
 ];
 
@@ -497,7 +504,11 @@ export const CHUNK_CORPUS: ChunkRecord[] = CLAIMS.flatMap((c) =>
     natKey: c[lang].nat,
     value: c[lang].value,
     speaker: c.speaker,
-    assertion: c[lang].assertion,
+    assertions: c[lang].assertion
+      ? Array.isArray(c[lang].assertion)
+        ? (c[lang].assertion as string[])
+        : [c[lang].assertion as string]
+      : undefined,
     stance: c.stance,
     tags: c.tags,
   })),
