@@ -63,7 +63,9 @@ export type TraceStep = {
   /** Grounded generation: whether the reply was composed (vs returned as-is) */
   generated?: boolean;
   /** Grounded generation operation applied */
-  operation?: "as-is" | "negate-correct" | "affirm-confirm";
+  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse";
+  /** For fuse: the id of the second chunk combined into the reply */
+  fusedWith?: string;
   /** NLI(query, chunk.assertion) top label + score, when grounded generation ran */
   nliLabel?: string;
   nliScore?: number;

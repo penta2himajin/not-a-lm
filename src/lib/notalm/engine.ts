@@ -50,6 +50,18 @@ const RESCUE_COS = 0.7;
 /** Min NLI entailment probability to treat a query as presupposing the assertion */
 const NLI_ENTAIL_MIN = 0.5;
 /**
+ * Fusion: if the top two candidates are BOTH strongly relevant (gate score) and
+ * cover different topics, combine them into one reply with a closed connective.
+ * High threshold so fusion only fires for genuinely compound/broad questions.
+ */
+const FUSE_MIN = 0.5;
+/** Closed-set additive connective per language for fusion (glue, not generated). */
+const FUSE_CONNECTIVE: Record<Lang, string> = {
+  ja: "ちなみに、",
+  en: " Also, ",
+  zh: "另外，",
+};
+/**
  * Closed-set negation openers per language for grounded generation. The reply is
  * this opener + the chunk's own (copied) value — no token generation.
  */
@@ -315,7 +327,12 @@ export class ChunkKVEngine {
     // (copied, no token generation). Otherwise return the value as-is.
     let replyText = chosen.chunk.value;
     let generated = false;
-    let operation: "as-is" | "negate-correct" | "affirm-confirm" | undefined;
+    let operation:
+      | "as-is"
+      | "negate-correct"
+      | "affirm-confirm"
+      | "fuse"
+      | undefined;
     let nliLabel: string | undefined;
     let nliScore: number | undefined;
     if (
@@ -359,6 +376,39 @@ export class ChunkKVEngine {
       }
     }
 
+    // Stage 3b — fusion: if no polarity op fired and the top two candidates are
+    // both strongly relevant (gate score) but cover different topics, combine
+    // them into one reply with a closed connective (both values copied, only the
+    // connective is glue — no token generation).
+    let fusedWith: string | undefined;
+    if (
+      opts.generate &&
+      preferSpeaker === "bot" &&
+      !lowConfidence &&
+      !generated &&
+      isRerankerReady() &&
+      hits.length >= 2
+    ) {
+      const s0 = hits[0].rerankScore;
+      const s1 = hits[1].rerankScore;
+      if (
+        s0 != null &&
+        s1 != null &&
+        s0 >= FUSE_MIN &&
+        s1 >= FUSE_MIN &&
+        hits[0].chunk.claim !== hits[1].chunk.claim &&
+        hits[0].chunk.tags[0] !== hits[1].chunk.tags[0]
+      ) {
+        operation = "fuse";
+        generated = true;
+        fusedWith = hits[1].chunk.id;
+        replyText =
+          hits[0].chunk.value +
+          FUSE_CONNECTIVE[chosen.chunk.lang] +
+          hits[1].chunk.value;
+      }
+    }
+
     const queryText = composed.summary;
 
     return {
@@ -373,6 +423,7 @@ export class ChunkKVEngine {
         queryLang,
         generated,
         operation,
+        fusedWith,
         nliLabel,
         nliScore,
         reranked: gated,
