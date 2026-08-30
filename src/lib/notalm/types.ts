@@ -17,6 +17,18 @@ export type ChunkRecord = {
   lang: Lang;
   /** Language-neutral claim id shared across localized variants (for future cross-lingual work) */
   claim?: string;
+  /**
+   * Declarative positive claim this chunk is about, used as the NLI hypothesis
+   * for presupposition detection in grounded generation (only on polarizable
+   * chunks). E.g. "You generate text with RAG."
+   */
+  assertion?: string;
+  /**
+   * Whether the chunk's fact affirms or denies its `assertion`. "deny" means a
+   * user query that presupposes the assertion (NLI entailment) holds a false
+   * presupposition → grounded generation prepends a correction.
+   */
+  stance?: "affirm" | "deny";
   tags: string[];
 };
 
@@ -45,6 +57,13 @@ export type TraceStep = {
   rescued?: boolean;
   /** True when the best score was below the confidence gate → graceful refusal */
   lowConfidence?: boolean;
+  /** Grounded generation: whether the reply was composed (vs returned as-is) */
+  generated?: boolean;
+  /** Grounded generation operation applied */
+  operation?: "as-is" | "negate-correct";
+  /** NLI(query, chunk.assertion) top label + score, when grounded generation ran */
+  nliLabel?: string;
+  nliScore?: number;
   /** Legacy one-line query description */
   queryText: string;
   /** Exponential weighted query composition details */

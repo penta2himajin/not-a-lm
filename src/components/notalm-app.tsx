@@ -25,6 +25,9 @@ type StatusPayload = {
   rerankerReady?: boolean;
   rerankerLabel?: string;
   rerankerProgress?: string;
+  nliReady?: boolean;
+  nliLabel?: string;
+  nliProgress?: string;
   chunkCount: number;
   status: {
     kind: string;
@@ -55,6 +58,8 @@ export function NotALMApp() {
   const [error, setError] = useState<string | null>(null);
   const [chunkCount, setChunkCount] = useState(0);
   const [rerankerReady, setRerankerReady] = useState(false);
+  const [nliReady, setNliReady] = useState(false);
+  const [grounded, setGrounded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const refreshStatus = useCallback(async () => {
@@ -64,6 +69,7 @@ export function NotALMApp() {
     setProgress(data.progress);
     setChunkCount(data.chunkCount);
     setRerankerReady(!!data.rerankerReady);
+    setNliReady(!!data.nliReady);
     if (data.status.kind === "ready") {
       setReady(true);
       const b = (data.status.backend as "hash" | "dense") || "hash";
@@ -112,17 +118,17 @@ export function NotALMApp() {
             });
         }
 
-        // Poll until both the dense model and reranker are ready (reranker
-        // loads in the background even when dense is already up).
-        if (denseAlready && first.rerankerReady) return;
+        // Poll until the dense model, reranker, and NLI are ready (they load in
+        // the background even when dense is already up).
+        if (denseAlready && first.rerankerReady && first.nliReady) return;
 
         const poll = async () => {
           if (cancelled) return;
           const data = await refreshStatus();
           const onDense = data.status.backend === "dense";
           if (onDense) setUpgrading(false);
-          // Keep polling until both the dense model and reranker are ready.
-          if (!onDense || !data.rerankerReady) {
+          // Keep polling until the dense model, reranker, and NLI are ready.
+          if (!onDense || !data.rerankerReady || !data.nliReady) {
             timer = setTimeout(poll, 1500);
           }
         };
@@ -156,6 +162,7 @@ export function NotALMApp() {
         history,
         userText: opts.userText,
         mode: opts.mode ?? "reply",
+        generate: grounded,
       }),
     });
     const data = (await res.json()) as ChatPayload;
@@ -290,6 +297,15 @@ export function NotALMApp() {
             >
               {rerankerReady ? "+rerank" : "rerank…"}
             </Badge>
+            <Badge
+              variant="outline"
+              className={cn(
+                "font-mono text-[11px]",
+                nliReady && "bg-[var(--nalm-accent-soft)]",
+              )}
+            >
+              {nliReady ? "+nli" : "nli…"}
+            </Badge>
             {upgrading && (
               <Badge variant="outline" className="gap-1 font-mono text-[11px]">
                 <Loader2 className="size-3 animate-spin" />
@@ -307,6 +323,21 @@ export function NotALMApp() {
                 会話面
               </div>
               <div className="flex gap-2">
+                <Button
+                  variant={grounded ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setGrounded((g) => !g)}
+                  disabled={!nliReady}
+                  title="接地生成: NLIで前提を判定し、必要なら否定オープナー＋既存の値で補正（トークン生成なし）"
+                  className={cn(
+                    "gap-1",
+                    grounded &&
+                      "bg-[var(--nalm-accent)] text-[var(--nalm-ink)] hover:bg-[var(--nalm-accent-hot)]",
+                  )}
+                >
+                  <Sparkles className="size-3.5" />
+                  接地生成{grounded ? " ON" : " OFF"}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -462,6 +493,10 @@ export function NotALMApp() {
                           ? ` · conf ${tr.topRerankScore.toFixed(2)}`
                           : ""}
                         {tr.topCosine != null ? ` · cos ${tr.topCosine.toFixed(2)}` : ""}
+                        {tr.nliLabel
+                          ? ` · nli ${tr.nliLabel}${tr.nliScore != null ? ` ${tr.nliScore.toFixed(2)}` : ""}`
+                          : ""}
+                        {tr.operation === "negate-correct" ? " · corrected" : ""}
                       </span>
                       {tr.lowConfidence ? (
                         <Badge

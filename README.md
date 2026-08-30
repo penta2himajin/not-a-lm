@@ -10,9 +10,10 @@
 2. 直近の会話を多言語モデルで埋め込み
 3. 自然文キーとの cosine 近傍で選択（Stage 1・ランキング）
 4. 上位候補のキーワード列キーを cross-encoder で採点し信頼度ゲート（Stage 2）。最良スコアが低ければ「わからない」を返す
-5. 履歴に足して再検索 → **連鎖予測**
+5. （任意）**接地生成**：多言語NLIで質問の前提を判定し、偽の前提なら「否定オープナー＋既存の値」で補正（Stage 3、トークン生成なし）
+6. 履歴に足して再検索 → **連鎖予測**
 
-2段検索（bi-encoder → cross-encoder）と信頼度ゲートの詳細は [`docs/reranker-and-confidence-gate.md`](docs/reranker-and-confidence-gate.md) を参照。
+2段検索と信頼度ゲートは [`docs/reranker-and-confidence-gate.md`](docs/reranker-and-confidence-gate.md)、接地生成は [`docs/grounded-generation.md`](docs/grounded-generation.md) を参照。UIの「接地生成」トグルで生成なし↔接地生成を切り替えて比較できる。
 
 近い既存の系統: retrieval-only chatbot、response selection、kNN-LM、RETRO、Memory Networks。ここはその極端な「生成なし」版です。
 
@@ -38,3 +39,4 @@ npm run dev -- --port 43123
 - Next.js (App Router) + TypeScript + Tailwind + shadcn/ui
 - `@huggingface/transformers` 経由の paraphrase-multilingual-MiniLM-L12-v2（多言語埋め込み）
 - 同 bge-reranker-base（多言語 cross-encoder, fp32・信頼度ゲート用）
+- 同 multilingual-MiniLMv2-L6-mnli-xnli（多言語NLI, fp32・接地生成の前提判定用）

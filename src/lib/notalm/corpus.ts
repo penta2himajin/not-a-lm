@@ -17,12 +17,20 @@ import type { ChunkRecord, Lang, Speaker } from "./types";
  * replies are routed to the query's language.
  */
 
-type Surface = { key: string; nat: string; value: string };
+type Surface = {
+  key: string;
+  nat: string;
+  value: string;
+  /** Declarative positive claim (NLI hypothesis) for polarizable chunks */
+  assertion?: string;
+};
 
 type ClaimGroup = {
   claim: string;
   speaker: Speaker;
   tags: string[];
+  /** For polarizable claims: does the value affirm or deny its `assertion`? */
+  stance?: "affirm" | "deny";
   ja: Surface;
   en: Surface;
   zh: Surface;
@@ -76,9 +84,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "who-1",
     speaker: "bot",
     tags: ["identity"],
-    ja: { key: "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ", nat: "あなたは誰ですか？何者ですか？", value: "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。" },
-    en: { key: "who are you what are you are you an LM language model", nat: "Who are you? What are you?", value: "NOT A LM. Just like the name says, not a language model. I'm a chunk-KV of conversation patterns." },
-    zh: { key: "你是谁 你是什么 你是语言模型吗 你是 LM 吗", nat: "你是谁？你到底是什么？", value: "NOT A LM。正如名字所说，我不是语言模型，而是对话模式的 chunk-KV。" },
+    stance: "deny",
+    ja: { key: "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ", nat: "あなたは誰？あなたは言語モデル（LLM）なの？", value: "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。", assertion: "あなたは言語モデル（LLM）だ。" },
+    en: { key: "who are you what are you are you an LM language model", nat: "Who are you? Are you a language model (LLM)?", value: "NOT A LM. Just like the name says, not a language model. I'm a chunk-KV of conversation patterns.", assertion: "You are a language model (LLM)." },
+    zh: { key: "你是谁 你是什么 你是语言模型吗 你是 LM 吗", nat: "你是谁？你是语言模型（LLM）吗？", value: "NOT A LM。正如名字所说，我不是语言模型，而是对话模式的 chunk-KV。", assertion: "你是语言模型（LLM）。" },
   },
   {
     claim: "who-1b",
@@ -150,9 +159,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "mech-rag-a",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "RAG じゃないの 結局 RAG", nat: "それって結局RAGじゃないの？", value: "近い。でも RAG は回収した文を LLM に渡して生成する。ここは生成段がなく、回収＝返答。" },
-    en: { key: "isn't it RAG basically RAG", nat: "Isn't this basically RAG?", value: "Close. But RAG hands the retrieved text to an LLM to generate. Here there's no generation stage — retrieval is the reply." },
-    zh: { key: "不是 RAG 吗 说到底是 RAG", nat: "这说到底不就是 RAG 吗？", value: "很接近。但 RAG 会把检索到的文本交给 LLM 生成。这里没有生成阶段，检索即回答。" },
+    stance: "deny",
+    ja: { key: "RAG じゃないの 結局 RAG 生成しているのか", nat: "それって結局RAGなの？あなたはRAGで生成しているの？", value: "近い。でも RAG は回収した文を LLM に渡して生成する。ここは生成段がなく、回収＝返答。", assertion: "あなたはRAGで生成している。" },
+    en: { key: "isn't it RAG basically RAG do you generate", nat: "Isn't this basically RAG? Do you generate with RAG?", value: "Close. But RAG hands the retrieved text to an LLM to generate. Here there's no generation stage — retrieval is the reply.", assertion: "You generate with RAG." },
+    zh: { key: "不是 RAG 吗 说到底是 RAG 你在生成吗", nat: "这不就是 RAG 吗？你是靠 RAG 生成的吗？", value: "很接近。但 RAG 会把检索到的文本交给 LLM 生成。这里没有生成阶段，检索即回答。", assertion: "你是靠 RAG 生成的。" },
   },
   {
     claim: "mech-knn",
@@ -228,9 +238,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "code-1",
     speaker: "bot",
     tags: ["coding"],
-    ja: { key: "プログラミング コード 実装 作って アプリ", nat: "コードを書いて。アプリを作ってほしい。", value: "コードは書かない。代わりに「実装したいこと」に近い過去パターンのセリフを返すよ。" },
-    en: { key: "programming code implement build an app", nat: "Write me some code. Build an app.", value: "I don't write code. Instead I return a line from a past pattern close to 'what you want to build.'" },
-    zh: { key: "编程 代码 实现 做一个 应用", nat: "帮我写点代码，做个应用。", value: "我不写代码。作为替代，我会返回一句与“你想实现的东西”相近的过去模式台词。" },
+    stance: "deny",
+    ja: { key: "プログラミング コード 実装 作って アプリ", nat: "コードを書いて。アプリを作ってほしい。", value: "コードは書かない。代わりに「実装したいこと」に近い過去パターンのセリフを返すよ。", assertion: "あなたはコードを書ける。" },
+    en: { key: "programming code implement build an app", nat: "Write me some code. Build an app.", value: "I don't write code. Instead I return a line from a past pattern close to 'what you want to build.'", assertion: "You can write code." },
+    zh: { key: "编程 代码 实现 做一个 应用", nat: "帮我写点代码，做个应用。", value: "我不写代码。作为替代，我会返回一句与“你想实现的东西”相近的过去模式台词。", assertion: "你能写代码。" },
   },
   {
     claim: "code-2",
@@ -252,9 +263,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "code-bug-a",
     speaker: "bot",
     tags: ["coding"],
-    ja: { key: "バグ 直せ できない", nat: "じゃあバグ直しはできる？", value: "直せない。ただし「バグってる気がする」に近いキーがあれば、共感セリフは出せる。" },
-    en: { key: "bug fix can't debug", nat: "So can you fix bugs?", value: "I can't. But if there's a key close to 'I feel like it's buggy,' I can offer a sympathetic line." },
-    zh: { key: "bug 修复 不能 调试", nat: "那你能修 bug 吗？", value: "修不了。不过要是有接近“我感觉它有 bug”的键，我能给一句共情台词。" },
+    stance: "deny",
+    ja: { key: "バグ 直せ できない", nat: "じゃあバグ直しはできる？", value: "直せない。ただし「バグってる気がする」に近いキーがあれば、共感セリフは出せる。", assertion: "あなたはバグを修正できる。" },
+    en: { key: "bug fix can't debug", nat: "So can you fix bugs?", value: "I can't. But if there's a key close to 'I feel like it's buggy,' I can offer a sympathetic line.", assertion: "You can fix bugs." },
+    zh: { key: "bug 修复 不能 调试", nat: "那你能修 bug 吗？", value: "修不了。不过要是有接近“我感觉它有 bug”的键，我能给一句共情台词。", assertion: "你能修复 bug。" },
   },
 
   // --- philosophy / joke ---
@@ -262,9 +274,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "phil-1",
     speaker: "bot",
     tags: ["philosophy"],
-    ja: { key: "意識 心 思考 考えてる 理解してる", nat: "あなたは考えたり理解したりしているの？意識はある？", value: "理解してない。距離が近いだけ。近いことを「わかった風」に見せるのがこの手品。" },
-    en: { key: "consciousness mind thinking do you understand", nat: "Do you actually think or understand? Are you conscious?", value: "I don't understand. I'm just close in distance. Making closeness look like 'getting it' is the trick." },
-    zh: { key: "意识 心灵 思考 你在想吗 你理解吗", nat: "你真的会思考或理解吗？有意识吗？", value: "我不理解，只是距离近而已。把“近”装成“懂了的样子”，就是这个把戏。" },
+    stance: "deny",
+    ja: { key: "意識 心 思考 考えてる 理解してる", nat: "あなたは考えたり理解したりしているの？意識はある？", value: "理解してない。距離が近いだけ。近いことを「わかった風」に見せるのがこの手品。", assertion: "あなたには意識がある。" },
+    en: { key: "consciousness mind thinking do you understand", nat: "Do you actually think or understand? Are you conscious?", value: "I don't understand. I'm just close in distance. Making closeness look like 'getting it' is the trick.", assertion: "You are conscious." },
+    zh: { key: "意识 心灵 思考 你在想吗 你理解吗", nat: "你真的会思考或理解吗？有意识吗？", value: "我不理解，只是距离近而已。把“近”装成“懂了的样子”，就是这个把戏。", assertion: "你有意识。" },
   },
   {
     claim: "phil-2",
@@ -450,9 +463,10 @@ const CLAIMS: ClaimGroup[] = [
     claim: "var-attention",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "attention アテンション トランスフォーマー KVキャッシュ", nat: "attentionやトランスフォーマーのKVキャッシュのこと？", value: "本物の KV cache は推論中のキー/値テンソル。メタファーとして借りてるだけ。紛らわしくてごめん。" },
-    en: { key: "attention transformer KV cache", nat: "Do you mean attention or the Transformer's KV cache?", value: "The real KV cache is the key/value tensors during inference. I'm just borrowing it as a metaphor. Sorry for the confusion." },
-    zh: { key: "attention 注意力 transformer KV 缓存", nat: "你是指注意力或 transformer 的 KV 缓存吗？", value: "真正的 KV cache 是推理时的键/值张量。我只是借来当比喻，容易混淆，抱歉。" },
+    stance: "deny",
+    ja: { key: "attention アテンション トランスフォーマー KVキャッシュ", nat: "attentionやトランスフォーマーのKVキャッシュのこと？", value: "本物の KV cache は推論中のキー/値テンソル。メタファーとして借りてるだけ。紛らわしくてごめん。", assertion: "ここでのKVはTransformerのattention KVキャッシュだ。" },
+    en: { key: "attention transformer KV cache", nat: "Do you mean attention or the Transformer's KV cache?", value: "The real KV cache is the key/value tensors during inference. I'm just borrowing it as a metaphor. Sorry for the confusion.", assertion: "The KV here is the Transformer's attention KV cache." },
+    zh: { key: "attention 注意力 transformer KV 缓存", nat: "你是指注意力或 transformer 的 KV 缓存吗？", value: "真正的 KV cache 是推理时的键/值张量。我只是借来当比喻，容易混淆，抱歉。", assertion: "这里的 KV 是 Transformer 的注意力 KV 缓存。" },
   },
   {
     claim: "var-feel",
@@ -483,6 +497,8 @@ export const CHUNK_CORPUS: ChunkRecord[] = CLAIMS.flatMap((c) =>
     natKey: c[lang].nat,
     value: c[lang].value,
     speaker: c.speaker,
+    assertion: c[lang].assertion,
+    stance: c.stance,
     tags: c.tags,
   })),
 );
