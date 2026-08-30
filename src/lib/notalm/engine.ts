@@ -281,46 +281,46 @@ export class ChunkKVEngine {
     const segments = this.compoundSegments(query, lang);
     if (segments.length < 2) return null;
 
-    // Wide candidate window, gated by the cross-encoder on keyword keys. Select
-    // by rerank score (not the possibly-off bi-encoder top-1).
-    const cands = this.search(queryVec, "bot", lang, 8);
-    const scores = await rerankScores(
-      query,
-      cands.map((h) => h.chunk.key),
-    );
-    const kept = cands
-      .map((h, i) => ({ chunk: h.chunk, score: scores[i] ?? 0 }))
-      .filter((x) => x.score >= FUSE_MIN)
-      .map((x) => ({
-        ...x,
-        emb: this.index.find((c) => c.id === x.chunk.id)?.embedding,
-      }))
-      .filter((x): x is typeof x & { emb: Float32Array } => x.emb != null);
-    if (kept.length < 2) return null;
+    // Candidate pool from the full-query bi-encoder ranking (wide, so the right
+    // chunk per segment is present even when a generic chunk tops the ranking).
+    const cands = this.search(queryVec, "bot", lang, 12);
+    if (cands.length < 2) return null;
 
-    // Assign each query segment to its best-matching kept chunk (embedding
-    // similarity). Different segments pick different chunks when the query is
-    // genuinely compound.
-    const segVecs = await embedMany(segments, this.backend);
-    const parts: { seg: string; id: string; value: string }[] = [];
-    const seenIds = new Set<string>();
+    // Score every (segment, candidate) pair with the cross-encoder on the
+    // candidate's keyword key. A focused segment scores reliably and
+    // language-robustly (unlike the diluted compound query or bi-encoder
+    // cosine, which can spuriously pair unrelated chunks).
+    const rr: number[][] = [];
     for (let i = 0; i < segments.length; i++) {
-      let best: (typeof kept)[number] | null = null;
-      let bestS = -2;
-      for (const x of kept) {
-        const s = cosine(segVecs[i], x.emb);
-        if (s > bestS) {
-          bestS = s;
-          best = x;
-        }
-      }
-      // Low floor: kept chunks are already gate-confirmed relevant to the query;
-      // this only needs to confirm the segment relates to one of them (fp32
-      // cosine of a short segment vs a natural-sentence key runs low).
-      if (best && bestS >= 0.15 && !seenIds.has(best.chunk.id)) {
-        parts.push({ seg: segments[i], id: best.chunk.id, value: best.chunk.value });
-        seenIds.add(best.chunk.id);
-      }
+      rr.push(await rerankScores(segments[i], cands.map((c) => c.chunk.key)));
+    }
+    // Greedy bipartite match on rerank scores: assign each segment to a DISTINCT
+    // candidate, keeping only confident pairs.
+    const pairs: { i: number; j: number; s: number }[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
+    }
+    pairs.sort((a, b) => b.s - a.s);
+    const usedSeg = new Set<number>();
+    const usedCand = new Set<number>();
+    const assign = new Map<number, number>();
+    for (const p of pairs) {
+      if (p.s < FUSE_MIN) break;
+      if (usedSeg.has(p.i) || usedCand.has(p.j)) continue;
+      assign.set(p.i, p.j);
+      usedSeg.add(p.i);
+      usedCand.add(p.j);
+    }
+
+    const parts: { seg: string; id: string; value: string }[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const j = assign.get(i);
+      if (j == null) continue;
+      parts.push({
+        seg: segments[i],
+        id: cands[j].chunk.id,
+        value: cands[j].chunk.value,
+      });
     }
     if (parts.length < 2) return null;
 
