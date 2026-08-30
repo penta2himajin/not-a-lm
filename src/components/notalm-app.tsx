@@ -497,6 +497,7 @@ export function NotALMApp() {
                           ? ` · nli ${tr.nliLabel}${tr.nliScore != null ? ` ${tr.nliScore.toFixed(2)}` : ""}`
                           : ""}
                         {tr.operation === "negate-correct" ? " · corrected" : ""}
+                        {tr.operation === "affirm-confirm" ? " · confirmed" : ""}
                       </span>
                       {tr.lowConfidence ? (
                         <Badge

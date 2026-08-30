@@ -58,6 +58,22 @@ const NEGATION_OPENER: Record<Lang, string> = {
   en: "No, that's not the case. ",
   zh: "不，并不是这样。",
 };
+/** Closed-set affirmation openers (for a true presupposition, stance = affirm). */
+const AFFIRM_OPENER: Record<Lang, string> = {
+  ja: "はい、その通りです。",
+  en: "Yes, exactly. ",
+  zh: "对，正是如此。",
+};
+
+/**
+ * Light normalization of the user question before NLI: strip trailing
+ * punctuation so a question reads a bit more like a statement (NLI premises are
+ * declarative). No token generation — this only trims the NLI input, not the
+ * reply.
+ */
+function normalizeForNli(q: string): string {
+  return q.trim().replace(/[？?！!。．.、,\s]+$/u, "");
+}
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
@@ -160,7 +176,7 @@ export class ChunkKVEngine {
           speaker: chunk.speaker,
           lang: chunk.lang,
           claim: chunk.claim,
-          assertion: chunk.assertion,
+          assertions: chunk.assertions,
           stance: chunk.stance,
           tags: chunk.tags,
         },
@@ -299,7 +315,7 @@ export class ChunkKVEngine {
     // (copied, no token generation). Otherwise return the value as-is.
     let replyText = chosen.chunk.value;
     let generated = false;
-    let operation: "as-is" | "negate-correct" | undefined;
+    let operation: "as-is" | "negate-correct" | "affirm-confirm" | undefined;
     let nliLabel: string | undefined;
     let nliScore: number | undefined;
     if (
@@ -308,22 +324,35 @@ export class ChunkKVEngine {
       !lowConfidence &&
       isNliReady() &&
       gateQuery &&
-      chosen.chunk.assertion &&
+      chosen.chunk.assertions?.length &&
       chosen.chunk.stance
     ) {
       try {
-        const nli = await nliClassify(gateQuery, chosen.chunk.assertion);
-        nliLabel = nli.label;
-        nliScore = nli.score;
+        const premise = normalizeForNli(gateQuery);
+        // NLI against each assertion phrasing; take the strongest entailment.
+        let bestEntail = -1;
+        let bestLabel = "neutral";
+        for (const assertion of chosen.chunk.assertions) {
+          const nli = await nliClassify(premise, assertion);
+          if (nli.entail > bestEntail) {
+            bestEntail = nli.entail;
+            bestLabel = nli.label;
+          }
+        }
+        nliLabel = bestLabel;
+        nliScore = bestEntail;
         operation = "as-is";
-        if (
-          nli.label.toLowerCase().includes("entail") &&
-          nli.entail >= NLI_ENTAIL_MIN &&
-          chosen.chunk.stance === "deny"
-        ) {
-          operation = "negate-correct";
-          generated = true;
-          replyText = NEGATION_OPENER[chosen.chunk.lang] + chosen.chunk.value;
+        if (bestEntail >= NLI_ENTAIL_MIN) {
+          if (chosen.chunk.stance === "deny") {
+            operation = "negate-correct";
+            generated = true;
+            replyText =
+              NEGATION_OPENER[chosen.chunk.lang] + chosen.chunk.value;
+          } else if (chosen.chunk.stance === "affirm") {
+            operation = "affirm-confirm";
+            generated = true;
+            replyText = AFFIRM_OPENER[chosen.chunk.lang] + chosen.chunk.value;
+          }
         }
       } catch {
         /* NLI unavailable: fall through with the as-is value */
