@@ -55,13 +55,6 @@ const NLI_ENTAIL_MIN = 0.5;
  * High threshold so fusion only fires for genuinely compound/broad questions.
  */
 const FUSE_MIN = 0.5;
-/** Fallback additive connective per language when no topic can be extracted. */
-const FUSE_CONNECTIVE: Record<Lang, string> = {
-  ja: "ちなみに、",
-  en: " Also, ",
-  zh: "另外，",
-};
-
 /** Split a compound query into segments on conjunction markers. */
 function segmentQuery(text: string, lang: Lang): string[] {
   const sep =
@@ -261,33 +254,81 @@ export class ChunkKVEngine {
     return scores.length ? Math.max(...scores) : 0;
   }
 
+  /** Number of distinct meaningful segments in a (possibly compound) query. */
+  private compoundSegments(query: string, lang: Lang): string[] {
+    return [
+      ...new Set(
+        segmentQuery(query, lang)
+          .map((s) => cleanSegment(s, lang))
+          .filter((s) => s.length >= 2),
+      ),
+    ];
+  }
+
   /**
-   * For fusion: extract the query segment that best matches the second chunk, so
-   * it can be used as a fluent topic lead-in (copied span, not generated).
-   * Returns null if the query isn't compound or no segment matches well enough.
+   * Fusion: for a compound query, map each query segment to its best-matching
+   * confident chunk (selected by full-query ranking + cross-encoder gate, then
+   * assigned to a segment by embedding similarity), and combine the distinct
+   * answers in segment order. Each non-first part is framed by its own (copied)
+   * query segment as a fluent topic lead-in. Returns null unless ≥2 distinct
+   * segments map to distinct confident chunks. No token generation.
    */
-  private async topicForFusion(
+  private async fuseCompound(
     query: string,
-    secondId: string,
+    queryVec: Float32Array,
     lang: Lang,
-  ): Promise<string | null> {
-    const segs = segmentQuery(query, lang)
-      .map((s) => cleanSegment(s, lang))
-      .filter((s) => s.length >= 2);
-    if (segs.length < 2) return null;
-    const target = this.index.find((c) => c.id === secondId);
-    if (!target) return null;
-    const vecs = await embedMany(segs, this.backend);
-    let best: string | null = null;
-    let bestS = -2;
-    for (let i = 0; i < segs.length; i++) {
-      const s = cosine(vecs[i], target.embedding);
-      if (s > bestS) {
-        bestS = s;
-        best = segs[i];
+  ): Promise<{ text: string; fusedWith: string } | null> {
+    const segments = this.compoundSegments(query, lang);
+    if (segments.length < 2) return null;
+
+    // Wide candidate window, gated by the cross-encoder on keyword keys. Select
+    // by rerank score (not the possibly-off bi-encoder top-1).
+    const cands = this.search(queryVec, "bot", lang, 8);
+    const scores = await rerankScores(
+      query,
+      cands.map((h) => h.chunk.key),
+    );
+    const kept = cands
+      .map((h, i) => ({ chunk: h.chunk, score: scores[i] ?? 0 }))
+      .filter((x) => x.score >= FUSE_MIN)
+      .map((x) => ({
+        ...x,
+        emb: this.index.find((c) => c.id === x.chunk.id)?.embedding,
+      }))
+      .filter((x): x is typeof x & { emb: Float32Array } => x.emb != null);
+    if (kept.length < 2) return null;
+
+    // Assign each query segment to its best-matching kept chunk (embedding
+    // similarity). Different segments pick different chunks when the query is
+    // genuinely compound.
+    const segVecs = await embedMany(segments, this.backend);
+    const parts: { seg: string; id: string; value: string }[] = [];
+    const seenIds = new Set<string>();
+    for (let i = 0; i < segments.length; i++) {
+      let best: (typeof kept)[number] | null = null;
+      let bestS = -2;
+      for (const x of kept) {
+        const s = cosine(segVecs[i], x.emb);
+        if (s > bestS) {
+          bestS = s;
+          best = x;
+        }
+      }
+      // Low floor: kept chunks are already gate-confirmed relevant to the query;
+      // this only needs to confirm the segment relates to one of them (fp32
+      // cosine of a short segment vs a natural-sentence key runs low).
+      if (best && bestS >= 0.15 && !seenIds.has(best.chunk.id)) {
+        parts.push({ seg: segments[i], id: best.chunk.id, value: best.chunk.value });
+        seenIds.add(best.chunk.id);
       }
     }
-    return bestS >= 0.4 ? best : null;
+    if (parts.length < 2) return null;
+
+    let text = parts[0].value;
+    for (let i = 1; i < parts.length; i++) {
+      text += topicConnector(lang, parts[i].seg) + parts[i].value;
+    }
+    return { text, fusedWith: parts.slice(1).map((p) => p.id).join(",") };
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -446,44 +487,29 @@ export class ChunkKVEngine {
       }
     }
 
-    // Stage 3b — fusion: if no polarity op fired and the top two candidates are
-    // both strongly relevant (gate score) but cover different topics, combine
-    // them into one reply with a closed connective (both values copied, only the
-    // connective is glue — no token generation).
+    // Stage 3b — fusion (segment-driven): if no polarity op fired and the query
+    // is compound, split it, retrieve the best chunk PER segment, and combine
+    // the distinct answers. Each non-first part is framed by its own segment
+    // (a span copied from the query) as a fluent topic lead-in. Values are
+    // copied, only the particle is glue — no token generation.
     let fusedWith: string | undefined;
     if (
       opts.generate &&
       preferSpeaker === "bot" &&
       !lowConfidence &&
       !generated &&
-      isRerankerReady() &&
-      hits.length >= 2
+      isRerankerReady()
     ) {
-      const s0 = hits[0].rerankScore;
-      const s1 = hits[1].rerankScore;
-      if (
-        s0 != null &&
-        s1 != null &&
-        s0 >= FUSE_MIN &&
-        s1 >= FUSE_MIN &&
-        hits[0].chunk.claim !== hits[1].chunk.claim &&
-        hits[0].chunk.tags[0] !== hits[1].chunk.tags[0]
-      ) {
+      const fused = await this.fuseCompound(
+        gateQuery,
+        composed.vector,
+        chosen.chunk.lang,
+      );
+      if (fused) {
         operation = "fuse";
         generated = true;
-        fusedWith = hits[1].chunk.id;
-        // Prefer a fluent lead-in built from the query's own topic phrase; fall
-        // back to a generic connective if none can be extracted.
-        const topic = await this.topicForFusion(
-          gateQuery,
-          hits[1].chunk.id,
-          chosen.chunk.lang,
-        );
-        const connector = topic
-          ? topicConnector(chosen.chunk.lang, topic)
-          : FUSE_CONNECTIVE[chosen.chunk.lang];
-        replyText =
-          hits[0].chunk.value + connector + hits[1].chunk.value;
+        replyText = fused.text;
+        fusedWith = fused.fusedWith;
       }
     }
 

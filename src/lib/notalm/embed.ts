@@ -126,10 +126,12 @@ export async function loadDense(
     }
 
     report(`${DENSE_MODEL_ID} を取得中…`);
-    // int8 (q8) keeps the download small and CPU inference fast; the L12 model
-    // still separates topics well at this quantization (see docs).
+    // fp32 is required for determinism: the q8 quantized model is non-
+    // deterministic in onnxruntime-node (same text embeds differently across
+    // runs), which destabilizes retrieval scores, the confidence gate, and
+    // fusion. fp32 costs a larger download but keeps results reproducible.
     densePipe = (await pipeline("feature-extraction", DENSE_MODEL_ID, {
-      dtype: "q8",
+      dtype: "fp32",
       device: "cpu",
       progress_callback: (p: {
         status?: string;
