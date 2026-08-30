@@ -461,6 +461,7 @@ export function NotALMApp() {
                         {tr.topRerankScore != null
                           ? ` · conf ${tr.topRerankScore.toFixed(2)}`
                           : ""}
+                        {tr.topCosine != null ? ` · cos ${tr.topCosine.toFixed(2)}` : ""}
                       </span>
                       {tr.lowConfidence ? (
                         <Badge
@@ -468,6 +469,13 @@ export function NotALMApp() {
                           className="border-amber-400 text-[10px] text-amber-700"
                         >
                           low-confidence
+                        </Badge>
+                      ) : tr.rescued ? (
+                        <Badge
+                          variant="outline"
+                          className="border-sky-400 text-[10px] text-sky-700"
+                        >
+                          cos-rescued
                         </Badge>
                       ) : (
                         <Badge variant="secondary" className="text-[10px]">

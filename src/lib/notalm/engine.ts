@@ -37,6 +37,15 @@ const GATE_CANDIDATES = 3;
  * from out-of-corpus (~0) far better than natural keys do.
  */
 const GATE_MIN_SCORE = 0.03;
+/**
+ * Cosine "rescue" against reranker false-refusals: if the gate would refuse but
+ * the ranking top-1's raw bi-encoder cosine is at least this high, the nearest
+ * corpus element is a clear match and the low reranker score was a fluke —
+ * answer instead of refusing. Used ONE-WAY only (refuse → answer); never to
+ * detect OOC (bi-encoder cosine separates in/out poorly; see the docs). Set
+ * high enough to sit above the OOC "overlap band".
+ */
+const RESCUE_COS = 0.7;
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
@@ -209,6 +218,14 @@ export class ChunkKVEngine {
     let chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
 
+    // Raw bi-encoder cosine of the ranking top-1 (no reuse penalty) — the
+    // "how close is the nearest corpus element" signal, used only to rescue
+    // reranker false-refusals below.
+    const topEntry = this.index.find((c) => c.id === chosen.chunk.id);
+    const topCosine = topEntry
+      ? cosine(composed.vector, topEntry.embedding)
+      : 0;
+
     // Stage 2 (gate only): score the top candidates' KEYWORD keys with the
     // cross-encoder. Keyword keys separate in-corpus vs out-of-corpus far better
     // than natural keys, so this is a reliable confidence signal.
@@ -216,6 +233,7 @@ export class ChunkKVEngine {
     let gated = false;
     let topRerankScore: number | undefined;
     let lowConfidence = false;
+    let rescued = false;
     if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
       try {
         topRerankScore = await this.gateConfidence(gateQuery, hits);
@@ -227,8 +245,13 @@ export class ChunkKVEngine {
 
     // Confidence gate (reply-mode only): if the best keyword-key score is below
     // threshold, nothing in the corpus is a close match — refuse gracefully with
-    // the language's "no close key" chunk instead of pasting an off-target reply.
-    if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE) {
+    // the language's "no close key" chunk. One-way cosine rescue: if the nearest
+    // corpus element is very close (topCosine >= RESCUE_COS), the low reranker
+    // score is likely a fluke, so answer instead of refusing.
+    if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && topCosine >= RESCUE_COS) {
+      rescued = true;
+    }
+    if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && !rescued) {
       const refusal = this.refusalChunk(queryLang);
       if (refusal) {
         lowConfidence = true;
@@ -268,6 +291,8 @@ export class ChunkKVEngine {
         queryLang,
         reranked: gated,
         topRerankScore,
+        topCosine,
+        rescued,
         lowConfidence,
         queryText,
         querySummary: composed.summary,
