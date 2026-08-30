@@ -55,12 +55,53 @@ const NLI_ENTAIL_MIN = 0.5;
  * High threshold so fusion only fires for genuinely compound/broad questions.
  */
 const FUSE_MIN = 0.5;
-/** Closed-set additive connective per language for fusion (glue, not generated). */
+/** Fallback additive connective per language when no topic can be extracted. */
 const FUSE_CONNECTIVE: Record<Lang, string> = {
   ja: "ちなみに、",
   en: " Also, ",
   zh: "另外，",
 };
+
+/** Split a compound query into segments on conjunction markers. */
+function segmentQuery(text: string, lang: Lang): string[] {
+  const sep =
+    lang === "en"
+      ? /\s+and\s+|,/i
+      : /[、，]|と|や|および|また|和|与|以及|还有/;
+  return text
+    .split(sep)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Trim trailing request phrases/particles so an extracted segment reads as a topic. */
+function cleanSegment(seg: string, lang: Lang): string {
+  let s = seg.trim();
+  if (lang === "ja") {
+    s = s
+      .replace(/(を)?(教えて|おしえて)$/u, "")
+      .replace(/について$/u, "")
+      .replace(/[はをのとや、。．？！\s]+$/u, "");
+  } else if (lang === "zh") {
+    s = s.replace(/(是什么|呢|吗)?[？。！，、\s]*$/u, "");
+  } else {
+    s = s
+      .replace(/^(tell me about|what about|and)\s+/i, "")
+      .replace(/[?.!\s]+$/u, "");
+  }
+  return s.trim();
+}
+
+/**
+ * Fluent topic connector for fusion: frame the second chunk with a topic phrase
+ * EXTRACTED (copied) from the user's query. No token generation — the topic is a
+ * span from the input; only the particle/preposition is closed-set glue.
+ */
+function topicConnector(lang: Lang, topic: string): string {
+  if (lang === "ja") return `${topic}については、`;
+  if (lang === "zh") return `至于${topic}，`;
+  return ` As for ${topic}, `;
+}
 /**
  * Closed-set negation openers per language for grounded generation. The reply is
  * this opener + the chunk's own (copied) value — no token generation.
@@ -218,6 +259,35 @@ export class ChunkKVEngine {
     );
     top.forEach((h, i) => (h.rerankScore = scores[i]));
     return scores.length ? Math.max(...scores) : 0;
+  }
+
+  /**
+   * For fusion: extract the query segment that best matches the second chunk, so
+   * it can be used as a fluent topic lead-in (copied span, not generated).
+   * Returns null if the query isn't compound or no segment matches well enough.
+   */
+  private async topicForFusion(
+    query: string,
+    secondId: string,
+    lang: Lang,
+  ): Promise<string | null> {
+    const segs = segmentQuery(query, lang)
+      .map((s) => cleanSegment(s, lang))
+      .filter((s) => s.length >= 2);
+    if (segs.length < 2) return null;
+    const target = this.index.find((c) => c.id === secondId);
+    if (!target) return null;
+    const vecs = await embedMany(segs, this.backend);
+    let best: string | null = null;
+    let bestS = -2;
+    for (let i = 0; i < segs.length; i++) {
+      const s = cosine(vecs[i], target.embedding);
+      if (s > bestS) {
+        bestS = s;
+        best = segs[i];
+      }
+    }
+    return bestS >= 0.4 ? best : null;
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -402,10 +472,18 @@ export class ChunkKVEngine {
         operation = "fuse";
         generated = true;
         fusedWith = hits[1].chunk.id;
+        // Prefer a fluent lead-in built from the query's own topic phrase; fall
+        // back to a generic connective if none can be extracted.
+        const topic = await this.topicForFusion(
+          gateQuery,
+          hits[1].chunk.id,
+          chosen.chunk.lang,
+        );
+        const connector = topic
+          ? topicConnector(chosen.chunk.lang, topic)
+          : FUSE_CONNECTIVE[chosen.chunk.lang];
         replyText =
-          hits[0].chunk.value +
-          FUSE_CONNECTIVE[chosen.chunk.lang] +
-          hits[1].chunk.value;
+          hits[0].chunk.value + connector + hits[1].chunk.value;
       }
     }
 
