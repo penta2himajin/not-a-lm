@@ -8,6 +8,7 @@
  */
 import { CHUNK_CORPUS } from "../src/lib/notalm/corpus.ts";
 import { composePartBody } from "../src/lib/notalm/compose.ts";
+import { loadDense } from "../src/lib/notalm/embed.ts";
 
 const NEGATION_OPENER = {
   ja: "いいえ、そうではありません。",
@@ -75,12 +76,18 @@ function chunkByClaim(claim, lang) {
   return CHUNK_CORPUS.find((c) => c.claim === claim && c.lang === lang);
 }
 
-function runUnit() {
+async function runUnit() {
+  await loadDense(() => {});
   let ok = 0;
   for (const tc of UNIT_CASES) {
     const chunk = chunkByClaim(tc.claim, tc.lang);
     const openers = { negation: NEGATION_OPENER, affirm: AFFIRM_OPENER };
-    const { text, plan } = composePartBody(tc.segment, chunk, tc.lang, openers);
+    const { text, plan } = await composePartBody(
+      tc.segment,
+      chunk,
+      tc.lang,
+      openers,
+    );
     const pass =
       Boolean(plan) === tc.expectPlan &&
       !text.includes(tc.expectExcludes) &&
@@ -135,7 +142,7 @@ async function runApi(base) {
 
 async function main() {
   const apiMode = process.argv.includes("--api");
-  const unitOk = runUnit();
+  const unitOk = await runUnit();
   if (apiMode) {
     const base = process.env.NOTALM_URL ?? "http://127.0.0.1:43123";
     const apiOk = await runApi(base);

@@ -4,8 +4,10 @@
  */
 import {
   planComposeG4a,
+  rankSpansForCompose,
   renderCompose,
 } from "../src/lib/notalm/compose.ts";
+import { loadDense } from "../src/lib/notalm/embed.ts";
 
 const NEGATION_OPENER = {
   ja: "いいえ、そうではありません。",
@@ -227,9 +229,38 @@ const CASES = [
     expectIncludes: "比喻",
     expectExcludes: "抱歉",
   },
+  // G4b embedding focus (tags tie on mechanism — pick-value wins)
+  {
+    name: "g4b-pick-value ja",
+    query: "次のセリフはどう決まる？",
+    claim: "mech-1",
+    lang: "ja",
+    expectSpanIds: ["pick-value"],
+    expectIncludes: "次のセリフ",
+    expectExcludes: "埋め込み",
+  },
+  {
+    name: "g4b-pick-value en",
+    query: "How is the next line chosen?",
+    claim: "mech-1",
+    lang: "en",
+    expectSpanIds: ["pick-value"],
+    expectIncludes: "next line",
+    expectExcludes: "Embed the conversation",
+  },
+  {
+    name: "g4b-pick-value zh",
+    query: "下一句台词是怎么选出来的？",
+    claim: "mech-1",
+    lang: "zh",
+    expectSpanIds: ["pick-value"],
+    expectIncludes: "下一句",
+    expectExcludes: "嵌入",
+  },
 ];
 
 async function main() {
+  await loadDense(() => {});
   const base = new URL("..", import.meta.url);
   const { CHUNK_CORPUS } = await import(
     new URL("src/lib/notalm/corpus.ts", base).href
@@ -244,8 +275,10 @@ async function main() {
       console.log(`FAIL ${tc.name}: chunk missing spans`);
       continue;
     }
+    const spanRankings = await rankSpansForCompose(tc.query, chunk.spans);
     const plan = planComposeG4a(tc.query, chunk, {
       prefix: tc.prefix,
+      spanRankings,
     });
     if (!plan) {
       console.log(`FAIL ${tc.name}: no plan`);

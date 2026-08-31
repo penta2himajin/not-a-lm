@@ -15,7 +15,9 @@ import {
   composeChangesReply,
   composePartBody,
   planComposeG4a,
+  rankSpansForCompose,
   renderCompose,
+  type ComposeContext,
 } from "./compose";
 import {
   buildSpanIndexManifest,
@@ -404,8 +406,8 @@ export class ChunkKVEngine {
     const fuseParts: FusePartTrace[] = [];
     let fusedCompose = false;
 
-    const renderPart = (seg: string, chunk: ChunkRecord) => {
-      const { text, plan } = composePartBody(seg, chunk, lang, openers);
+    const renderPart = async (seg: string, chunk: ChunkRecord) => {
+      const { text, plan } = await composePartBody(seg, chunk, lang, openers);
       if (plan) fusedCompose = true;
       fuseParts.push({
         chunkId: chunk.id,
@@ -415,11 +417,14 @@ export class ChunkKVEngine {
       return text;
     };
 
-    let text = renderPart(parts[0].seg, parts[0].chunk);
+    let text = await renderPart(parts[0].seg, parts[0].chunk);
     for (let i = 1; i < parts.length; i++) {
       text +=
         topicConnector(lang, parts[i].seg) +
-        stripLeadingFiller(renderPart(parts[i].seg, parts[i].chunk), lang);
+        stripLeadingFiller(
+          await renderPart(parts[i].seg, parts[i].chunk),
+          lang,
+        );
     }
     return {
       text,
@@ -662,8 +667,7 @@ export class ChunkKVEngine {
       }
     }
 
-    // Stage 4 — span composition (G4a): single-chunk path when fusion did not run.
-    // G3 fusion applies G4 per segment inside fuseCompound (G4.1).
+    // Stage 4 — G4 compose (G4a rules + G4b embedding focus): single-chunk path.
     if (
       opts.generate &&
       preferSpeaker === "bot" &&
@@ -671,7 +675,7 @@ export class ChunkKVEngine {
       operation !== "fuse" &&
       chosen.chunk.spans?.length
     ) {
-      const plan = planComposeG4a(gateQuery, chosen.chunk, {
+      const composeCtx: ComposeContext = {
         prefix: composePrefix,
         focusSpanId:
           retrievalSource === "span" && matchedSpanKind === "author"
@@ -681,7 +685,14 @@ export class ChunkKVEngine {
           retrievalSource === "span" && matchedSpanKind === "key-span"
             ? matchedSpanText
             : undefined,
-      });
+      };
+      if (gateQuery) {
+        composeCtx.spanRankings = await rankSpansForCompose(
+          gateQuery,
+          chosen.chunk.spans,
+        );
+      }
+      const plan = planComposeG4a(gateQuery, chosen.chunk, composeCtx);
       if (plan) {
         const openers = {
           negation: NEGATION_OPENER,
