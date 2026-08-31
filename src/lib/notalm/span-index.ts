@@ -7,6 +7,11 @@
  */
 
 import { cosine } from "./embed.ts";
+import {
+  REUSE_PENALTY,
+  adjustScoreForContinuity,
+  type ContinuityHint,
+} from "./grounding.ts";
 import type { ChunkRecord, Lang, MatchHit } from "./types.ts";
 import { buildAllAutoKeySpans, type AutoKeySpan } from "./key-span.ts";
 
@@ -183,6 +188,7 @@ export function mergeDualRetrieval(
   chunkById: Map<string, ChunkRecord & { embedding: Float32Array }>,
   usedIds: Set<string>,
   queryText = "",
+  continuity?: ContinuityHint,
 ): DualRetrievalResult {
   const keyPool = keyHits.slice(0, KEY_POOL);
   const keyOnlyTop = keyPool[0];
@@ -226,8 +232,20 @@ export function mergeDualRetrieval(
     let keyScore = keyScoreById.get(id);
     if (keyScore === undefined) {
       keyScore = cosine(queryVec, chunk.embedding);
+      // Rescued-only parents were not in keyHits — apply reuse/continuity here.
+      keyScore = adjustScoreForContinuity(
+        keyScore,
+        chunk,
+        usedIds,
+        continuity,
+        REUSE_PENALTY,
+      ).score;
+    } else if (!continuity) {
+      // Legacy: keyHits already include one reuse penalty from search; keep the
+      // historical second subtract when no G6c continuity hint is active.
+      if (usedIds.has(id)) keyScore -= REUSE_PENALTY;
     }
-    if (usedIds.has(id)) keyScore -= 0.12;
+    // With continuity, engine.search already applied adjustScoreForContinuity.
 
     const authorHit = bestAuthorByChunk.get(id);
     const autoHit = bestAutoByChunk.get(id);

@@ -545,10 +545,19 @@ export function NotALMApp() {
                         )}
                       </div>
                     )}
-                    {(tr.priorGrounding || tr.turnGrounding || tr.anaphora) && (
+                    {(tr.priorGrounding ||
+                      tr.turnGrounding ||
+                      tr.anaphora ||
+                      tr.continuity) && (
                       <div className="mb-2 space-y-0.5 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
                         {tr.anaphora && tr.anaphora !== "none" && (
                           <p>anaphora · {tr.anaphora}</p>
+                        )}
+                        {tr.continuity && (
+                          <p>
+                            continuity · {tr.continuity.claim ?? tr.continuity.chunkId}
+                            {tr.continuity.matchedChosen ? " ✓" : ""}
+                          </p>
                         )}
                         {tr.priorGrounding && (
                           <p>

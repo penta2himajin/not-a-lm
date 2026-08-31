@@ -62,7 +62,7 @@ type TurnGrounding = {
 | **G6a** | `TurnGrounding` の付与・history 持ち越し・`priorGrounding` トレース | ✅ |
 | **G6b-proximal** | それ／その → `injectProximal` で検索・gate・plan 用クエリに excerpt を前置 | ✅ |
 | **G6b-clarify** | さっきの → retrieve 前に `planClarifyRecent`（例示+聞き返し） | ✅ |
-| **G6c** | 前ターン claim/span 継続バイアス（`usedIds` と両立） | 予定 |
+| **G6c** | 前ターン claim/span 継続バイアス（`usedIds` と両立） | ✅ |
 | **G6d** | 連鎖の計画化（任意・後回し可） | 任意 |
 
 ## パイプライン
@@ -72,20 +72,29 @@ history(+ grounding)
   → classify anaphora
   → (non-proximal ∧ ≥2 bots) clarify short-circuit
   → (proximal) inject prior excerpt into planning query
-  → retrieve → gate → G5 candidates → G5d → render
+  → retrieve (+ G6c continuity vs usedIds) → gate → G5 candidates → G5d → render
   → message.grounding + trace
 ```
+
+### G6c 継続バイアス
+
+- 直前 bot の `chunkId` / `claim` を `ContinuityHint` に
+- **同一 chunk** が `usedIds` にあっても reuse ペナルティを免除（+ 軽い stick）
+- **同一 claim・別 chunk** に小さなブースト
+- G5d の single 候補 relevance も同 claim/chunk なら微増
+- トレース: `continuity.matchedChosen`
 
 ## 評価
 
 ```bash
 npm run eval:g6a
 npm run eval:g6b
+npm run eval:g6c
 npm run eval:plan
+npm run eval:dual-index
 ```
 
 ## フォローアップ
 
-- G6c 継続バイアス
-- 明確化文言のコーパス claim 化（任意）
 - G6d 連鎖プランナーの要否
+- 明確化文言のコーパス claim 化（任意）

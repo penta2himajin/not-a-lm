@@ -14,11 +14,14 @@ import { isRerankerReady, rerankScores } from "./rerank";
 import {
   buildTurnGrounding,
   classifyAnaphora,
+  continuityFromPrior,
   injectProximal,
   lastBotGrounding,
   planClarifyRecent,
   recentBotGroundings,
+  adjustScoreForContinuity,
   type AnaphoraClass,
+  type ContinuityHint,
 } from "./grounding";
 import {
   GROUNDED_OPENERS,
@@ -224,6 +227,7 @@ export class ChunkKVEngine {
     preferSpeaker?: "user" | "bot",
     lang?: Lang,
     limit: number = TOP_K,
+    continuity?: ContinuityHint,
   ): MatchHit[] {
     const scored: MatchHit[] = [];
     for (const chunk of this.index) {
@@ -231,8 +235,13 @@ export class ChunkKVEngine {
       if (preferSpeaker && chunk.speaker !== preferSpeaker) continue;
       // Hard filter: reply in the same language as the query
       if (lang && chunk.lang !== lang) continue;
-      let score = cosine(queryVec, chunk.embedding);
-      if (this.usedIds.has(chunk.id)) score -= 0.12;
+      const raw = cosine(queryVec, chunk.embedding);
+      const { score } = adjustScoreForContinuity(
+        raw,
+        chunk,
+        this.usedIds,
+        continuity,
+      );
       scored.push({
         chunk: {
           id: chunk.id,
@@ -307,6 +316,7 @@ export class ChunkKVEngine {
     query: string,
     queryVec: Float32Array,
     lang: Lang,
+    continuity?: ContinuityHint,
   ): Promise<{
     plan: OperationPlan;
     parts: { seg: string; chunk: ChunkRecord; score: number }[];
@@ -316,7 +326,7 @@ export class ChunkKVEngine {
     const segments = this.compoundSegments(query, lang);
     if (segments.length < 2) return null;
 
-    const cands = this.search(queryVec, "bot", lang, 12);
+    const cands = this.search(queryVec, "bot", lang, 12, continuity);
     if (cands.length < 2) return null;
 
     const rr: number[][] = [];
@@ -391,6 +401,12 @@ export class ChunkKVEngine {
     if (anaphora === "non-proximal" && recentGroundings.length <= 1) {
       anaphora = recentGroundings.length === 1 ? "proximal" : "none";
     }
+
+    // G6c: stick to prior chunk/claim despite usedIds (bot replies only).
+    const continuity: ContinuityHint | undefined =
+      preferSpeaker === "bot"
+        ? continuityFromPrior(priorGroundingEarly)
+        : undefined;
 
     // G6b-proximal: expand planning/retrieval anchor with prior excerpt copy.
     let planningUser = rawUser;
@@ -483,11 +499,18 @@ export class ChunkKVEngine {
       preferSpeaker,
       queryLang,
       searchLimit,
+      continuity,
     );
     // Fallback: if the corpus has nothing in the detected language, drop the
     // language filter rather than returning nothing.
     if (hits.length === 0) {
-      hits = this.search(composed.vector, preferSpeaker, undefined, searchLimit);
+      hits = this.search(
+        composed.vector,
+        preferSpeaker,
+        undefined,
+        searchLimit,
+        continuity,
+      );
     }
 
     const keyHitsForGate = hits.map((h) => ({ ...h }));
@@ -514,6 +537,7 @@ export class ChunkKVEngine {
         chunkById,
         this.usedIds,
         gateQueryEarly,
+        continuity,
       );
       hits = dual.hits;
       retrievalSource = dual.retrievalSource;
@@ -644,6 +668,7 @@ export class ChunkKVEngine {
           gateQuery,
           composed.vector,
           chosen.chunk.lang,
+          continuity,
         );
         if (fused) {
           const meanRel =
@@ -689,7 +714,18 @@ export class ChunkKVEngine {
         polarity,
       });
       if (single) {
-        const singleRel = topRerankScore ?? Math.max(0, chosen.score);
+        let singleRel = topRerankScore ?? Math.max(0, chosen.score);
+        // G6c: prefer continuing the prior claim when ranking plans.
+        if (
+          continuity?.claim &&
+          chosen.chunk.claim === continuity.claim
+        ) {
+          singleRel = Math.min(1, singleRel + 0.08);
+          g6bReasons.push("g6c:plan-continue-claim");
+        } else if (continuity?.chunkId === chosen.chunk.id) {
+          singleRel = Math.min(1, singleRel + 0.05);
+          g6bReasons.push("g6c:plan-continue-chunk");
+        }
         candidates.push({
           id: "single",
           plan: single.plan,
@@ -766,6 +802,16 @@ export class ChunkKVEngine {
       trace: {
         queryLang,
         anaphora,
+        continuity: continuity
+          ? {
+              chunkId: continuity.chunkId,
+              claim: continuity.claim,
+              matchedChosen:
+                chosen.chunk.id === continuity.chunkId ||
+                (!!continuity.claim &&
+                  chosen.chunk.claim === continuity.claim),
+            }
+          : undefined,
         priorGrounding,
         turnGrounding,
         generated,
