@@ -75,7 +75,7 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 
 - **Dual-index retrieval** — [`retrieval-dual-index.md`](retrieval-dual-index.md) ✅
 - **G3×G4** — 融合各パートへの compose ✅
-- スパン embedding / cross-encoder マッチ（G4b）
+- スパン embedding / cross-encoder マッチ（G4b）— ✅ Rule 2b `rankSpansForCompose` + `spanRankings`
 - NLI per-span（G4c）
 - 句単位スパンへの細分化
 - コーパス spans 拡張 — 12 claim（残り ~40 claim は G4b/c 向けに段階追加）
