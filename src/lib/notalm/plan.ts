@@ -18,6 +18,7 @@ import {
   type ComposeContext,
 } from "./compose.ts";
 import { isNliReady, nliClassify, normalizeForNli } from "./nli.ts";
+import { closedClarifyText } from "./grounding.ts";
 import type {
   ChunkRecord,
   ComposePlan,
@@ -79,7 +80,10 @@ export function stripLeadingFiller(value: string, lang: Lang): string {
 /** Legacy trace label derived from steps (keep until callers migrate to plan). */
 export function deriveOperationLabel(
   plan: OperationPlan,
-): "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose" {
+): "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose" | "clarify" {
+  if (plan.steps.some((s) => s.kind === "closed" || s.kind === "echo")) {
+    return "clarify";
+  }
   const hasGlue = plan.steps.some((s) => s.kind === "glue");
   if (hasGlue) return "fuse";
   const body = plan.steps.find((s) => s.kind === "body");
@@ -153,6 +157,14 @@ export function renderOperationPlan(
     }
     if (step.kind === "glue") {
       out += topicConnector(lang, step.topic);
+      continue;
+    }
+    if (step.kind === "closed") {
+      out += closedClarifyText(step.which, lang);
+      continue;
+    }
+    if (step.kind === "echo") {
+      out += step.text;
       continue;
     }
     // body
@@ -445,6 +457,17 @@ export function formatOpStep(step: OpStep): string {
   if (step.kind === "glue") {
     const t = step.topic.length > 12 ? `${step.topic.slice(0, 12)}…` : step.topic;
     return `glue(${t})`;
+  }
+  if (step.kind === "closed") {
+    return step.which === "clarify-open"
+      ? "clarify?"
+      : step.which === "clarify-close"
+        ? "ask"
+        : "·";
+  }
+  if (step.kind === "echo") {
+    const t = step.text.length > 16 ? `${step.text.slice(0, 16)}…` : step.text;
+    return `echo(${t})`;
   }
   const spans = step.composePlan?.kept?.map((k) => k.spanId).join("+");
   const prefix = step.composePlan?.prefix

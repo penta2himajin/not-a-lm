@@ -13,7 +13,12 @@ import { composeQueryVector } from "./query-vector";
 import { isRerankerReady, rerankScores } from "./rerank";
 import {
   buildTurnGrounding,
+  classifyAnaphora,
+  injectProximal,
   lastBotGrounding,
+  planClarifyRecent,
+  recentBotGroundings,
+  type AnaphoraClass,
 } from "./grounding";
 import {
   GROUNDED_OPENERS,
@@ -375,11 +380,101 @@ export class ChunkKVEngine {
     const queryLang = latestUser?.trim()
       ? detectLang(latestUser)
       : detectLangFromHistory(history);
+    const rawUser = latestUser?.trim() || "";
+    const priorGroundingEarly = lastBotGrounding(history);
+    const recentGroundings = recentBotGroundings(history, 3);
+    let anaphora: AnaphoraClass = rawUser
+      ? classifyAnaphora(rawUser, queryLang)
+      : "none";
+
+    // G6b: 「さっきの」with only one prior bot turn → treat as proximal.
+    if (anaphora === "non-proximal" && recentGroundings.length <= 1) {
+      anaphora = recentGroundings.length === 1 ? "proximal" : "none";
+    }
+
+    // G6b-proximal: expand planning/retrieval anchor with prior excerpt copy.
+    let planningUser = rawUser;
+    const g6bReasons: string[] = [];
+    if (
+      anaphora === "proximal" &&
+      priorGroundingEarly &&
+      opts.generate &&
+      preferSpeaker === "bot"
+    ) {
+      const inj = injectProximal(rawUser, priorGroundingEarly);
+      planningUser = inj.effectiveQuery;
+      g6bReasons.push(...inj.reasons);
+    }
+
     const composed = await composeQueryVector(
       history,
-      latestUser,
+      planningUser || latestUser,
       this.backend,
     );
+
+    // G6b-clarify: short-circuit before retrieve/gate (avoid OOC refuse on さっきの).
+    if (
+      opts.generate &&
+      preferSpeaker === "bot" &&
+      anaphora === "non-proximal" &&
+      recentGroundings.length >= 2
+    ) {
+      const clarifyPlan = planClarifyRecent(recentGroundings, queryLang);
+      const replyText = renderOperationPlan(
+        clarifyPlan,
+        () => undefined,
+        queryLang,
+        GROUNDED_OPENERS,
+      );
+      const anchorChunk =
+        this.index.find((c) => c.id === recentGroundings[0].chunkId) ??
+        this.refusalChunk(queryLang);
+      if (!anchorChunk) throw new Error("チャンクが空です");
+      const hit: MatchHit = {
+        chunk: {
+          id: anchorChunk.id,
+          key: anchorChunk.key,
+          natKey: anchorChunk.natKey,
+          value: anchorChunk.value,
+          speaker: anchorChunk.speaker,
+          lang: anchorChunk.lang,
+          claim: anchorChunk.claim,
+          tags: anchorChunk.tags,
+        },
+        score: 1,
+      };
+      const turnGrounding = buildTurnGrounding({
+        chunk: anchorChunk,
+        operation: "clarify",
+        excerptTextsOverride: recentGroundings.flatMap((g) =>
+          g.excerptTexts.slice(0, 1),
+        ),
+      });
+      return {
+        message: {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          role: "bot",
+          text: replyText,
+          sourceChunkId: anchorChunk.id,
+          score: 1,
+          grounding: turnGrounding,
+        },
+        trace: {
+          queryLang,
+          anaphora,
+          priorGrounding: priorGroundingEarly,
+          turnGrounding,
+          generated: true,
+          operation: "clarify",
+          operationPlan: clarifyPlan,
+          queryText: composed.summary,
+          querySummary: composed.summary,
+          hits: [hit],
+          chosen: hit,
+          latencyMs: Math.round(performance.now() - t0),
+        },
+      };
+    }
 
     // Stage 1 (ranking): bi-encoder over natural keys (+ dual-index span merge).
     const searchLimit = this.spanIndex.length > 0 ? KEY_POOL : TOP_K;
@@ -442,7 +537,9 @@ export class ChunkKVEngine {
     // Stage 2 (gate only): score the top candidates' KEYWORD keys with the
     // cross-encoder. Keyword keys separate in-corpus vs out-of-corpus far better
     // than natural keys, so this is a reliable confidence signal.
-    const gateQuery = composed.anchorText || latestUser?.trim() || "";
+    // G6b: use planningUser (proximal-injected) when present.
+    const gateQuery =
+      planningUser || composed.anchorText || rawUser || "";
     let gated = false;
     let topRerankScore: number | undefined;
     let lowConfidence = false;
@@ -517,6 +614,7 @@ export class ChunkKVEngine {
       | "affirm-confirm"
       | "fuse"
       | "compose"
+      | "clarify"
       | undefined;
     let composePlan: ComposePlan | undefined;
     let operationPlan: OperationPlan | undefined;
@@ -566,18 +664,28 @@ export class ChunkKVEngine {
         }
       }
 
+      const proximalFocus =
+        anaphora === "proximal" &&
+        priorGroundingEarly &&
+        priorGroundingEarly.chunkId === chosen.chunk.id
+          ? priorGroundingEarly.kept?.[0]
+          : undefined;
+
       const single = await planSingleChunk({
         query: gateQuery,
         chunk: chosen.chunk,
         lang: chosen.chunk.lang,
         focusSpanId:
-          retrievalSource === "span" && matchedSpanKind === "author"
+          proximalFocus?.spanId ??
+          (retrievalSource === "span" && matchedSpanKind === "author"
             ? matchedSpanId
-            : undefined,
+            : undefined),
         focusKeySpanText:
-          retrievalSource === "span" && matchedSpanKind === "key-span"
-            ? matchedSpanText
-            : undefined,
+          anaphora === "proximal" && priorGroundingEarly?.excerptTexts[0]
+            ? priorGroundingEarly.excerptTexts[0]
+            : retrievalSource === "span" && matchedSpanKind === "key-span"
+              ? matchedSpanText
+              : undefined,
         polarity,
       });
       if (single) {
@@ -595,6 +703,12 @@ export class ChunkKVEngine {
       const selection = selectBestPlan(candidates);
       if (selection) {
         operationPlan = selection.winner.plan;
+        if (g6bReasons.length) {
+          operationPlan = {
+            ...operationPlan,
+            reasons: [...g6bReasons, ...operationPlan.reasons],
+          };
+        }
         if (selection.winner.id === "fuse" && fusedMeta) {
           fuseParts = fusePartsFromMatched(fusedMeta.parts, operationPlan);
           fusedWith = fusedWithFromPlan(operationPlan);
@@ -625,7 +739,7 @@ export class ChunkKVEngine {
     const queryText = composed.summary;
 
     // G6a: structured grounding on the reply; prior from last bot in history.
-    const priorGrounding = lastBotGrounding(history);
+    const priorGrounding = priorGroundingEarly;
     const fullChosen =
       this.index.find((c) => c.id === chosen.chunk.id) ??
       ({
@@ -651,6 +765,7 @@ export class ChunkKVEngine {
       },
       trace: {
         queryLang,
+        anaphora,
         priorGrounding,
         turnGrounding,
         generated,
