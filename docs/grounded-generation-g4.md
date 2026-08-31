@@ -56,7 +56,8 @@ retrieve → G2 NLI (prefix 決定) → G3 fusion (+ G4 per segment) → G4 comp
 ```
 
 - G3 融合時は **各セグメントに G4a compose を適用**（`fuseCompound` 内、`composePartBody`）
-- 単一チャンク応答は Stage 4 の G4a（dual-index の `focusSpanId` 等）
+- **G4b**: タグ Rule 2 で絞れないとき `rankSpansForCompose`（dense cosine + `indexTextForSpan`）で Rule 2b 焦点
+- 単一チャンク応答は Stage 4 の G4a+G4b（dual-index の `focusSpanId` 優先）
 - `trace.fuseParts[]` にセグメントごとの `composePlan` を記録
 - `trace.fusedCompose`: 融合パートのいずれかが G4 で狭められたとき true
 
