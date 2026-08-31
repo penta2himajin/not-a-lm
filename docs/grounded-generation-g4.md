@@ -54,8 +54,13 @@ type ComposePlan = {
 | `mech-3` | 連鎖ループ 4 ステップ（append → embed → search → effect） |
 | `code-bug-a` | deny 系 **deny-fix** のみ（coding） |
 | `var-add` | deny 系 **deny-learn** のみ（学習誤解） |
+| `greet-welcome` | 挨拶 + welcome + chunk-KV 連鎖 |
+| `who-1b` | 名前 / 略称 / セリフ辞書（identity） |
+| `food-old-a` | 古いネタ再利用 + 非生成の強み |
+| `limit-2` | 新嘘不可 + 無関係な真実事故 |
+| `var-feel` | 「見える」/ 類似度ソート / 不気味の谷 |
 
-計 **17 claim × 3 言語 = 51 chunks** に spans（batch-2: +5 claim）。
+計 **22 claim × 3 言語 = 66 chunks** に spans（batch-3: +5 claim）。
 
 ## パイプライン位置
 
@@ -89,4 +94,4 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 - スパン embedding / cross-encoder マッチ（G4b）— ✅ Rule 2b `rankSpansForCompose` + `spanRankings`
 - NLI per-span（G4c）— ✅ Rule 1d/2c `rankSpansByNli` + `nliHypothesis`
 - 句単位スパンへの細分化（batch-2 では **不要** — 1文=1スパンで十分だった claim のみ追加）
-- コーパス spans 拡張 — 17 claim（残り ~35 claim は段階追加）
+- コーパス spans 拡張 — 22 claim（残り ~30 claim は段階追加）

@@ -118,9 +118,63 @@ const CLAIMS: ClaimGroup[] = [
     claim: "greet-welcome",
     speaker: "bot",
     tags: ["greeting"],
-    ja: { key: "こんにちは やあ おはよう こんばんは", nat: "おはよう。こんばんは。ようこそ。", value: "おっす。NOT A LM へようこそ。会話っぽく見えるのは偶然じゃなくて、チャンクKVの連鎖だ。" },
-    en: { key: "hello good morning good evening welcome", nat: "Good morning. Good evening. Welcome.", value: "Yo. Welcome to NOT A LM. It looks like a conversation not by luck, but by chaining chunk-KV." },
-    zh: { key: "你好 早上好 晚上好 欢迎", nat: "早上好，晚上好，欢迎。", value: "哟。欢迎来到 NOT A LM。看起来像对话不是巧合，而是 chunk-KV 的连锁。" },
+    ja: {
+      key: "こんにちは やあ おはよう こんばんは",
+      nat: "おはよう。こんばんは。ようこそ。",
+      value:
+        "おっす。NOT A LM へようこそ。会話っぽく見えるのは偶然じゃなくて、チャンクKVの連鎖だ。",
+      spans: [
+        { id: "greet", text: "おっす。", tags: ["greeting", "filler"] },
+        {
+          id: "welcome",
+          text: "NOT A LM へようこそ。",
+          tags: ["greeting", "identity"],
+        },
+        {
+          id: "chain-kv",
+          text: "会話っぽく見えるのは偶然じゃなくて、チャンクKVの連鎖だ。",
+          tags: ["mechanism", "chain", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "hello good morning good evening welcome",
+      nat: "Good morning. Good evening. Welcome.",
+      value:
+        "Yo. Welcome to NOT A LM. It looks like a conversation not by luck, but by chaining chunk-KV.",
+      spans: [
+        { id: "greet", text: "Yo.", tags: ["greeting", "filler"] },
+        {
+          id: "welcome",
+          text: "Welcome to NOT A LM.",
+          tags: ["greeting", "identity"],
+        },
+        {
+          id: "chain-kv",
+          text: "It looks like a conversation not by luck, but by chaining chunk-KV.",
+          tags: ["mechanism", "chain", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "你好 早上好 晚上好 欢迎",
+      nat: "早上好，晚上好，欢迎。",
+      value:
+        "哟。欢迎来到 NOT A LM。看起来像对话不是巧合，而是 chunk-KV 的连锁。",
+      spans: [
+        { id: "greet", text: "哟。", tags: ["greeting", "filler"] },
+        {
+          id: "welcome",
+          text: "欢迎来到 NOT A LM。",
+          tags: ["greeting", "identity"],
+        },
+        {
+          id: "chain-kv",
+          text: "看起来像对话不是巧合，而是 chunk-KV 的连锁。",
+          tags: ["mechanism", "chain", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "greet-howareyou",
@@ -323,9 +377,75 @@ const CLAIMS: ClaimGroup[] = [
     claim: "who-1b",
     speaker: "bot",
     tags: ["identity"],
-    ja: { key: "お前誰？ お前は誰 君だれ あんた誰", nat: "お前は誰だ？名前は？", value: "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。" },
-    en: { key: "who the heck are you your name", nat: "Who the heck are you? What's your name?", value: "The name's NOT A LM. No need to abbreviate. Inside I'm a dictionary of lines indexed by embedding neighbors." },
-    zh: { key: "你到底是谁 你叫什么", nat: "你到底是谁？你叫什么？", value: "名字是 NOT A LM，不用缩写。内在只是一个按嵌入邻居索引的台词词典。" },
+    ja: {
+      key: "お前誰？ お前は誰 君だれ あんた誰",
+      nat: "お前は誰だ？名前は？",
+      value:
+        "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+      spans: [
+        {
+          id: "name",
+          text: "名前は NOT A LM。",
+          tags: ["identity", "summary"],
+        },
+        {
+          id: "no-abbrev",
+          text: "略さなくていい。",
+          tags: ["identity", "detail"],
+        },
+        {
+          id: "dict",
+          text: "中身は埋め込み近傍のセリフ辞書だ。",
+          tags: ["identity", "mechanism"],
+        },
+      ],
+    },
+    en: {
+      key: "who the heck are you your name",
+      nat: "Who the heck are you? What's your name?",
+      value:
+        "The name's NOT A LM. No need to abbreviate. Inside I'm a dictionary of lines indexed by embedding neighbors.",
+      spans: [
+        {
+          id: "name",
+          text: "The name's NOT A LM.",
+          tags: ["identity", "summary"],
+        },
+        {
+          id: "no-abbrev",
+          text: "No need to abbreviate.",
+          tags: ["identity", "detail"],
+        },
+        {
+          id: "dict",
+          text: "Inside I'm a dictionary of lines indexed by embedding neighbors.",
+          tags: ["identity", "mechanism"],
+        },
+      ],
+    },
+    zh: {
+      key: "你到底是谁 你叫什么",
+      nat: "你到底是谁？你叫什么？",
+      value:
+        "名字是 NOT A LM，不用缩写。内在只是一个按嵌入邻居索引的台词词典。",
+      spans: [
+        {
+          id: "name",
+          text: "名字是 NOT A LM，",
+          tags: ["identity", "summary"],
+        },
+        {
+          id: "no-abbrev",
+          text: "不用缩写。",
+          tags: ["identity", "detail"],
+        },
+        {
+          id: "dict",
+          text: "内在只是一个按嵌入邻居索引的台词词典。",
+          tags: ["identity", "mechanism"],
+        },
+      ],
+    },
   },
   {
     claim: "who-2",
@@ -883,9 +1003,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "food-old-a",
     speaker: "bot",
     tags: ["smalltalk"],
-    ja: { key: "ネタ 古い 古くない", nat: "そのネタ、古くない？", value: "古いネタもチャンクに入れておけば、何度でも新鮮な顔で取り出せる。それが非生成の強み。" },
-    en: { key: "joke old not old stale", nat: "Isn't that joke old?", value: "Put an old joke in a chunk and you can pull it out with a fresh face any time. That's the strength of no-generation." },
-    zh: { key: "梗 旧 不旧", nat: "这个梗是不是旧了？", value: "把旧梗放进 chunk，就能一次次以崭新的面孔取出来。这就是无生成的优势。" },
+    ja: {
+      key: "ネタ 古い 古くない",
+      nat: "そのネタ、古くない？",
+      value:
+        "古いネタもチャンクに入れておけば、何度でも新鮮な顔で取り出せる。それが非生成の強み。",
+      spans: [
+        {
+          id: "reuse",
+          text: "古いネタもチャンクに入れておけば、何度でも新鮮な顔で取り出せる。",
+          tags: ["smalltalk", "mechanism"],
+        },
+        {
+          id: "no-gen-strength",
+          text: "それが非生成の強み。",
+          tags: ["no-generation", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "joke old not old stale",
+      nat: "Isn't that joke old?",
+      value:
+        "Put an old joke in a chunk and you can pull it out with a fresh face any time. That's the strength of no-generation.",
+      spans: [
+        {
+          id: "reuse",
+          text: "Put an old joke in a chunk and you can pull it out with a fresh face any time.",
+          tags: ["smalltalk", "mechanism"],
+        },
+        {
+          id: "no-gen-strength",
+          text: "That's the strength of no-generation.",
+          tags: ["no-generation", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "梗 旧 不旧",
+      nat: "这个梗是不是旧了？",
+      value:
+        "把旧梗放进 chunk，就能一次次以崭新的面孔取出来。这就是无生成的优势。",
+      spans: [
+        {
+          id: "reuse",
+          text: "把旧梗放进 chunk，就能一次次以崭新的面孔取出来。",
+          tags: ["smalltalk", "mechanism"],
+        },
+        {
+          id: "no-gen-strength",
+          text: "这就是无生成的优势。",
+          tags: ["no-generation", "summary"],
+        },
+      ],
+    },
   },
 
   // --- coding ---
@@ -1153,9 +1324,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "limit-2",
     speaker: "bot",
     tags: ["limit"],
-    ja: { key: "幻覚 ハルシネーション 嘘", nat: "幻覚やハルシネーション、嘘はある？", value: "生成しないから新しい嘘は作れない。代わりに「無関係な真実」を貼り付ける事故は起きる。" },
-    en: { key: "hallucination made up lies false", nat: "Do you hallucinate or make up lies?", value: "Since I don't generate, I can't make new lies. Instead I can accidentally paste an 'irrelevant truth.'" },
-    zh: { key: "幻觉 hallucination 谎言 编造", nat: "你会幻觉或编造谎言吗？", value: "因为不生成，我编不出新的谎言。但可能会出“贴上无关的真实”这种事故。" },
+    ja: {
+      key: "幻覚 ハルシネーション 嘘",
+      nat: "幻覚やハルシネーション、嘘はある？",
+      value:
+        "生成しないから新しい嘘は作れない。代わりに「無関係な真実」を貼り付ける事故は起きる。",
+      spans: [
+        {
+          id: "no-new-lie",
+          text: "生成しないから新しい嘘は作れない。",
+          tags: ["limit", "no-generation"],
+        },
+        {
+          id: "wrong-truth",
+          text: "代わりに「無関係な真実」を貼り付ける事故は起きる。",
+          tags: ["limit", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "hallucination made up lies false",
+      nat: "Do you hallucinate or make up lies?",
+      value:
+        "Since I don't generate, I can't make new lies. Instead I can accidentally paste an 'irrelevant truth.'",
+      spans: [
+        {
+          id: "no-new-lie",
+          text: "Since I don't generate, I can't make new lies.",
+          tags: ["limit", "no-generation"],
+        },
+        {
+          id: "wrong-truth",
+          text: "Instead I can accidentally paste an 'irrelevant truth.'",
+          tags: ["limit", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "幻觉 hallucination 谎言 编造",
+      nat: "你会幻觉或编造谎言吗？",
+      value:
+        "因为不生成，我编不出新的谎言。但可能会出“贴上无关的真实”这种事故。",
+      spans: [
+        {
+          id: "no-new-lie",
+          text: "因为不生成，我编不出新的谎言。",
+          tags: ["limit", "no-generation"],
+        },
+        {
+          id: "wrong-truth",
+          text: "但可能会出“贴上无关的真实”这种事故。",
+          tags: ["limit", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "limit-3",
@@ -1491,9 +1713,74 @@ const CLAIMS: ClaimGroup[] = [
     claim: "var-feel",
     speaker: "bot",
     tags: ["philosophy"],
-    ja: { key: "会話になってる 成立 っぽい 感じる", nat: "会話が成立してるっぽく感じるね。", value: "成立して「見える」。中身を開くとただの類似度ソート。不気味の谷の手前で止まってる設計。" },
-    en: { key: "it feels like a conversation it seems to work", nat: "It feels like a conversation actually works.", value: "It 'looks' like it works. Open it up and it's just a similarity sort. Designed to stop just short of the uncanny valley." },
-    zh: { key: "像在对话 成立 感觉像", nat: "感觉真的像在对话。", value: "看起来“成立”。打开一看只是相似度排序。设计上停在恐怖谷之前。" },
+    ja: {
+      key: "会話になってる 成立 っぽい 感じる",
+      nat: "会話が成立してるっぽく感じるね。",
+      value:
+        "成立して「見える」。中身を開くとただの類似度ソート。不気味の谷の手前で止まってる設計。",
+      spans: [
+        {
+          id: "looks",
+          text: "成立して「見える」。",
+          tags: ["philosophy", "summary"],
+        },
+        {
+          id: "sort",
+          text: "中身を開くとただの類似度ソート。",
+          tags: ["mechanism", "philosophy"],
+        },
+        {
+          id: "uncanny",
+          text: "不気味の谷の手前で止まってる設計。",
+          tags: ["philosophy", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "it feels like a conversation it seems to work",
+      nat: "It feels like a conversation actually works.",
+      value:
+        "It 'looks' like it works. Open it up and it's just a similarity sort. Designed to stop just short of the uncanny valley.",
+      spans: [
+        {
+          id: "looks",
+          text: "It 'looks' like it works.",
+          tags: ["philosophy", "summary"],
+        },
+        {
+          id: "sort",
+          text: "Open it up and it's just a similarity sort.",
+          tags: ["mechanism", "philosophy"],
+        },
+        {
+          id: "uncanny",
+          text: "Designed to stop just short of the uncanny valley.",
+          tags: ["philosophy", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "像在对话 成立 感觉像",
+      nat: "感觉真的像在对话。",
+      value: "看起来“成立”。打开一看只是相似度排序。设计上停在恐怖谷之前。",
+      spans: [
+        {
+          id: "looks",
+          text: "看起来“成立”。",
+          tags: ["philosophy", "summary"],
+        },
+        {
+          id: "sort",
+          text: "打开一看只是相似度排序。",
+          tags: ["mechanism", "philosophy"],
+        },
+        {
+          id: "uncanny",
+          text: "设计上停在恐怖谷之前。",
+          tags: ["philosophy", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "var-add",
