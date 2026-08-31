@@ -41,18 +41,25 @@ npm run eval:corpus-spans
 | 段階 | 内容 | 状態 |
 |---|---|---|
 | **G7a** | YAML 化・任意言語・key/spans 自動・`corpus:add` | ✅ |
-| **G7b** | UI フォーム（`/corpus`）+ YAML プレビュー + 保存/build | 🔄 |
-| **G7b+** | draft 他言語 / 差分プレビュー強化 | 予定 |
+| **G7b** | UI フォーム（`/corpus`）+ YAML プレビュー + 保存/build | ✅ |
+| **G7b** | draft 他言語（MT 下書き）+ 差分プレビュー | ✅ |
 | **G7c** | attach-span / set-assertion オペレータの明示 API | 予定 |
 
 ### G7b UI
 
 - 画面: [`/corpus`](/corpus)（チャット面ヘッダの **Corpus** からも）
-- API: `GET/POST /api/corpus`（`preview` / `save`）
+- API: `GET/POST /api/corpus`（`preview` / `save` / `draft`）
 - 保存時に `corpus/claims/<id>.yml` を書き、`npm run corpus:build` を実行
+- **他言語を下書き**: 欠けた言語を著者時 MT（MyMemory）で埋め、YAML diff を表示。ランタイム返答には使わない。確定は人手編集＋保存
+
+### コマンド
+
+```bash
+npm run eval:corpus-draft
+```
 
 ## フォローアップ
 
-- 著者時のみの他言語下書き（確定前 draft）
 - claim 追加後の embed 再インデックスを dev からワンショット
+- G7c: attach-span / set-assertion の明示オペレータ API
 - git 友好なレビュー用 diff（YAML 単位で既に分割済み）

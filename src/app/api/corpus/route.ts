@@ -6,10 +6,13 @@ import {
   toYaml,
   validateAuthorClaim,
 } from "@/lib/notalm/corpus-io";
-import { finalizeClaim, type AuthorClaim } from "@/lib/notalm/corpus-author";
+import { finalizeClaim, langsOfClaim, type AuthorClaim } from "@/lib/notalm/corpus-author";
+import { draftMissingLangs, unifiedDiff } from "@/lib/notalm/corpus-draft";
+import type { Lang } from "@/lib/notalm/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -29,9 +32,12 @@ export async function GET(req: Request) {
 }
 
 type Body = {
-  action?: "preview" | "save";
+  action?: "preview" | "save" | "draft";
   claim?: AuthorClaim;
   force?: boolean;
+  sourceLang?: Lang;
+  targets?: Lang[];
+  overwrite?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -46,6 +52,45 @@ export async function POST(req: Request) {
   const raw = body.claim;
   if (!raw) {
     return NextResponse.json({ error: "claim required" }, { status: 400 });
+  }
+
+  if (action === "draft") {
+    if (!raw.claim || !/^[a-z][a-z0-9-]*$/.test(raw.claim)) {
+      return NextResponse.json(
+        { error: "claim は kebab-case（先頭英小文字）で指定してください" },
+        { status: 400 },
+      );
+    }
+    if (langsOfClaim(raw).length === 0) {
+      return NextResponse.json(
+        { error: "下書き元に少なくとも1言語の nat+value が必要です" },
+        { status: 400 },
+      );
+    }
+    try {
+      const beforeYaml = toYaml(raw);
+      const drafted = await draftMissingLangs(raw, {
+        sourceLang: body.sourceLang,
+        targets: body.targets,
+        overwrite: body.overwrite,
+      });
+      const afterYaml = toYaml(drafted.claim);
+      return NextResponse.json({
+        ok: true,
+        claim: drafted.claim,
+        finalized: finalizeClaim(drafted.claim),
+        yaml: afterYaml,
+        diff: unifiedDiff(beforeYaml, afterYaml),
+        sourceLang: drafted.sourceLang,
+        drafted: drafted.drafted,
+        notes: drafted.notes,
+      });
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : String(e) },
+        { status: 502 },
+      );
+    }
   }
 
   const verr = validateAuthorClaim(raw);

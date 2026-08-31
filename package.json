@@ -28,7 +28,8 @@
     "corpus:migrate": "node --experimental-strip-types scripts/corpus-migrate.mjs",
     "corpus:build": "node --experimental-strip-types scripts/corpus-build.mjs",
     "corpus:add": "node --experimental-strip-types scripts/corpus-add.mjs",
-    "eval:corpus-author": "node --experimental-strip-types scripts/eval-corpus-author.mjs"
+    "eval:corpus-author": "node --experimental-strip-types scripts/eval-corpus-author.mjs",
+    "eval:corpus-draft": "node --experimental-strip-types scripts/eval-corpus-draft.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FilePlus2, Loader2, Save } from "lucide-react";
+import { ArrowLeft, FilePlus2, Languages, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +70,8 @@ export function CorpusAuthorApp() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [savedYaml, setSavedYaml] = useState<string | null>(null);
+  const [diffText, setDiffText] = useState<string | null>(null);
+  const [draftNotes, setDraftNotes] = useState<string[]>([]);
 
   const refreshList = useCallback(async () => {
     const res = await fetch("/api/corpus");
@@ -132,6 +134,56 @@ export function CorpusAuthorApp() {
     }));
   }
 
+  function applyClaimToForm(c: AuthorClaim, note?: string) {
+    setClaimId(c.claim);
+    setSpeaker(c.speaker);
+    setTags((c.tags ?? []).join(", "));
+    setStance(c.stance ?? "");
+    setSurfaces({
+      ja: c.ja
+        ? { nat: c.ja.nat, value: c.ja.value, enabled: true }
+        : emptySurface(),
+      en: c.en
+        ? { nat: c.en.nat, value: c.en.value, enabled: true }
+        : emptySurface(),
+      zh: c.zh
+        ? { nat: c.zh.nat, value: c.zh.value, enabled: true }
+        : emptySurface(),
+    });
+    if (note) setNotice(note);
+  }
+
+  async function onDraftOtherLangs() {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    setDiffText(null);
+    setDraftNotes([]);
+    try {
+      const res = await fetch("/api/corpus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "draft", claim: draft }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "下書きに失敗");
+        return;
+      }
+      applyClaimToForm(
+        data.claim as AuthorClaim,
+        `他言語下書き: ${(data.drafted as string[])?.join(", ") || "(なし)"} — 保存前に直してください`,
+      );
+      setDiffText(typeof data.diff === "string" ? data.diff : null);
+      setDraftNotes(Array.isArray(data.notes) ? data.notes : []);
+      if (typeof data.yaml === "string") setSavedYaml(data.yaml);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "下書きに失敗");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onSave(force = false) {
     setBusy(true);
     setError(null);
@@ -154,6 +206,7 @@ export function CorpusAuthorApp() {
       }
       setNotice(`保存しました: corpus/claims/${draft.claim}.yml（${data.claimCount} claims）`);
       setSavedYaml(typeof data.yaml === "string" ? data.yaml : null);
+      setDiffText(null);
       await refreshList();
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存に失敗");
@@ -165,29 +218,15 @@ export function CorpusAuthorApp() {
   async function loadExisting(id: string) {
     setError(null);
     setNotice(null);
+    setDiffText(null);
+    setDraftNotes([]);
     const res = await fetch(`/api/corpus?claim=${encodeURIComponent(id)}`);
     const data = await res.json();
     if (!res.ok) {
       setError(data.error || "読込失敗");
       return;
     }
-    const c = data.claim as AuthorClaim;
-    setClaimId(c.claim);
-    setSpeaker(c.speaker);
-    setTags((c.tags ?? []).join(", "));
-    setStance(c.stance ?? "");
-    setSurfaces({
-      ja: c.ja
-        ? { nat: c.ja.nat, value: c.ja.value, enabled: true }
-        : emptySurface(),
-      en: c.en
-        ? { nat: c.en.nat, value: c.en.value, enabled: true }
-        : emptySurface(),
-      zh: c.zh
-        ? { nat: c.zh.nat, value: c.zh.value, enabled: true }
-        : emptySurface(),
-    });
-    setNotice(`読込: ${id}`);
+    applyClaimToForm(data.claim as AuthorClaim, `読込: ${id}`);
   }
 
   return (
@@ -375,7 +414,24 @@ export function CorpusAuthorApp() {
                 <FilePlus2 className="size-3.5" />
                 上書き保存
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => void onDraftOtherLangs()}
+                disabled={busy || langsOfClaim(draft).length === 0}
+                className="gap-1.5"
+                title="欠けた言語を MT で下書き（確定は人手・保存時）"
+              >
+                <Languages className="size-3.5" />
+                他言語を下書き
+              </Button>
             </div>
+            {draftNotes.length > 0 && (
+              <ul className="font-mono text-[10px] leading-relaxed text-[var(--nalm-ink-mute)]">
+                {draftNotes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            )}
 
             {error && (
               <p className="text-sm text-red-700" role="alert">
@@ -394,9 +450,19 @@ export function CorpusAuthorApp() {
               <p className="mb-2 font-mono text-[11px] tracking-[0.16em] text-[var(--nalm-accent)] uppercase">
                 preview · auto key/spans
               </p>
-              <pre className="max-h-[52vh] overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#d7e8db]">
+              <pre className="max-h-[36vh] overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#d7e8db]">
                 {savedYaml ?? yamlPreview}
               </pre>
+              {diffText && (
+                <>
+                  <p className="mb-1 mt-3 font-mono text-[11px] tracking-[0.16em] text-[var(--nalm-glow-2)] uppercase">
+                    draft diff
+                  </p>
+                  <pre className="max-h-[22vh] overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-[#cfe7d4]">
+                    {diffText}
+                  </pre>
+                </>
+              )}
             </div>
 
             <div className="rounded-2xl border border-[var(--nalm-line)] bg-[var(--nalm-panel)]/80 p-3 backdrop-blur-md">
