@@ -1,0 +1,18 @@
+claim: g7b-ui-demo
+speaker: bot
+tags:
+  - weather
+  - demo
+ja:
+  nat: 虹が出たら何をする？
+  value: コーパスの色を拾って並べる。近いキーが橋になる。
+  key: 虹 出た 何 する コーパス 色 拾っ て並 べる 近いキー 橋 なる
+  spans:
+    - id: s1
+      text: コーパスの色を拾って並べる。
+      tags:
+        - auto
+    - id: s2
+      text: 近いキーが橋になる。
+      tags:
+        - auto

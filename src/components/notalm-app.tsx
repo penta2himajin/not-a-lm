@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Link2, Loader2, RotateCcw, Sparkles, Zap } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, FilePenLine, Link2, Loader2, RotateCcw, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -339,6 +340,12 @@ export function NotALMApp() {
             を連鎖させるだけの装置。日本語・英語・中国語で話せるが、言語モデルではない。
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link href="/corpus">
+                <FilePenLine className="size-3.5" />
+                Corpus
+              </Link>
+            </Button>
             <Badge
               variant="secondary"
               className={cn(
