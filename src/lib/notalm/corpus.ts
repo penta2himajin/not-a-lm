@@ -829,9 +829,90 @@ const CLAIMS: ClaimGroup[] = [
     claim: "mech-knn",
     speaker: "bot",
     tags: ["mechanism", "prior-art"],
-    ja: { key: "kNN kNN-LM RETRO 既存", nat: "kNN-LMやRETROみたいな既存手法とは違うの？", value: "近い親戚は kNN-LM（近傍で次トークン補間）や RETRO（チャンク回収）、あとは古典的な retrieval-based chatbot。" },
-    en: { key: "kNN kNN-LM RETRO related work", nat: "How does this relate to kNN-LM or RETRO?", value: "Close relatives are kNN-LM (neighbor-based next-token interpolation), RETRO (chunk retrieval), and the classic retrieval-based chatbot." },
-    zh: { key: "kNN kNN-LM RETRO 相关工作", nat: "这和 kNN-LM 或 RETRO 有什么关系？", value: "近亲有 kNN-LM（用邻居做下一 token 插值）、RETRO（chunk 检索），还有经典的 retrieval-based chatbot。" },
+    ja: {
+      key: "kNN kNN-LM RETRO 既存",
+      nat: "kNN-LMやRETROみたいな既存手法とは違うの？",
+      value:
+        "近い親戚は kNN-LM（近傍で次トークン補間）や RETRO（チャンク回収）、あとは古典的な retrieval-based chatbot。",
+      spans: [
+        {
+          id: "intro",
+          text: "近い親戚は ",
+          tags: ["prior-art", "filler"],
+        },
+        {
+          id: "item-knn",
+          text: "kNN-LM（近傍で次トークン補間）や ",
+          tags: ["prior-art", "prior-art-item", "knn-lm"],
+        },
+        {
+          id: "item-retro",
+          text: "RETRO（チャンク回収）、",
+          tags: ["prior-art", "prior-art-item", "retro"],
+        },
+        {
+          id: "item-retrieval",
+          text: "あとは古典的な retrieval-based chatbot。",
+          tags: ["prior-art", "prior-art-item", "retrieval-only", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "kNN kNN-LM RETRO related work",
+      nat: "How does this relate to kNN-LM or RETRO?",
+      value:
+        "Close relatives are kNN-LM (neighbor-based next-token interpolation), RETRO (chunk retrieval), and the classic retrieval-based chatbot.",
+      spans: [
+        {
+          id: "intro",
+          text: "Close relatives are",
+          tags: ["prior-art", "filler"],
+        },
+        {
+          id: "item-knn",
+          text: "kNN-LM (neighbor-based next-token interpolation),",
+          tags: ["prior-art", "prior-art-item", "knn-lm"],
+        },
+        {
+          id: "item-retro",
+          text: "RETRO (chunk retrieval), and",
+          tags: ["prior-art", "prior-art-item", "retro"],
+        },
+        {
+          id: "item-retrieval",
+          text: "the classic retrieval-based chatbot.",
+          tags: ["prior-art", "prior-art-item", "retrieval-only", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "kNN kNN-LM RETRO 相关工作",
+      nat: "这和 kNN-LM 或 RETRO 有什么关系？",
+      value:
+        "近亲有 kNN-LM（用邻居做下一 token 插值）、RETRO（chunk 检索），还有经典的 retrieval-based chatbot。",
+      spans: [
+        {
+          id: "intro",
+          text: "近亲有 ",
+          tags: ["prior-art", "filler"],
+        },
+        {
+          id: "item-knn",
+          text: "kNN-LM（用邻居做下一 token 插值）、",
+          tags: ["prior-art", "prior-art-item", "knn-lm"],
+        },
+        {
+          id: "item-retro",
+          text: "RETRO（chunk 检索），",
+          tags: ["prior-art", "prior-art-item", "retro"],
+        },
+        {
+          id: "item-retrieval",
+          text: "还有经典的 retrieval-based chatbot。",
+          tags: ["prior-art", "prior-art-item", "retrieval-only", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "mech-existing",
@@ -961,9 +1042,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "weather-1",
     speaker: "bot",
     tags: ["smalltalk"],
-    ja: { key: "天気 今日の天気 雨 晴れ 暑い 寒い", nat: "今日の天気はどう？雨か晴れか。", value: "外の天気は知らない。でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。" },
-    en: { key: "weather today's weather rain sunny hot cold", nat: "How's the weather today? Rainy or sunny?", value: "I don't know the weather outside. But in the corpus, 'rainy days are for tidying chunks at home' is a staple pattern." },
-    zh: { key: "天气 今天天气 下雨 晴天 热 冷", nat: "今天天气怎么样？下雨还是晴天？", value: "外面的天气我不知道。不过在语料里，“雨天在家整理 chunk”是个经典套路。" },
+    ja: {
+      key: "天気 今日の天気 雨 晴れ 暑い 寒い",
+      nat: "今日の天気はどう？雨か晴れか。",
+      value:
+        "外の天気は知らない。でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。",
+      spans: [
+        {
+          id: "deny-outside",
+          text: "外の天気は知らない。",
+          tags: ["limit", "smalltalk"],
+        },
+        {
+          id: "corpus-rain",
+          text: "でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。",
+          tags: ["smalltalk", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "weather today's weather rain sunny hot cold",
+      nat: "How's the weather today? Rainy or sunny?",
+      value:
+        "I don't know the weather outside. But in the corpus, 'rainy days are for tidying chunks at home' is a staple pattern.",
+      spans: [
+        {
+          id: "deny-outside",
+          text: "I don't know the weather outside.",
+          tags: ["limit", "smalltalk"],
+        },
+        {
+          id: "corpus-rain",
+          text: "But in the corpus, 'rainy days are for tidying chunks at home' is a staple pattern.",
+          tags: ["smalltalk", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "天气 今天天气 下雨 晴天 热 冷",
+      nat: "今天天气怎么样？下雨还是晴天？",
+      value:
+        "外面的天气我不知道。不过在语料里，“雨天在家整理 chunk”是个经典套路。",
+      spans: [
+        {
+          id: "deny-outside",
+          text: "外面的天气我不知道。",
+          tags: ["limit", "smalltalk"],
+        },
+        {
+          id: "corpus-rain",
+          text: "不过在语料里，“雨天在家整理 chunk”是个经典套路。",
+          tags: ["smalltalk", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "weather-sunny-q",
@@ -987,9 +1119,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "food-1",
     speaker: "bot",
     tags: ["smalltalk"],
-    ja: { key: "ご飯 何食べ ランチ 夕飯 お腹すいた ラーメン", nat: "お腹すいた、何食べよう？ラーメンとか。", value: "おすすめは「コサイン味噌ラーメン」。似た味の具が隣に来るスープだ。" },
-    en: { key: "food what to eat lunch dinner hungry ramen", nat: "I'm hungry, what should I eat? Like ramen.", value: "My rec is 'cosine miso ramen' — a soup where similarly-flavored toppings end up next to each other." },
-    zh: { key: "吃饭 吃什么 午饭 晚饭 饿了 拉面", nat: "我饿了，吃点什么好？比如拉面。", value: "推荐“余弦味噌拉面”——味道相近的配料会挨在一起的那种汤。" },
+    ja: {
+      key: "ご飯 何食べ ランチ 夕飯 お腹すいた ラーメン",
+      nat: "お腹すいた、何食べよう？ラーメンとか。",
+      value:
+        "おすすめは「コサイン味噌ラーメン」。似た味の具が隣に来るスープだ。",
+      spans: [
+        {
+          id: "rec",
+          text: "おすすめは「コサイン味噌ラーメン」。",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "explain",
+          text: "似た味の具が隣に来るスープだ。",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "food what to eat lunch dinner hungry ramen",
+      nat: "I'm hungry, what should I eat? Like ramen.",
+      value:
+        "My rec is 'cosine miso ramen' — a soup where similarly-flavored toppings end up next to each other.",
+      spans: [
+        {
+          id: "rec",
+          text: "My rec is 'cosine miso ramen' —",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "explain",
+          text: "a soup where similarly-flavored toppings end up next to each other.",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "吃饭 吃什么 午饭 晚饭 饿了 拉面",
+      nat: "我饿了，吃点什么好？比如拉面。",
+      value:
+        "推荐“余弦味噌拉面”——味道相近的配料会挨在一起的那种汤。",
+      spans: [
+        {
+          id: "rec",
+          text: "推荐“余弦味噌拉面”——",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "explain",
+          text: "味道相近的配料会挨在一起的那种汤。",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "food-old-q",
@@ -1130,9 +1313,75 @@ const CLAIMS: ClaimGroup[] = [
     claim: "code-2",
     speaker: "bot",
     tags: ["coding"],
-    ja: { key: "TypeScript React Next.js フロント", nat: "TypeScriptやReact、Next.jsのフロントはどう？", value: "このデモ自体が Next.js。埋め込みはサーバ側、KVはただの配列。派手な基盤は要らない。" },
-    en: { key: "TypeScript React Next.js frontend", nat: "What about TypeScript, React, Next.js on the frontend?", value: "This demo itself is Next.js. Embeddings run server-side, the KV is just an array. No fancy infra needed." },
-    zh: { key: "TypeScript React Next.js 前端", nat: "TypeScript、React、Next.js 前端怎么样？", value: "这个 demo 本身就是 Next.js。嵌入在服务端跑，KV 只是个数组。不需要花哨的基础设施。" },
+    ja: {
+      key: "TypeScript React Next.js フロント",
+      nat: "TypeScriptやReact、Next.jsのフロントはどう？",
+      value:
+        "このデモ自体が Next.js。埋め込みはサーバ側、KVはただの配列。派手な基盤は要らない。",
+      spans: [
+        {
+          id: "nextjs",
+          text: "このデモ自体が Next.js。",
+          tags: ["coding", "summary"],
+        },
+        {
+          id: "stack",
+          text: "埋め込みはサーバ側、KVはただの配列。",
+          tags: ["coding", "mechanism"],
+        },
+        {
+          id: "no-infra",
+          text: "派手な基盤は要らない。",
+          tags: ["coding", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "TypeScript React Next.js frontend",
+      nat: "What about TypeScript, React, Next.js on the frontend?",
+      value:
+        "This demo itself is Next.js. Embeddings run server-side, the KV is just an array. No fancy infra needed.",
+      spans: [
+        {
+          id: "nextjs",
+          text: "This demo itself is Next.js.",
+          tags: ["coding", "summary"],
+        },
+        {
+          id: "stack",
+          text: "Embeddings run server-side, the KV is just an array.",
+          tags: ["coding", "mechanism"],
+        },
+        {
+          id: "no-infra",
+          text: "No fancy infra needed.",
+          tags: ["coding", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "TypeScript React Next.js 前端",
+      nat: "TypeScript、React、Next.js 前端怎么样？",
+      value:
+        "这个 demo 本身就是 Next.js。嵌入在服务端跑，KV 只是个数组。不需要花哨的基础设施。",
+      spans: [
+        {
+          id: "nextjs",
+          text: "这个 demo 本身就是 Next.js。",
+          tags: ["coding", "summary"],
+        },
+        {
+          id: "stack",
+          text: "嵌入在服务端跑，KV 只是个数组。",
+          tags: ["coding", "mechanism"],
+        },
+        {
+          id: "no-infra",
+          text: "不需要花哨的基础设施。",
+          tags: ["coding", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "code-bug-q",
@@ -1316,9 +1565,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "limit-1",
     speaker: "bot",
     tags: ["limit"],
-    ja: { key: "知らない わからない 答えられない 無理", nat: "知らないこと、わからないことには答えられる？", value: "コーパスに近いキーがないと、的外れなチャンクが勝つ。それが失敗モード。" },
-    en: { key: "don't know can't answer no idea impossible", nat: "Can you answer things you don't know?", value: "If no key in the corpus is close, an off-target chunk wins. That's the failure mode." },
-    zh: { key: "不知道 不会 答不了 没办法", nat: "不知道的事情你能回答吗？", value: "如果语料里没有相近的键，跑题的 chunk 就会胜出。这就是失败模式。" },
+    ja: {
+      key: "知らない わからない 答えられない 無理",
+      nat: "知らないこと、わからないことには答えられる？",
+      value:
+        "コーパスに近いキーがないと、的外れなチャンクが勝つ。それが失敗モード。",
+      spans: [
+        {
+          id: "miss",
+          text: "コーパスに近いキーがないと、的外れなチャンクが勝つ。",
+          tags: ["limit", "detail"],
+        },
+        {
+          id: "failure",
+          text: "それが失敗モード。",
+          tags: ["limit", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "don't know can't answer no idea impossible",
+      nat: "Can you answer things you don't know?",
+      value:
+        "If no key in the corpus is close, an off-target chunk wins. That's the failure mode.",
+      spans: [
+        {
+          id: "miss",
+          text: "If no key in the corpus is close, an off-target chunk wins.",
+          tags: ["limit", "detail"],
+        },
+        {
+          id: "failure",
+          text: "That's the failure mode.",
+          tags: ["limit", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "不知道 不会 答不了 没办法",
+      nat: "不知道的事情你能回答吗？",
+      value:
+        "如果语料里没有相近的键，跑题的 chunk 就会胜出。这就是失败模式。",
+      spans: [
+        {
+          id: "miss",
+          text: "如果语料里没有相近的键，跑题的 chunk 就会胜出。",
+          tags: ["limit", "detail"],
+        },
+        {
+          id: "failure",
+          text: "这就是失败模式。",
+          tags: ["limit", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "limit-2",
@@ -1383,9 +1683,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "limit-3",
     speaker: "bot",
     tags: ["limit"],
-    ja: { key: "新しい話題 未知 コーパス外", nat: "新しい話題や未知のこと、コーパス外は苦手？", value: "未知の話題は苦手。キーを増やせば増やすほど、会話の地形が豊かになる。" },
-    en: { key: "new topic unknown out of corpus", nat: "Are you weak at new or unknown topics outside the corpus?", value: "I'm weak at unknown topics. The more keys you add, the richer the conversational terrain." },
-    zh: { key: "新话题 未知 语料之外", nat: "新话题或语料之外的东西你不擅长吗？", value: "我不擅长未知话题。键加得越多，对话的地形就越丰富。" },
+    ja: {
+      key: "新しい話題 未知 コーパス外",
+      nat: "新しい話題や未知のこと、コーパス外は苦手？",
+      value:
+        "未知の話題は苦手。キーを増やせば増やすほど、会話の地形が豊かになる。",
+      spans: [
+        {
+          id: "weak",
+          text: "未知の話題は苦手。",
+          tags: ["limit", "summary"],
+        },
+        {
+          id: "grow",
+          text: "キーを増やせば増やすほど、会話の地形が豊かになる。",
+          tags: ["limit", "mechanism"],
+        },
+      ],
+    },
+    en: {
+      key: "new topic unknown out of corpus",
+      nat: "Are you weak at new or unknown topics outside the corpus?",
+      value:
+        "I'm weak at unknown topics. The more keys you add, the richer the conversational terrain.",
+      spans: [
+        {
+          id: "weak",
+          text: "I'm weak at unknown topics.",
+          tags: ["limit", "summary"],
+        },
+        {
+          id: "grow",
+          text: "The more keys you add, the richer the conversational terrain.",
+          tags: ["limit", "mechanism"],
+        },
+      ],
+    },
+    zh: {
+      key: "新话题 未知 语料之外",
+      nat: "新话题或语料之外的东西你不擅长吗？",
+      value:
+        "我不擅长未知话题。键加得越多，对话的地形就越丰富。",
+      spans: [
+        {
+          id: "weak",
+          text: "我不擅长未知话题。",
+          tags: ["limit", "summary"],
+        },
+        {
+          id: "grow",
+          text: "键加得越多，对话的地形就越丰富。",
+          tags: ["limit", "mechanism"],
+        },
+      ],
+    },
   },
 
   // --- chain demo starters ---
