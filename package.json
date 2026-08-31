@@ -15,6 +15,7 @@
     "eval:nli:engine": "node scripts/eval-nli-engine.mjs",
     "eval:compose": "node --experimental-strip-types scripts/eval-compose.mjs",
     "eval:g4c:compose": "node --experimental-strip-types scripts/eval-g4c-compose.mjs",
+    "eval:plan": "node --experimental-strip-types scripts/eval-plan.mjs",
     "eval:dual-index": "node --experimental-strip-types scripts/eval-dual-index.mjs",
     "eval:dual-index:engine": "node scripts/eval-dual-index-engine.mjs",
     "eval:fusion-g4": "node --experimental-strip-types scripts/eval-fusion-g4.mjs",

@@ -75,10 +75,11 @@ type ComposePlan = {
 retrieve → G2 NLI (prefix 決定) → G3 fusion (+ G4 per segment) → G4 compose (single-chunk) → reply
 ```
 
-- G3 融合時は **各セグメントに G4a compose を適用**（`fuseCompound` 内、`composePartBody`）
+- G3 融合時は **各セグメントに G4 compose を適用**（G5: `planFuseParts` → body steps）
 - **G4b**: タグ Rule 2 で絞れないとき `rankSpansForCompose`（dense cosine + `indexTextForSpan`）で Rule 2b 焦点
 - **G4c**: `rankSpansByNli` — `nliHypothesis` 付き span を NLI(premise=query) で採点。Rule 1d（否定 refine）/ Rule 2c（焦点）
-- 単一チャンク応答は Stage 4 の G4a+G4b+G4c（dual-index の `focusSpanId` 優先）
+- 単一チャンク応答は G5 `planSingleChunk`（内部で G4a+G4b+G4c）
+- パイプライン全体: [`grounded-generation-g5.md`](grounded-generation-g5.md)
 - `trace.fuseParts[]` にセグメントごとの `composePlan` を記録
 - `trace.fusedCompose`: 融合パートのいずれかが G4 で狭められたとき true
 
@@ -94,7 +95,7 @@ npm run eval:nli:engine       # E2E negate（G2+G4 連携）
 npm run eval:reranker:engine  # fusion 発火（G3）
 ```
 
-## フォローアップ（G4.2+）
+## フォローアップ（G4.2+ / G5）
 
 - **Dual-index retrieval** — [`retrieval-dual-index.md`](retrieval-dual-index.md) ✅
 - **G3×G4** — 融合各パートへの compose ✅
@@ -102,3 +103,4 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 - NLI per-span（G4c）— ✅ Rule 1d/2c `rankSpansByNli` + `nliHypothesis`
 - 句単位スパンへの細分化（batch 2–5 では **不要** — 1文/句読点境界で十分）
 - コーパス spans 拡張 — ✅ bot claim 全件（42 claim / 126 chunks）
+- **G5 操作プランナー** — [`grounded-generation-g5.md`](grounded-generation-g5.md) ✅ G5a（切り出し）

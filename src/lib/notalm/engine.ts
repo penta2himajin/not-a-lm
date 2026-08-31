@@ -12,14 +12,17 @@ import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
 import { isRerankerReady, rerankScores } from "./rerank";
 import {
-  composeChangesReply,
-  composePartBody,
-  planComposeG4a,
-  rankSpansByNli,
-  rankSpansForCompose,
-  renderCompose,
-  type ComposeContext,
-} from "./compose";
+  GROUNDED_OPENERS,
+  deriveOperationLabel,
+  fusePartsFromMatched,
+  fusedComposeFromPlan,
+  fusedWithFromPlan,
+  peekPolarity,
+  planFuseParts,
+  planSingleChunk,
+  primaryComposePlan,
+  renderOperationPlan,
+} from "./plan";
 import {
   buildSpanIndexManifest,
   KEY_POOL,
@@ -28,7 +31,6 @@ import {
   SPAN_AUTHOR_MIN_COS,
   type SpanIndexEntry,
 } from "./span-index";
-import { isNliReady, nliClassify, normalizeForNli } from "./nli";
 import type {
   ChatMessage,
   ChunkRecord,
@@ -38,6 +40,7 @@ import type {
   IndexedChunk,
   Lang,
   MatchHit,
+  OperationPlan,
   TraceStep,
 } from "./types";
 
@@ -66,8 +69,6 @@ const GATE_MIN_SCORE = 0.03;
  * high enough to sit above the OOC "overlap band".
  */
 const RESCUE_COS = 0.7;
-/** Min NLI entailment probability to treat a query as presupposing the assertion */
-const NLI_ENTAIL_MIN = 0.5;
 /**
  * Fusion: if the top two candidates are BOTH strongly relevant (gate score) and
  * cover different topics, combine them into one reply with a closed connective.
@@ -105,51 +106,9 @@ function cleanSegment(seg: string, lang: Lang): string {
 }
 
 /**
- * Fluent topic connector for fusion: frame the second chunk with a topic phrase
- * EXTRACTED (copied) from the user's query. No token generation — the topic is a
- * span from the input; only the particle/preposition is closed-set glue.
+ * Fluent topic connector / stripLeadingFiller / polarity openers live in plan.ts
+ * (G5 renderer). Engine only segments queries for fusion matching.
  */
-function topicConnector(lang: Lang, topic: string): string {
-  if (lang === "ja") return `${topic}については、`;
-  if (lang === "zh") return `至于${topic}，`;
-  return ` As for ${topic}, `;
-}
-
-/**
- * Closed-set leading affirmations/fillers that a standalone reply opens with but
- * that become redundant once the value is framed by a topic lead-in in fusion
- * (e.g. "既存の似た手法については、あるよ。…" → "…については、…"). Removal only —
- * an extractive deletion, no token generation.
- */
-const STRIP_LEADS: Record<Lang, string[]> = {
-  ja: ["あるよ。", "あるよ", "うん、", "うん。", "はい、", "はい。", "ええ、", "そうだね。"],
-  en: ["Sure. ", "Sure, ", "Sure — ", "Yes. ", "Yes, ", "Yeah. ", "Yeah, ", "Well, "],
-  zh: ["有的。", "有的，", "有。", "是的。", "对，", "嗯，"],
-};
-
-function stripLeadingFiller(value: string, lang: Lang): string {
-  const v = value.trimStart();
-  for (const lead of STRIP_LEADS[lang]) {
-    if (v.startsWith(lead)) return v.slice(lead.length).trimStart();
-  }
-  return v;
-}
-/**
- * Closed-set negation openers per language for grounded generation. The reply is
- * this opener + the chunk's own (copied) value — no token generation.
- */
-const NEGATION_OPENER: Record<Lang, string> = {
-  ja: "いいえ、そうではありません。",
-  en: "No, that's not the case. ",
-  zh: "不，并不是这样。",
-};
-/** Closed-set affirmation openers (for a true presupposition, stance = affirm). */
-const AFFIRM_OPENER: Record<Lang, string> = {
-  ja: "はい、その通りです。",
-  en: "Yes, exactly. ",
-  zh: "对，正是如此。",
-};
-
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
   private spanIndex: SpanIndexEntry[] = [];
@@ -328,41 +287,27 @@ export class ChunkKVEngine {
   }
 
   /**
-   * Fusion: for a compound query, map each query segment to its best-matching
-   * confident chunk (selected by full-query ranking + cross-encoder gate, then
-   * assigned to a segment by embedding similarity), and combine the distinct
-   * answers in segment order. Each non-first part is framed by its own (copied)
-   * query segment as a fluent topic lead-in. Returns null unless ≥2 distinct
-   * segments map to distinct confident chunks. No token generation.
+   * Fusion matching: segment → distinct chunks. Returns OperationPlan via
+   * planFuseParts (G5), or null if fusion should not fire.
    */
   private async fuseCompound(
     query: string,
     queryVec: Float32Array,
     lang: Lang,
   ): Promise<{
-    text: string;
-    fusedWith: string;
-    fuseParts: FusePartTrace[];
-    fusedCompose: boolean;
+    plan: OperationPlan;
+    parts: { seg: string; chunk: ChunkRecord }[];
   } | null> {
     const segments = this.compoundSegments(query, lang);
     if (segments.length < 2) return null;
 
-    // Candidate pool from the full-query bi-encoder ranking (wide, so the right
-    // chunk per segment is present even when a generic chunk tops the ranking).
     const cands = this.search(queryVec, "bot", lang, 12);
     if (cands.length < 2) return null;
 
-    // Score every (segment, candidate) pair with the cross-encoder on the
-    // candidate's keyword key. A focused segment scores reliably and
-    // language-robustly (unlike the diluted compound query or bi-encoder
-    // cosine, which can spuriously pair unrelated chunks).
     const rr: number[][] = [];
     for (let i = 0; i < segments.length; i++) {
       rr.push(await rerankScores(segments[i], cands.map((c) => c.chunk.key)));
     }
-    // Greedy bipartite match on rerank scores: assign each segment to a DISTINCT
-    // candidate, keeping only confident pairs.
     const pairs: { i: number; j: number; s: number }[] = [];
     for (let i = 0; i < segments.length; i++) {
       for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
@@ -390,39 +335,9 @@ export class ChunkKVEngine {
     }
     if (parts.length < 2) return null;
 
-    const openers = {
-      negation: NEGATION_OPENER,
-      affirm: AFFIRM_OPENER,
-    };
-    const fuseParts: FusePartTrace[] = [];
-    let fusedCompose = false;
-
-    const renderPart = async (seg: string, chunk: ChunkRecord) => {
-      const { text, plan } = await composePartBody(seg, chunk, lang, openers);
-      if (plan) fusedCompose = true;
-      fuseParts.push({
-        chunkId: chunk.id,
-        segment: seg,
-        composePlan: plan ?? undefined,
-      });
-      return text;
-    };
-
-    let text = await renderPart(parts[0].seg, parts[0].chunk);
-    for (let i = 1; i < parts.length; i++) {
-      text +=
-        topicConnector(lang, parts[i].seg) +
-        stripLeadingFiller(
-          await renderPart(parts[i].seg, parts[i].chunk),
-          lang,
-        );
-    }
-    return {
-      text,
-      fusedWith: parts.slice(1).map((p) => p.chunk.id).join(","),
-      fuseParts,
-      fusedCompose,
-    };
+    const plan = await planFuseParts(parts, lang);
+    if (!plan) return null;
+    return { plan, parts };
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -578,8 +493,8 @@ export class ChunkKVEngine {
       this.usedIds = new Set([...this.usedIds].slice(-12));
     }
 
-    // Stage 3 (grounded generation): NLI polarity → optional prefix; G4 composes
-    // spans when present. Without spans, prefix + full value copy (G2 legacy).
+    // Stage 3–4 (G5): build OperationPlan then render. Order matches legacy:
+    // peek polarity → fuse if no prefix → else single-chunk plan (NLI+G4/G2).
     let replyText = chosen.chunk.value;
     let generated = false;
     let operation:
@@ -590,126 +505,70 @@ export class ChunkKVEngine {
       | "compose"
       | undefined;
     let composePlan: ComposePlan | undefined;
-    let composePrefix: "negate-correct" | "affirm-confirm" | undefined;
+    let operationPlan: OperationPlan | undefined;
     let nliLabel: string | undefined;
     let nliScore: number | undefined;
-    if (
-      opts.generate &&
-      preferSpeaker === "bot" &&
-      !lowConfidence &&
-      isNliReady() &&
-      gateQuery &&
-      chosen.chunk.assertions?.length &&
-      chosen.chunk.stance
-    ) {
-      try {
-        const premise = normalizeForNli(gateQuery);
-        let bestEntail = -1;
-        let bestLabel = "neutral";
-        for (const assertion of chosen.chunk.assertions) {
-          const nli = await nliClassify(premise, assertion);
-          if (nli.entail > bestEntail) {
-            bestEntail = nli.entail;
-            bestLabel = nli.label;
-          }
-        }
-        nliLabel = bestLabel;
-        nliScore = bestEntail;
-        operation = "as-is";
-        if (bestEntail >= NLI_ENTAIL_MIN) {
-          if (chosen.chunk.stance === "deny") {
-            composePrefix = "negate-correct";
-          } else if (chosen.chunk.stance === "affirm") {
-            composePrefix = "affirm-confirm";
-          }
-        }
-      } catch {
-        /* NLI unavailable: fall through with the as-is value */
-      }
-    }
-
-    // Stage 3b — fusion (segment-driven): if no polarity op fired and the query
-    // is compound, split it, retrieve the best chunk PER segment, and combine
-    // the distinct answers. Each non-first part is framed by its own segment
-    // (a span copied from the query) as a fluent topic lead-in. Values are
-    // copied, only the particle is glue — no token generation.
     let fusedWith: string | undefined;
     let fuseParts: FusePartTrace[] | undefined;
     let fusedCompose: boolean | undefined;
-    if (
-      opts.generate &&
-      preferSpeaker === "bot" &&
-      !lowConfidence &&
-      !composePrefix &&
-      isRerankerReady()
-    ) {
-      const fused = await this.fuseCompound(
-        gateQuery,
-        composed.vector,
-        chosen.chunk.lang,
-      );
-      if (fused) {
-        operation = "fuse";
-        generated = true;
-        replyText = fused.text;
-        fusedWith = fused.fusedWith;
-        fuseParts = fused.fuseParts;
-        fusedCompose = fused.fusedCompose;
-      }
-    }
 
-    // Stage 4 — G4 compose (G4a rules + G4b embedding focus): single-chunk path.
-    if (
-      opts.generate &&
-      preferSpeaker === "bot" &&
-      !lowConfidence &&
-      operation !== "fuse" &&
-      chosen.chunk.spans?.length
-    ) {
-      const composeCtx: ComposeContext = {
-        prefix: composePrefix,
-        focusSpanId:
-          retrievalSource === "span" && matchedSpanKind === "author"
-            ? matchedSpanId
-            : undefined,
-        focusKeySpanText:
-          retrievalSource === "span" && matchedSpanKind === "key-span"
-            ? matchedSpanText
-            : undefined,
-      };
-      if (gateQuery) {
-        composeCtx.spanRankings = await rankSpansForCompose(
+    if (opts.generate && preferSpeaker === "bot" && !lowConfidence) {
+      const chunkById = new Map(this.index.map((c) => [c.id, c]));
+      const getChunk = (id: string) => chunkById.get(id);
+
+      const polarity = await peekPolarity(gateQuery, chosen.chunk);
+      nliLabel = polarity.nliLabel;
+      nliScore = polarity.nliScore;
+
+      if (!polarity.prefix && isRerankerReady()) {
+        const fused = await this.fuseCompound(
           gateQuery,
-          chosen.chunk.spans,
+          composed.vector,
+          chosen.chunk.lang,
         );
-        composeCtx.spanNliRankings = await rankSpansByNli(
-          gateQuery,
-          chosen.chunk.spans,
-        );
-      }
-      const plan = planComposeG4a(gateQuery, chosen.chunk, composeCtx);
-      if (plan) {
-        const openers = {
-          negation: NEGATION_OPENER,
-          affirm: AFFIRM_OPENER,
-        };
-        if (composeChangesReply(plan, chosen.chunk, chosen.chunk.lang, openers)) {
-          replyText = renderCompose(plan, chosen.chunk, chosen.chunk.lang, openers);
-          composePlan = plan;
-          operation = "compose";
-          generated = true;
+        if (fused) {
+          operationPlan = fused.plan;
+          fuseParts = fusePartsFromMatched(fused.parts, fused.plan);
+          fusedWith = fusedWithFromPlan(fused.plan);
+          fusedCompose = fusedComposeFromPlan(fused.plan);
         }
       }
-    }
 
-    // G2 legacy path when polarity fired but chunk has no spans (or G4 skipped).
-    if (composePrefix && operation !== "compose" && operation !== "fuse") {
-      generated = true;
-      operation = composePrefix;
-      replyText =
-        composePrefix === "negate-correct"
-          ? NEGATION_OPENER[chosen.chunk.lang] + chosen.chunk.value
-          : AFFIRM_OPENER[chosen.chunk.lang] + chosen.chunk.value;
+      if (!operationPlan) {
+        const single = await planSingleChunk({
+          query: gateQuery,
+          chunk: chosen.chunk,
+          lang: chosen.chunk.lang,
+          focusSpanId:
+            retrievalSource === "span" && matchedSpanKind === "author"
+              ? matchedSpanId
+              : undefined,
+          focusKeySpanText:
+            retrievalSource === "span" && matchedSpanKind === "key-span"
+              ? matchedSpanText
+              : undefined,
+          polarity,
+        });
+        if (single) {
+          operationPlan = single.plan;
+          nliLabel = single.nliLabel;
+          nliScore = single.nliScore;
+        }
+      }
+
+      if (operationPlan) {
+        operation = deriveOperationLabel(operationPlan);
+        composePlan = primaryComposePlan(operationPlan);
+        const rendered = renderOperationPlan(
+          operationPlan,
+          getChunk,
+          chosen.chunk.lang,
+          GROUNDED_OPENERS,
+        );
+        replyText = rendered;
+        // Legacy: generated only when the reply was modified (not plain as-is).
+        if (operation !== "as-is") generated = true;
+      }
     }
 
     const queryText = composed.summary;
@@ -726,6 +585,7 @@ export class ChunkKVEngine {
         queryLang,
         generated,
         operation,
+        operationPlan,
         fusedWith,
         fuseParts,
         fusedCompose,
