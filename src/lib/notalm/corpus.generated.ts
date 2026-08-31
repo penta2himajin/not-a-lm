@@ -880,6 +880,64 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     }
   },
   {
+    "claim": "g7b-rain",
+    "speaker": "bot",
+    "tags": [
+      "weather",
+      "demo"
+    ],
+    "ja": {
+      "nat": "雨の日はどうする？",
+      "value": "窓辺でキーを並べ直す。近いチャンクが傘になる。",
+      "key": "雨 日 どうする 窓辺 キー 並べ直す 近い チャ ンク 傘 なる",
+      "spans": [
+        {
+          "id": "s1",
+          "text": "窓辺でキーを並べ直す。",
+          "tags": [
+            "auto"
+          ]
+        },
+        {
+          "id": "s2",
+          "text": "近いチャンクが傘になる。",
+          "tags": [
+            "auto"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "claim": "g7b-ui-demo",
+    "speaker": "bot",
+    "tags": [
+      "weather",
+      "demo"
+    ],
+    "ja": {
+      "nat": "虹が出たら何をする？",
+      "value": "コーパスの色を拾って並べる。近いキーが橋になる。",
+      "key": "虹 出た 何 する コーパス 色 拾っ て並 べる 近いキー 橋 なる",
+      "spans": [
+        {
+          "id": "s1",
+          "text": "コーパスの色を拾って並べる。",
+          "tags": [
+            "auto"
+          ]
+        },
+        {
+          "id": "s2",
+          "text": "近いキーが橋になる。",
+          "tags": [
+            "auto"
+          ]
+        }
+      ]
+    }
+  },
+  {
     "claim": "greet-howareyou",
     "speaker": "bot",
     "tags": [

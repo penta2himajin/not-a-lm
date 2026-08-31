@@ -41,8 +41,15 @@ npm run eval:corpus-spans
 | 段階 | 内容 | 状態 |
 |---|---|---|
 | **G7a** | YAML 化・任意言語・key/spans 自動・`corpus:add` | ✅ |
-| **G7b** | UI フォーム / draft 他言語 / 差分プレビュー | 予定 |
+| **G7b** | UI フォーム（`/corpus`）+ YAML プレビュー + 保存/build | 🔄 |
+| **G7b+** | draft 他言語 / 差分プレビュー強化 | 予定 |
 | **G7c** | attach-span / set-assertion オペレータの明示 API | 予定 |
+
+### G7b UI
+
+- 画面: [`/corpus`](/corpus)（チャット面ヘッダの **Corpus** からも）
+- API: `GET/POST /api/corpus`（`preview` / `save`）
+- 保存時に `corpus/claims/<id>.yml` を書き、`npm run corpus:build` を実行
 
 ## フォローアップ
 
