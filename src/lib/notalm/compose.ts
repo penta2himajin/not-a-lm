@@ -35,8 +35,10 @@ const TAG_QUERY_HINTS: Record<string, RegExp[]> = {
 export type ComposeContext = {
   /** From G2 NLI when grounded generation detected polarity */
   prefix?: "negate-correct" | "affirm-confirm";
-  /** From dual-index retrieval: prefer this span in compose */
+  /** From dual-index retrieval: prefer this author span in compose */
   focusSpanId?: string;
+  /** From dual-index retrieval: auto key-span substring (copy-only) */
+  focusKeySpanText?: string;
 };
 
 export function joinSpanTexts(spans: SpanRecord[], lang: Lang): string {
@@ -81,7 +83,7 @@ export function planComposeG4a(
     if (correction.length) kept = correction;
   }
 
-  // Rule 1b — dual-index retrieval pointed at a span
+  // Rule 1b — dual-index retrieval pointed at an author span
   if (ctx.focusSpanId) {
     const focus = spans.find((s) => s.id === ctx.focusSpanId);
     if (focus) {
@@ -91,6 +93,27 @@ export function planComposeG4a(
           spans.findIndex((s) => s.id === a.id) -
           spans.findIndex((s) => s.id === b.id),
       );
+    }
+  }
+
+  // Rule 1c — auto key-span hit: map to overlapping author span or keySpanText
+  let keySpanOnly = false;
+  if (ctx.focusKeySpanText && chunk.value.includes(ctx.focusKeySpanText)) {
+    const overlap = spans.find(
+      (s) =>
+        s.text.includes(ctx.focusKeySpanText!) ||
+        ctx.focusKeySpanText!.includes(s.text),
+    );
+    if (overlap) {
+      const summary = spans.filter((s) => s.tags?.includes("summary"));
+      kept = [...new Set([overlap, ...summary])].sort(
+        (a, b) =>
+          spans.findIndex((s) => s.id === a.id) -
+          spans.findIndex((s) => s.id === b.id),
+      );
+    } else {
+      kept = spans.filter((s) => s.tags?.includes("summary"));
+      keySpanOnly = true;
     }
   }
 
@@ -119,12 +142,18 @@ export function planComposeG4a(
   const keptRefs = kept.map((s) => ({ chunkId: chunk.id, spanId: s.id }));
 
   const allKept = kept.length === spans.length;
-  if (allKept && !ctx.prefix) return null;
+  if (allKept && !ctx.prefix && !keySpanOnly) return null;
 
-  return {
+  const plan: ComposePlan = {
     prefix: ctx.prefix,
     kept: keptRefs,
   };
+
+  if (keySpanOnly && ctx.focusKeySpanText) {
+    plan.keySpanText = ctx.focusKeySpanText;
+  }
+
+  return plan;
 }
 
 export function resolveKeptSpans(
@@ -147,7 +176,9 @@ export function renderCompose(
   },
 ): string {
   const parts = resolveKeptSpans(plan, chunk);
-  let body = joinSpanTexts(parts, lang);
+  let body = plan.keySpanText
+    ? plan.keySpanText + joinSpanTexts(parts, lang)
+    : joinSpanTexts(parts, lang);
 
   if (plan.prefix === "negate-correct") {
     body = openers.negation[lang] + body;
@@ -169,6 +200,6 @@ export function composeChangesReply(
   },
 ): boolean {
   const rendered = renderCompose(plan, chunk, lang, openers);
-  if (plan.prefix) return true;
+  if (plan.prefix || plan.keySpanText) return true;
   return rendered !== chunk.value;
 }

@@ -21,6 +21,7 @@ import {
   KEY_POOL,
   mergeDualRetrieval,
   searchSpanIndex,
+  SPAN_AUTHOR_MIN_COS,
   type SpanIndexEntry,
 } from "./span-index";
 import { isNliReady, nliClassify } from "./nli";
@@ -297,14 +298,26 @@ export class ChunkKVEngine {
    */
   private async gateConfidence(
     query: string,
-    hits: MatchHit[],
+    keyHits: MatchHit[],
+    chosen?: MatchHit,
   ): Promise<number> {
-    const top = hits.slice(0, GATE_CANDIDATES);
+    const top = keyHits.slice(0, GATE_CANDIDATES);
+    const candidates = [...top];
+    if (
+      chosen &&
+      !candidates.some((h) => h.chunk.id === chosen.chunk.id)
+    ) {
+      candidates.push(chosen);
+    }
     const scores = await rerankScores(
       query,
-      top.map((h) => h.chunk.key),
+      candidates.map((h) => h.chunk.key),
     );
-    top.forEach((h, i) => (h.rerankScore = scores[i]));
+    candidates.forEach((h, i) => (h.rerankScore = scores[i]));
+    top.forEach((h) => {
+      const idx = candidates.findIndex((c) => c.chunk.id === h.chunk.id);
+      if (idx >= 0) h.rerankScore = scores[idx];
+    });
     return scores.length ? Math.max(...scores) : 0;
   }
 
@@ -429,9 +442,12 @@ export class ChunkKVEngine {
       hits = this.search(composed.vector, preferSpeaker, undefined, searchLimit);
     }
 
+    const keyHitsForGate = hits.map((h) => ({ ...h }));
+
     let retrievalSource: "natKey" | "span" = "natKey";
     let matchedSpanId: string | undefined;
     let matchedSpanKind: "author" | "key-span" | undefined;
+    let matchedSpanText: string | undefined;
     let spanScore: number | undefined;
 
     if (this.spanIndex.length > 0 && preferSpeaker === "bot") {
@@ -442,17 +458,20 @@ export class ChunkKVEngine {
         chunkById,
         queryLang,
       );
+      const gateQueryEarly = composed.anchorText || latestUser?.trim() || "";
       const dual = mergeDualRetrieval(
         composed.vector,
         hits,
         spanHits,
         chunkById,
         this.usedIds,
+        gateQueryEarly,
       );
       hits = dual.hits;
       retrievalSource = dual.retrievalSource;
       matchedSpanId = dual.matchedSpanId;
       matchedSpanKind = dual.matchedSpanKind;
+      matchedSpanText = dual.matchedSpanText;
       spanScore = dual.spanScore;
     }
 
@@ -475,9 +494,19 @@ export class ChunkKVEngine {
     let topRerankScore: number | undefined;
     let lowConfidence = false;
     let rescued = false;
+    const spanGateBypass =
+      retrievalSource === "span" &&
+      matchedSpanKind === "author" &&
+      (spanScore ?? 0) >= SPAN_AUTHOR_MIN_COS;
+
     if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
       try {
-        topRerankScore = await this.gateConfidence(gateQuery, hits);
+        // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
+        topRerankScore = await this.gateConfidence(
+          gateQuery,
+          keyHitsForGate,
+          chosen,
+        );
         gated = true;
       } catch {
         /* gate unavailable: fall through without refusing */
@@ -488,11 +517,17 @@ export class ChunkKVEngine {
     // threshold, nothing in the corpus is a close match — refuse gracefully with
     // the language's "no close key" chunk. One-way cosine rescue: if the nearest
     // corpus element is very close (topCosine >= RESCUE_COS), the low reranker
-    // score is likely a fluke, so answer instead of refusing.
+    // score is likely a fluke, so answer instead of refusing. Span author rescue
+    // bypass: strong span match already validated the parent chunk.
     if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && topCosine >= RESCUE_COS) {
       rescued = true;
     }
-    if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && !rescued) {
+    if (
+      gated &&
+      (topRerankScore ?? 0) < GATE_MIN_SCORE &&
+      !rescued &&
+      !spanGateBypass
+    ) {
       const refusal = this.refusalChunk(queryLang);
       if (refusal) {
         lowConfidence = true;
@@ -608,6 +643,10 @@ export class ChunkKVEngine {
         focusSpanId:
           retrievalSource === "span" && matchedSpanKind === "author"
             ? matchedSpanId
+            : undefined,
+        focusKeySpanText:
+          retrievalSource === "span" && matchedSpanKind === "key-span"
+            ? matchedSpanText
             : undefined,
       });
       if (plan) {

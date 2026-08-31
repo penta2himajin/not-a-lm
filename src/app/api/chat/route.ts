@@ -11,6 +11,8 @@ type Body = {
   userText?: string;
   mode?: "reply" | "predict-user";
   generate?: boolean;
+  /** Clear reuse penalty between eval cases */
+  resetSession?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -41,6 +43,8 @@ export async function POST(req: Request) {
     if (!userText) {
       return NextResponse.json({ error: "userText required" }, { status: 400 });
     }
+
+    if (body.resetSession) engine.resetMemory();
 
     const result = await engine.reply(history, userText, {
       generate: body.generate === true,

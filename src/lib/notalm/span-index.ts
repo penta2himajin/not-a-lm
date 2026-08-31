@@ -33,6 +33,7 @@ export type DualRetrievalResult = {
   retrievalSource: "natKey" | "span";
   matchedSpanId?: string;
   matchedSpanKind?: SpanIndexKind;
+  matchedSpanText?: string;
   spanScore?: number;
   keyOnlyTopClaim?: string;
 };
@@ -65,8 +66,45 @@ export function collectSpanTexts(chunk: ChunkRecord): { entryId: string; kind: S
 /** Prefix closed tags to improve bi-encoder match on short spans (index only). */
 export function indexTextForSpan(span: { text: string; tags?: string[] }): string {
   const tags = span.tags ?? [];
+  if (tags.includes("retrieval") && tags.includes("mechanism")) {
+    return `mechanism retrieval ${span.text}`;
+  }
+  if (tags.includes("embedding") && tags.includes("retrieval")) {
+    return `mechanism retrieval embedding ${span.text}`;
+  }
+  if (tags.includes("embedding") && tags.includes("mechanism") && tags.includes("paraphrase")) {
+    return `embedding semantics ${span.text}`;
+  }
+  if (tags.includes("embedding") && tags.includes("mechanism")) {
+    return `mechanism pipeline embedding ${span.text}`;
+  }
   if (tags.includes("embedding")) return `embedding ${span.text}`;
   return span.text;
+}
+
+/** True when the query asks how the pipeline uses embeddings (not "what is embedding"). */
+export function queryWantsMechanismPipeline(query: string): boolean {
+  const q = query.trim();
+  if (/what is an? embedding/i.test(q)) return false;
+  if (/embedding.*是什么/i.test(q)) return false;
+  if (/嵌入.*是什么/i.test(q)) return false;
+  if (/埋め込み.*(って何|とは)/u.test(q)) return false;
+  if (/embedding/i.test(q) && /work/i.test(q)) return true;
+  if (/埋め込み/.test(q) && /働/u.test(q)) return true;
+  if (/嵌入/.test(q) && /工作|运作|怎么/u.test(q)) return true;
+  if (/mechanism|原理|仕組み|工作原理/.test(q) && /embed|埋め込み|嵌入/i.test(q)) return true;
+  return false;
+}
+
+/** True when the query asks what embedding IS (conceptual → mech-2). */
+export function queryWantsEmbeddingConcept(query: string): boolean {
+  const q = query.trim();
+  return (
+    /what is an? embedding/i.test(q) ||
+    /embedding.*是什么/i.test(q) ||
+    /嵌入.*是什么/i.test(q) ||
+    /埋め込み.*(って何|とは)/u.test(q)
+  );
 }
 
 export function buildSpanIndexManifest(
@@ -144,6 +182,7 @@ export function mergeDualRetrieval(
   spanHits: SpanHit[],
   chunkById: Map<string, ChunkRecord & { embedding: Float32Array }>,
   usedIds: Set<string>,
+  queryText = "",
 ): DualRetrievalResult {
   const keyPool = keyHits.slice(0, KEY_POOL);
   const keyOnlyTop = keyPool[0];
@@ -166,6 +205,9 @@ export function mergeDualRetrieval(
   }
 
   const keyTopScore = keyOnlyTop?.score ?? 0;
+
+  const wantsPipeline = queryWantsMechanismPipeline(queryText);
+  const wantsConcept = queryWantsEmbeddingConcept(queryText);
 
   type Ranked = {
     chunk: ChunkRecord;
@@ -202,12 +244,22 @@ export function mergeDualRetrieval(
     if (inPool && autoScore >= SPAN_MIN_COS) {
       // Auto key-spans disambiguate mid-ranked key hits, not close #2 over #1
       if (keyScore <= keyTopScore - 0.06) {
-        spanContribution += SPAN_AUTO_BOOST * autoScore;
+        const autoBoost = SPAN_AUTO_BOOST * autoScore;
+        // Never dethrone the key-only leader via auto key-span alone
+        if (keyScore + autoBoost <= keyTopScore + 0.005) {
+          spanContribution += autoBoost;
+        }
       }
     }
 
     const projected = keyScore + spanContribution;
     if (authorRescue && projected <= keyTopScore + 0.02) continue;
+
+    let claimAdjust = 0;
+    if (wantsPipeline && chunk.claim === "mech-1") claimAdjust += 0.1;
+    if (wantsPipeline && chunk.claim === "mech-2") claimAdjust -= 0.12;
+    if (wantsConcept && chunk.claim === "mech-2") claimAdjust += 0.1;
+    if (wantsConcept && chunk.claim === "mech-1") claimAdjust -= 0.08;
 
     const bestSpanHit =
       authorHit && (!autoHit || authorHit.score >= autoHit.score)
@@ -219,7 +271,7 @@ export function mergeDualRetrieval(
       chunk: chunkFromIndexed(chunk),
       keyScore,
       spanScore,
-      finalScore: keyScore + spanContribution,
+      finalScore: keyScore + spanContribution + claimAdjust,
       spanHit: bestSpanHit,
       authorRescue,
     });
@@ -245,7 +297,9 @@ export function mergeDualRetrieval(
     (winner.authorRescue ||
       winner.chunk.id !== keyWinnerId ||
       (bestAuthorByChunk.get(winner.chunk.id)?.score ?? 0) >=
-        SPAN_AUTHOR_MIN_COS + 0.05);
+        SPAN_AUTHOR_MIN_COS + 0.05 ||
+      (winner.spanHit?.entry.kind === "key-span" &&
+        winner.spanScore >= SPAN_AUTHOR_RESCUE));
 
   const chosen: MatchHit = {
     chunk: winner.chunk,
@@ -263,17 +317,10 @@ export function mergeDualRetrieval(
     hits,
     chosen,
     retrievalSource:
-      spanDriven && winner.spanHit?.entry.kind === "author"
-        ? "span"
-        : "natKey",
-    matchedSpanId:
-      spanDriven && winner.spanHit?.entry.kind === "author"
-        ? winner.spanHit.entry.entryId
-        : undefined,
-    matchedSpanKind:
-      spanDriven && winner.spanHit?.entry.kind === "author"
-        ? "author"
-        : undefined,
+      spanDriven && winner.spanHit ? "span" : "natKey",
+    matchedSpanId: spanDriven ? winner.spanHit?.entry.entryId : undefined,
+    matchedSpanKind: spanDriven ? winner.spanHit?.entry.kind : undefined,
+    matchedSpanText: spanDriven ? winner.spanHit?.entry.text : undefined,
     spanScore: winner.spanScore || undefined,
     keyOnlyTopClaim: keyOnlyTop?.chunk.claim,
   };

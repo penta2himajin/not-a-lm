@@ -22,6 +22,8 @@ export type ComposePlan = {
   /** Optional closed prefix from G2 polarity (negation/affirmation opener) */
   prefix?: "negate-correct" | "affirm-confirm";
   kept: SpanRef[];
+  /** Auto key-span text (copy-only) when no author span id matches */
+  keySpanText?: string;
 };
 
 export type ChunkRecord = {
