@@ -12,6 +12,10 @@ import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
 import { isRerankerReady, rerankScores } from "./rerank";
 import {
+  buildTurnGrounding,
+  lastBotGrounding,
+} from "./grounding";
+import {
   GROUNDED_OPENERS,
   deriveOperationLabel,
   fusePartsFromMatched,
@@ -620,6 +624,22 @@ export class ChunkKVEngine {
 
     const queryText = composed.summary;
 
+    // G6a: structured grounding on the reply; prior from last bot in history.
+    const priorGrounding = lastBotGrounding(history);
+    const fullChosen =
+      this.index.find((c) => c.id === chosen.chunk.id) ??
+      ({
+        ...chosen.chunk,
+      } as ChunkRecord);
+    const chunkByIdForGround = new Map(this.index.map((c) => [c.id, c]));
+    const turnGrounding = buildTurnGrounding({
+      chunk: fullChosen,
+      operation,
+      composePlan,
+      fuseParts,
+      getChunk: (id) => chunkByIdForGround.get(id),
+    });
+
     return {
       message: {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -627,9 +647,12 @@ export class ChunkKVEngine {
         text: replyText,
         sourceChunkId: chosen.chunk.id,
         score: chosen.score,
+        grounding: turnGrounding,
       },
       trace: {
         queryLang,
+        priorGrounding,
+        turnGrounding,
         generated,
         operation,
         operationPlan,
