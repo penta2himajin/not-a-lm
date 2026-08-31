@@ -13,76 +13,55 @@ G5 までで **1 ターン**の grounded reply（宣言的 `OperationPlan` → r
 | **G8** | ANN・自律収集・依存監査 |
 | **G9** | 検証・自己監査ループ（出力 ⊆ コーパス ∪ 閉じた糊） |
 
-（初期案で「後回し G6」だった ANN 束は **G8** へ。旧「検証 G8」は **G9** へずらす。）
-
-## 現状（G5 まで）の多ターン
-
-- `composeQueryVector` … 直近ペアの埋め込みブレンド（構造参照ではない）
-- `usedIds` … 再利用ペナルティ（継続とは逆方向に効きやすい）
-- UI 連鎖デモ … `predict-user` → `reply` のオープンループ
-- 前回の `composePlan` / `claim` / kept span は **トレースに残るだけで次ターンへ渡らない**（→ G6a で解消）
-
-## 照応の二分類（設計合意）
+## 照応の二分類
 
 | クラス | 例（ja） | 振る舞い |
 |---|---|---|
-| **Proximal（直前照応）** | それ／その／これ／この／上記 | 直前 bot の `TurnGrounding`（kept span / claim）を指差しコピー |
-| **Non-proximal（非直前）** | さっきの／前の／先ほど／前に話した | **勝手に1件選ばない**。直近数ターンの例示（履歴スパンのコピー）+ 閉じた聞き返し |
-
-「さっきの」で履歴 bot ≤1 のときのみ proximal にフォールバック。
-
-明確化返答の骨格（コピーのみ）:
-
-1. 閉じたオープナー（`CLARIFY_OPEN`）
-2. 直近 bot grounding の `excerptTexts` を `echo` で列挙（`CLARIFY_SEP` 区切り）
-3. 閉じた締め（`CLARIFY_CLOSE`）
-
-`OpStep`: `closed`（clarify-open/sep/close）+ `echo`（履歴コピー）。`operation: "clarify"`。
-
-## データモデル
-
-```ts
-type TurnGrounding = {
-  chunkId: string;
-  claim?: string;
-  lang?: Lang;
-  kept?: SpanRef[];
-  excerptTexts: string[];
-  operation?: ... | "clarify";
-  parts?: { chunkId; claim?; excerptTexts }[];
-};
-
-// ChatMessage.grounding / TraceStep.priorGrounding / turnGrounding / anaphora
-```
+| **Proximal** | それ／その／これ／この／上記 | 直前 bot grounding を指差しコピー |
+| **Non-proximal** | さっきの／先ほど… | 例示 + 閉じた聞き返し（勝手に1件選ばない） |
 
 ## 段階
 
 | 段階 | 内容 | 状態 |
 |---|---|---|
-| **G6a** | `TurnGrounding` の付与・history 持ち越し・`priorGrounding` トレース | ✅ |
-| **G6b-proximal** | それ／その → `injectProximal` で検索・gate・plan 用クエリに excerpt を前置 | ✅ |
-| **G6b-clarify** | さっきの → retrieve 前に `planClarifyRecent`（例示+聞き返し） | ✅ |
-| **G6c** | 前ターン claim/span 継続バイアス（`usedIds` と両立） | ✅ |
-| **G6d** | 連鎖の計画化（任意・後回し可） | 任意 |
+| **G6a** | `TurnGrounding` 持ち越し | ✅ |
+| **G6b-proximal / clarify** | 照応二分類 | ✅ |
+| **G6c** | 継続バイアス ↔ `usedIds` | ✅ |
+| **G6d** | 連鎖の計画化（`ChainPlan`） | ✅ |
 
-## パイプライン
+## G6d: 連鎖プラン
+
+オープンループの `predict-user` → `reply` を、**宣言的な多ターンレシピ**に置き換える。
+
+```ts
+type ChainStep = {
+  index: number;
+  role: "user" | "bot";
+  claim?: string;
+  resolve: "corpus" | "generate"; // user=corpus, bot=generate（自由度）
+  reason: string;
+};
+type ChainPlan = { id; lang; seedClaim; pairCount; steps; reasons };
+```
+
+- **監査**: 各ターンに `trace.chain`（planId / stepIndex / claim / resolve / reason）。UI に `chain-plan · …`
+- **自由度**: bot は `resolve:"generate"` のまま → 既存の G5 + G6a–c が効く。user だけ claim 固定で再現可能
+- **API**: `mode: "chain-plan"` / `mode: "emit-claim"`
+- **レシピ**: `CHAIN_DEMO_USER_CLAIMS`（言語別 claim 列）。拡張は配列を足すだけ
+
+```
+chain-plan → seed reply(chain-start)
+  → for step: emit-claim(user) | reply(bot, generate)
+```
+
+## パイプライン（1 ターン）
 
 ```
 history(+ grounding)
-  → classify anaphora
-  → (non-proximal ∧ ≥2 bots) clarify short-circuit
-  → (proximal) inject prior excerpt into planning query
-  → retrieve (+ G6c continuity vs usedIds) → gate → G5 candidates → G5d → render
-  → message.grounding + trace
+  → classify anaphora → clarify | proximal inject
+  → retrieve (+ G6c) → gate → G5 → render
+  → grounding + optional trace.chain
 ```
-
-### G6c 継続バイアス
-
-- 直前 bot の `chunkId` / `claim` を `ContinuityHint` に
-- **同一 chunk** が `usedIds` にあっても reuse ペナルティを免除（+ 軽い stick）
-- **同一 claim・別 chunk** に小さなブースト
-- G5d の single 候補 relevance も同 claim/chunk なら微増
-- トレース: `continuity.matchedChosen`
 
 ## 評価
 
@@ -90,11 +69,11 @@ history(+ grounding)
 npm run eval:g6a
 npm run eval:g6b
 npm run eval:g6c
-npm run eval:plan
-npm run eval:dual-index
+npm run eval:g6d
 ```
 
 ## フォローアップ
 
-- G6d 連鎖プランナーの要否
-- 明確化文言のコーパス claim 化（任意）
+- レシピに bot claim 固定（`resolve:"corpus"`）を混ぜるモード
+- 明確化文言のコーパス claim 化
+- en/zh シード文言での連鎖ボタン（現状デモは ja 起点）

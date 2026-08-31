@@ -192,6 +192,17 @@ export type TraceStep = {
     claim?: string;
     matchedChosen: boolean;
   };
+  /**
+   * G6d: multi-turn chain plan audit (when this turn was executed from a ChainPlan).
+   */
+  chain?: {
+    planId: string;
+    stepIndex: number;
+    role: Speaker;
+    claim?: string;
+    resolve: "corpus" | "generate";
+    reason: string;
+  };
   /** Whether the cross-encoder reranker reordered the candidates */
   reranked?: boolean;
   /** Best cross-encoder relevance score for this turn (when reranked) */
@@ -263,6 +274,31 @@ export type ChatMessage = {
   score?: number;
   /** G6a: structured grounding for multi-turn (client echoes in history) */
   grounding?: TurnGrounding;
+};
+
+/**
+ * G6d — one turn in a multi-turn chain recipe.
+ * User steps resolve from corpus by claim; bot steps may generate (G5) or copy.
+ */
+export type ChainStep = {
+  index: number;
+  role: Speaker;
+  /** Language-neutral claim id (required for corpus resolve) */
+  claim?: string;
+  /** corpus = copy chunk value; generate = existing reply pipeline */
+  resolve: "corpus" | "generate";
+  reason: string;
+};
+
+/** G6d — declarative multi-turn chain plan (auditable). */
+export type ChainPlan = {
+  id: string;
+  lang: Lang;
+  seedClaim: string;
+  /** Number of user→bot pairs requested */
+  pairCount: number;
+  steps: ChainStep[];
+  reasons: string[];
 };
 
 export type EngineStatus =
