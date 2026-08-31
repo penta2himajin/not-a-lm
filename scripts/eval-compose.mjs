@@ -318,6 +318,34 @@ const CASES = [
     expectIncludes: "不学习",
     expectExcludes: "添加 chunk",
   },
+  // batch-4 prior-art focus on mech-knn
+  {
+    name: "focus-retro-knn ja",
+    query: "RETROについて教えて",
+    claim: "mech-knn",
+    lang: "ja",
+    expectSpanIds: ["item-retro"],
+    expectIncludes: "RETRO",
+    expectExcludes: "kNN-LM",
+  },
+  {
+    name: "focus-retro-knn en",
+    query: "Tell me about RETRO",
+    claim: "mech-knn",
+    lang: "en",
+    expectSpanIds: ["item-retro"],
+    expectIncludes: "RETRO",
+    expectExcludes: "kNN-LM",
+  },
+  {
+    name: "focus-retro-knn zh",
+    query: "讲讲 RETRO",
+    claim: "mech-knn",
+    lang: "zh",
+    expectSpanIds: ["item-retro"],
+    expectIncludes: "RETRO",
+    expectExcludes: "kNN-LM",
+  },
 ];
 
 async function main() {
