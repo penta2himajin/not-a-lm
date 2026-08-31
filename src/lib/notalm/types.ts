@@ -60,6 +60,31 @@ export type OperationPlan = {
   reasons: string[];
 };
 
+/**
+ * G5d — one scored candidate before selection.
+ * `id` is a closed vocabulary (fuse | single); score is heuristic, not learned.
+ */
+export type PlanCandidateId = "fuse" | "single";
+
+export type PlanCandidateSignals = {
+  /** Mean segment↔chunk relevance (fuse) or gate/top score (single), in ~[0,1] */
+  relevance: number;
+  /** Best NLI entailment tied to this plan, when available */
+  nliEntail?: number;
+  /** Number of body steps */
+  bodies: number;
+  hasCompose: boolean;
+  hasPolarity: boolean;
+};
+
+export type PlanCandidate = {
+  id: PlanCandidateId;
+  plan: OperationPlan;
+  signals: PlanCandidateSignals;
+  /** Set after scorePlanCandidate */
+  score?: number;
+};
+
 /** One segment→chunk mapping in G3 fusion (with optional G4 compose). */
 export type FusePartTrace = {
   chunkId: string;

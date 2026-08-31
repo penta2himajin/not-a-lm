@@ -19,9 +19,11 @@ import {
   fusedWithFromPlan,
   peekPolarity,
   planFuseParts,
+  planSignals,
   planSingleChunk,
   primaryComposePlan,
   renderOperationPlan,
+  selectBestPlan,
 } from "./plan";
 import {
   buildSpanIndexManifest,
@@ -41,6 +43,7 @@ import type {
   Lang,
   MatchHit,
   OperationPlan,
+  PlanCandidate,
   TraceStep,
 } from "./types";
 
@@ -289,6 +292,7 @@ export class ChunkKVEngine {
   /**
    * Fusion matching: segment → distinct chunks. Returns OperationPlan via
    * planFuseParts (G5), or null if fusion should not fire.
+   * Also returns per-part rerank scores for G5d plan scoring.
    */
   private async fuseCompound(
     query: string,
@@ -296,7 +300,7 @@ export class ChunkKVEngine {
     lang: Lang,
   ): Promise<{
     plan: OperationPlan;
-    parts: { seg: string; chunk: ChunkRecord }[];
+    parts: { seg: string; chunk: ChunkRecord; score: number }[];
     nliLabel?: string;
     nliScore?: number;
   } | null> {
@@ -318,21 +322,24 @@ export class ChunkKVEngine {
     const usedSeg = new Set<number>();
     const usedCand = new Set<number>();
     const assign = new Map<number, number>();
+    const assignScore = new Map<number, number>();
     for (const p of pairs) {
       if (p.s < FUSE_MIN) break;
       if (usedSeg.has(p.i) || usedCand.has(p.j)) continue;
       assign.set(p.i, p.j);
+      assignScore.set(p.i, p.s);
       usedSeg.add(p.i);
       usedCand.add(p.j);
     }
 
-    const parts: { seg: string; chunk: ChunkRecord }[] = [];
+    const parts: { seg: string; chunk: ChunkRecord; score: number }[] = [];
     for (let i = 0; i < segments.length; i++) {
       const j = assign.get(i);
       if (j == null) continue;
       parts.push({
         seg: segments[i],
         chunk: cands[j].chunk,
+        score: assignScore.get(i) ?? 0,
       });
     }
     if (parts.length < 2) return null;
@@ -495,9 +502,9 @@ export class ChunkKVEngine {
       this.usedIds = new Set([...this.usedIds].slice(-12));
     }
 
-    // Stage 3–4 (G5): build OperationPlan then render.
-    // G5c: try fuse first when reranker ready (per-segment polarity inside
-    // planFuseParts); fall back to single-chunk plan.
+    // Stage 3–4 (G5): build candidate OperationPlans, G5d-score, then render.
+    // G5c: fuse still gets per-segment polarity inside planFuseParts.
+    // G5d: fuse is no longer auto-preferred — score vs single and pick.
     let replyText = chosen.chunk.value;
     let generated = false;
     let operation:
@@ -523,6 +530,13 @@ export class ChunkKVEngine {
       nliLabel = polarity.nliLabel;
       nliScore = polarity.nliScore;
 
+      const candidates: PlanCandidate[] = [];
+      let fusedMeta: {
+        parts: { seg: string; chunk: ChunkRecord; score: number }[];
+        nliLabel?: string;
+        nliScore?: number;
+      } | null = null;
+
       if (isRerankerReady()) {
         const fused = await this.fuseCompound(
           gateQuery,
@@ -530,32 +544,60 @@ export class ChunkKVEngine {
           chosen.chunk.lang,
         );
         if (fused) {
-          operationPlan = fused.plan;
-          fuseParts = fusePartsFromMatched(fused.parts, fused.plan);
-          fusedWith = fusedWithFromPlan(fused.plan);
-          fusedCompose = fusedComposeFromPlan(fused.plan);
-          if (fused.nliLabel != null) nliLabel = fused.nliLabel;
-          if (fused.nliScore != null) nliScore = fused.nliScore;
+          const meanRel =
+            fused.parts.reduce((a, p) => a + p.score, 0) / fused.parts.length;
+          candidates.push({
+            id: "fuse",
+            plan: fused.plan,
+            signals: planSignals(fused.plan, {
+              relevance: meanRel,
+              nliEntail: fused.nliScore,
+            }),
+          });
+          fusedMeta = {
+            parts: fused.parts,
+            nliLabel: fused.nliLabel,
+            nliScore: fused.nliScore,
+          };
         }
       }
 
-      if (!operationPlan) {
-        const single = await planSingleChunk({
-          query: gateQuery,
-          chunk: chosen.chunk,
-          lang: chosen.chunk.lang,
-          focusSpanId:
-            retrievalSource === "span" && matchedSpanKind === "author"
-              ? matchedSpanId
-              : undefined,
-          focusKeySpanText:
-            retrievalSource === "span" && matchedSpanKind === "key-span"
-              ? matchedSpanText
-              : undefined,
-          polarity,
+      const single = await planSingleChunk({
+        query: gateQuery,
+        chunk: chosen.chunk,
+        lang: chosen.chunk.lang,
+        focusSpanId:
+          retrievalSource === "span" && matchedSpanKind === "author"
+            ? matchedSpanId
+            : undefined,
+        focusKeySpanText:
+          retrievalSource === "span" && matchedSpanKind === "key-span"
+            ? matchedSpanText
+            : undefined,
+        polarity,
+      });
+      if (single) {
+        const singleRel = topRerankScore ?? Math.max(0, chosen.score);
+        candidates.push({
+          id: "single",
+          plan: single.plan,
+          signals: planSignals(single.plan, {
+            relevance: singleRel,
+            nliEntail: single.nliScore,
+          }),
         });
-        if (single) {
-          operationPlan = single.plan;
+      }
+
+      const selection = selectBestPlan(candidates);
+      if (selection) {
+        operationPlan = selection.winner.plan;
+        if (selection.winner.id === "fuse" && fusedMeta) {
+          fuseParts = fusePartsFromMatched(fusedMeta.parts, operationPlan);
+          fusedWith = fusedWithFromPlan(operationPlan);
+          fusedCompose = fusedComposeFromPlan(operationPlan);
+          if (fusedMeta.nliLabel != null) nliLabel = fusedMeta.nliLabel;
+          if (fusedMeta.nliScore != null) nliScore = fusedMeta.nliScore;
+        } else if (single) {
           nliLabel = single.nliLabel;
           nliScore = single.nliScore;
         }

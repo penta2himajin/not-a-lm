@@ -21,34 +21,52 @@ type OpStep =
   | { kind: "glue"; template: "topic"; topic: string };
 
 type OperationPlan = { steps: OpStep[]; reasons: string[] };
+
+type PlanCandidate = {
+  id: "fuse" | "single";
+  plan: OperationPlan;
+  signals: { relevance; nliEntail?; bodies; hasCompose; hasPolarity };
+};
 ```
 
-- `trace.operationPlan` — 監査用の完全なレシピ
+- `trace.operationPlan` — 監査用の完全なレシピ（`reasons` に `g5d:pick` / `g5d:rank`）
 - `trace.operation` — 互換のための派生ラベル（`deriveOperationLabel`）。移行完了後に plan のみへ切り替え予定
 
 ## パイプライン
 
 ```
-retrieve → gate → G5 plan → render → reply
+retrieve → gate → G5 candidates → G5d score/select → render → reply
 ```
 
-1. reranker 可なら `fuseCompound` マッチを試す（**G5c**: トップチャンクの極性で fuse を阻害しない）
-2. fuse 成功 → `planFuseParts`（**セグメントごと** NLI + G4 compose）
-3. 否则 `planSingleChunk`
+1. fuse 候補: `fuseCompound` → `planFuseParts`（**G5c**: セグメントごと NLI + G4 compose）
+2. single 候補: `planSingleChunk`（極性 + compose）
+3. **G5d** `selectBestPlan` — 閉じたヒューリスティックで最高スコアを採用（fuse 自動優先は廃止）
 4. `renderOperationPlan` → reply
 
-## G5a / G5b / G5c
+### G5d スコア（概要）
+
+```
+score ≈ 2·relevance·(1 + 0.35·(bodies−1))
+      + 0.35·hasCompose
+      + 0.4·max(nliEntail, 0.5)·hasPolarity
+```
+
+- `relevance`: fuse はパート rerank 平均、single は gate / top score
+- 弱い fuse（境界付近のマッチ）は、強い極性+compose の single に負ける
+
+## G5a–d
 
 | 段階 | 内容 | 状態 |
 |---|---|---|
 | G5a | plan/render 切り出し・挙動同一 | ✅ |
 | G5b | トレース UI に `plan · …` と `reasons` | ✅ |
 | G5c | 極性×fuse 共存（パート単位 NLI） | ✅ |
+| G5d | 複数 candidate のスコア選択 | ✅ |
 
 ## 評価
 
 ```bash
-npm run eval:plan             # render / derive / G5c polarity×fuse
+npm run eval:plan             # render / derive / G5c / G5d
 npm run eval:compose
 npm run eval:g4c:compose
 npm run eval:fusion-g4
@@ -57,5 +75,5 @@ npm run eval:corpus-spans
 
 ## フォローアップ
 
-- **G5d** — 複数 candidate plan のスコア選択
 - 操作粒度: ラベル互換を保ったまま移行できたら `operation` を plan 派生のみ／廃止
+- （任意）候補 ID 拡張（例: second-hit single）や重みの調整は eval で回帰を見てから
