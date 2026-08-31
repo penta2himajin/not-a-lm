@@ -203,3 +203,35 @@ export function composeChangesReply(
   if (plan.prefix || plan.keySpanText) return true;
   return rendered !== chunk.value;
 }
+
+export type ComposePartResult = {
+  text: string;
+  plan: ComposePlan | null;
+};
+
+/**
+ * G4 on one G3 fusion segment: plan from the segment query, render copy-only body.
+ * Returns full `value` when the chunk has no spans or compose would be unchanged.
+ */
+export function composePartBody(
+  segmentQuery: string,
+  chunk: ChunkRecord,
+  lang: Lang,
+  openers: {
+    negation: Record<Lang, string>;
+    affirm: Record<Lang, string>;
+  },
+  ctx: ComposeContext = {},
+): ComposePartResult {
+  if (!chunk.spans?.length) {
+    return { text: chunk.value, plan: null };
+  }
+  const plan = planComposeG4a(segmentQuery, chunk, ctx);
+  if (!plan || !composeChangesReply(plan, chunk, lang, openers)) {
+    return { text: chunk.value, plan: null };
+  }
+  return {
+    text: renderCompose(plan, chunk, lang, openers),
+    plan,
+  };
+}

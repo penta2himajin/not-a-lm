@@ -44,23 +44,29 @@ type ComposePlan = {
 ## パイプライン位置
 
 ```
-retrieve → G2 NLI (prefix 決定) → G3 fusion? → G4 compose(spans) → reply
+retrieve → G2 NLI (prefix 決定) → G3 fusion (+ G4 per segment) → G4 compose (single-chunk) → reply
 ```
 
-- G3 融合が発火したターンでは G4 はスキップ（融合パートへの G4 は G4.1 で follow-up）
-- `composePlan.prefix` に G2 の極性を記録（監査用）
+- G3 融合時は **各セグメントに G4a compose を適用**（`fuseCompound` 内、`composePartBody`）
+- 単一チャンク応答は Stage 4 の G4a（dual-index の `focusSpanId` 等）
+- `trace.fuseParts[]` にセグメントごとの `composePlan` を記録
+- `trace.fusedCompose`: 融合パートのいずれかが G4 で狭められたとき true
 
 ## 評価
 
 ```bash
 npm run eval:compose          # ユニット（プランナー + render）
+npm run eval:fusion-g4        # G3×G4 ユニット（prior-art 部分 KEEP）
+npm run eval:fusion-g4:engine # G3×G4 API（dev server 要）
 npm run eval:nli:engine       # E2E negate（G2+G4 連携）
+npm run eval:reranker:engine  # fusion 発火（G3）
 ```
 
-## フォローアップ（G4.1+）
+## フォローアップ（G4.2+）
 
-- **Dual-index retrieval** — [`retrieval-dual-index.md`](retrieval-dual-index.md)（natKey + author/key-span 二次索引）
-- G3 融合の各パートに G4 compose を適用
+- **Dual-index retrieval** — [`retrieval-dual-index.md`](retrieval-dual-index.md) ✅
+- **G3×G4** — 融合各パートへの compose ✅
 - スパン embedding / cross-encoder マッチ（G4b）
 - NLI per-span（G4c）
 - 句単位スパンへの細分化
+- コーパス spans 拡張（46 claim 未付与）

@@ -13,6 +13,7 @@ import { composeQueryVector } from "./query-vector";
 import { isRerankerReady, rerankScores } from "./rerank";
 import {
   composeChangesReply,
+  composePartBody,
   planComposeG4a,
   renderCompose,
 } from "./compose";
@@ -30,6 +31,7 @@ import type {
   ChunkRecord,
   ComposePlan,
   EngineStatus,
+  FusePartTrace,
   IndexedChunk,
   Lang,
   MatchHit,
@@ -344,7 +346,12 @@ export class ChunkKVEngine {
     query: string,
     queryVec: Float32Array,
     lang: Lang,
-  ): Promise<{ text: string; fusedWith: string } | null> {
+  ): Promise<{
+    text: string;
+    fusedWith: string;
+    fuseParts: FusePartTrace[];
+    fusedCompose: boolean;
+  } | null> {
     const segments = this.compoundSegments(query, lang);
     if (segments.length < 2) return null;
 
@@ -379,25 +386,47 @@ export class ChunkKVEngine {
       usedCand.add(p.j);
     }
 
-    const parts: { seg: string; id: string; value: string }[] = [];
+    const parts: { seg: string; chunk: ChunkRecord }[] = [];
     for (let i = 0; i < segments.length; i++) {
       const j = assign.get(i);
       if (j == null) continue;
       parts.push({
         seg: segments[i],
-        id: cands[j].chunk.id,
-        value: cands[j].chunk.value,
+        chunk: cands[j].chunk,
       });
     }
     if (parts.length < 2) return null;
 
-    let text = parts[0].value;
+    const openers = {
+      negation: NEGATION_OPENER,
+      affirm: AFFIRM_OPENER,
+    };
+    const fuseParts: FusePartTrace[] = [];
+    let fusedCompose = false;
+
+    const renderPart = (seg: string, chunk: ChunkRecord) => {
+      const { text, plan } = composePartBody(seg, chunk, lang, openers);
+      if (plan) fusedCompose = true;
+      fuseParts.push({
+        chunkId: chunk.id,
+        segment: seg,
+        composePlan: plan ?? undefined,
+      });
+      return text;
+    };
+
+    let text = renderPart(parts[0].seg, parts[0].chunk);
     for (let i = 1; i < parts.length; i++) {
       text +=
         topicConnector(lang, parts[i].seg) +
-        stripLeadingFiller(parts[i].value, lang);
+        stripLeadingFiller(renderPart(parts[i].seg, parts[i].chunk), lang);
     }
-    return { text, fusedWith: parts.slice(1).map((p) => p.id).join(",") };
+    return {
+      text,
+      fusedWith: parts.slice(1).map((p) => p.chunk.id).join(","),
+      fuseParts,
+      fusedCompose,
+    };
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -609,6 +638,8 @@ export class ChunkKVEngine {
     // (a span copied from the query) as a fluent topic lead-in. Values are
     // copied, only the particle is glue — no token generation.
     let fusedWith: string | undefined;
+    let fuseParts: FusePartTrace[] | undefined;
+    let fusedCompose: boolean | undefined;
     if (
       opts.generate &&
       preferSpeaker === "bot" &&
@@ -626,11 +657,13 @@ export class ChunkKVEngine {
         generated = true;
         replyText = fused.text;
         fusedWith = fused.fusedWith;
+        fuseParts = fused.fuseParts;
+        fusedCompose = fused.fusedCompose;
       }
     }
 
-    // Stage 4 — span composition (G4a): KEEP selected spans + optional G2 prefix.
-    // Skipped when fusion already produced the reply (G4 on fused parts: follow-up).
+    // Stage 4 — span composition (G4a): single-chunk path when fusion did not run.
+    // G3 fusion applies G4 per segment inside fuseCompound (G4.1).
     if (
       opts.generate &&
       preferSpeaker === "bot" &&
@@ -688,6 +721,8 @@ export class ChunkKVEngine {
         generated,
         operation,
         fusedWith,
+        fuseParts,
+        fusedCompose,
         composePlan,
         nliLabel,
         nliScore,

@@ -26,6 +26,13 @@ export type ComposePlan = {
   keySpanText?: string;
 };
 
+/** One segment→chunk mapping in G3 fusion (with optional G4 compose). */
+export type FusePartTrace = {
+  chunkId: string;
+  segment: string;
+  composePlan?: ComposePlan;
+};
+
 export type ChunkRecord = {
   id: string;
   /** Keyword-bag key: used only as the cross-encoder confidence-gate input */
@@ -96,6 +103,10 @@ export type TraceStep = {
   operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose";
   /** For fuse: the id of the second chunk combined into the reply */
   fusedWith?: string;
+  /** G3 fusion: per-segment chunk mapping (+ G4 plan when narrowed) */
+  fuseParts?: FusePartTrace[];
+  /** True when any fused part used G4 compose */
+  fusedCompose?: boolean;
   /** G4 span composition plan (when operation is compose, or polarity+compose) */
   composePlan?: ComposePlan;
   /** Dual-index: natKey vs span secondary retrieval */

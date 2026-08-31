@@ -15,7 +15,9 @@
     "eval:nli:engine": "node scripts/eval-nli-engine.mjs",
     "eval:compose": "node --experimental-strip-types scripts/eval-compose.mjs",
     "eval:dual-index": "node --experimental-strip-types scripts/eval-dual-index.mjs",
-    "eval:dual-index:engine": "node scripts/eval-dual-index-engine.mjs"
+    "eval:dual-index:engine": "node scripts/eval-dual-index-engine.mjs",
+    "eval:fusion-g4": "node --experimental-strip-types scripts/eval-fusion-g4.mjs",
+    "eval:fusion-g4:engine": "node --experimental-strip-types scripts/eval-fusion-g4.mjs --api"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
