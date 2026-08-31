@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, TraceStep } from "@/lib/notalm/types";
+import { formatOperationPlan } from "@/lib/notalm/plan";
 
 const SUGGESTIONS = [
   "お前誰？",
@@ -531,6 +532,18 @@ export function NotALMApp() {
                     <p className="mb-2 font-mono text-[11px] text-[var(--nalm-ink-mute)]">
                       {tr.querySummary || tr.queryText}
                     </p>
+                    {tr.operationPlan && tr.operationPlan.steps.length > 0 && (
+                      <div className="mb-2 space-y-1 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-soft)]">
+                        <p className="text-[var(--nalm-accent)]">
+                          plan · {formatOperationPlan(tr.operationPlan)}
+                        </p>
+                        {tr.operationPlan.reasons.length > 0 && (
+                          <p className="text-[var(--nalm-ink-mute)]">
+                            {tr.operationPlan.reasons.join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {tr.queryPairs && tr.queryPairs.length > 0 && (
                       <ul className="mb-2 space-y-1.5 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
                         {tr.queryPairs.map((qp) => (

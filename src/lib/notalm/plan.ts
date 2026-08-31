@@ -330,46 +330,86 @@ export async function planSingleChunk(
 
 /**
  * Build a fuse OperationPlan from segment→chunk parts (after bipartite match).
- * Runs G4 compose per part (same as former fuseCompound render path).
+ * G5c: per-segment NLI polarity + G4 compose (polarity×fuse coexistence).
  */
 export async function planFuseParts(
   parts: { seg: string; chunk: ChunkRecord }[],
   lang: Lang,
-): Promise<OperationPlan | null> {
+): Promise<{
+  plan: OperationPlan;
+  nliLabel?: string;
+  nliScore?: number;
+} | null> {
   if (parts.length < 2) return null;
   const steps: OpStep[] = [];
   const reasons = [`fuse:parts=${parts.length}`];
+  let bestLabel: string | undefined;
+  let bestScore = -1;
 
   for (let i = 0; i < parts.length; i++) {
     const { seg, chunk } = parts[i];
     if (i > 0) {
       steps.push({ kind: "glue", template: "topic", topic: seg });
     }
-    const { plan } = await composePartBodyPlan(seg, chunk, lang);
-    if (plan) reasons.push(`fuse[${i}]:compose`);
-    steps.push({
-      kind: "body",
-      chunkId: chunk.id,
-      composePlan: plan ?? undefined,
-      stripFiller: i > 0,
-    });
+
+    const polarity = await peekPolarity(seg, chunk);
+    if (polarity.nliRan && (polarity.nliScore ?? -1) > bestScore) {
+      bestScore = polarity.nliScore ?? -1;
+      bestLabel = polarity.nliLabel;
+    }
+    for (const r of polarity.reasons) {
+      reasons.push(`fuse[${i}]:${r}`);
+    }
+
+    const { plan } = await composePartBodyPlan(
+      seg,
+      chunk,
+      lang,
+      polarity.prefix,
+    );
+    if (plan) {
+      reasons.push(`fuse[${i}]:compose`);
+      steps.push({
+        kind: "body",
+        chunkId: chunk.id,
+        composePlan: plan,
+        stripFiller: i > 0,
+      });
+    } else if (polarity.prefix) {
+      steps.push({ kind: "prefix", which: polarity.prefix });
+      steps.push({
+        kind: "body",
+        chunkId: chunk.id,
+        stripFiller: i > 0,
+      });
+    } else {
+      steps.push({
+        kind: "body",
+        chunkId: chunk.id,
+        stripFiller: i > 0,
+      });
+    }
   }
 
-  // Restore first-part segment in fuseParts compatibility via reasons only;
-  // engine will rebuild fuseParts with segments from parts[].
-  return { steps, reasons };
+  return {
+    plan: { steps, reasons },
+    nliLabel: bestLabel,
+    nliScore: bestScore >= 0 ? bestScore : undefined,
+  };
 }
 
-/** Compose-only helper used by fuse planner (avoids circular engine deps). */
+/** Compose helper for fuse planner; optional polarity prefix (G5c). */
 async function composePartBodyPlan(
   segmentQuery: string,
   chunk: ChunkRecord,
   lang: Lang,
+  prefix?: "negate-correct" | "affirm-confirm",
 ): Promise<{ plan: ComposePlan | null }> {
   if (!chunk.spans?.length) return { plan: null };
   const spanRankings = await rankSpansForCompose(segmentQuery, chunk.spans);
   const spanNliRankings = await rankSpansByNli(segmentQuery, chunk.spans);
   const plan = planComposeG4a(segmentQuery, chunk, {
+    prefix,
     spanRankings,
     spanNliRankings,
   });
@@ -392,4 +432,28 @@ export function fusePartsFromMatched(
     segment: p.seg,
     composePlan: bodies[i]?.composePlan,
   }));
+}
+
+/** Short label for one OpStep (trace UI / logs). */
+export function formatOpStep(step: OpStep): string {
+  if (step.kind === "prefix") {
+    return step.which === "negate-correct" ? "¬" : "✓";
+  }
+  if (step.kind === "glue") {
+    const t = step.topic.length > 12 ? `${step.topic.slice(0, 12)}…` : step.topic;
+    return `glue(${t})`;
+  }
+  const spans = step.composePlan?.kept?.map((k) => k.spanId).join("+");
+  const prefix = step.composePlan?.prefix
+    ? step.composePlan.prefix === "negate-correct"
+      ? "¬"
+      : "✓"
+    : "";
+  const id = step.chunkId.replace(/-ja$|-en$|-zh$/, "");
+  return spans ? `${prefix}body(${id}/${spans})` : `${prefix}body(${id})`;
+}
+
+/** One-line plan summary for traces. */
+export function formatOperationPlan(plan: OperationPlan): string {
+  return plan.steps.map(formatOpStep).join(" → ");
 }
