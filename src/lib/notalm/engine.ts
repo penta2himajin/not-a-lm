@@ -297,6 +297,8 @@ export class ChunkKVEngine {
   ): Promise<{
     plan: OperationPlan;
     parts: { seg: string; chunk: ChunkRecord }[];
+    nliLabel?: string;
+    nliScore?: number;
   } | null> {
     const segments = this.compoundSegments(query, lang);
     if (segments.length < 2) return null;
@@ -335,9 +337,9 @@ export class ChunkKVEngine {
     }
     if (parts.length < 2) return null;
 
-    const plan = await planFuseParts(parts, lang);
-    if (!plan) return null;
-    return { plan, parts };
+    const planned = await planFuseParts(parts, lang);
+    if (!planned) return null;
+    return { plan: planned.plan, parts, nliLabel: planned.nliLabel, nliScore: planned.nliScore };
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -493,8 +495,9 @@ export class ChunkKVEngine {
       this.usedIds = new Set([...this.usedIds].slice(-12));
     }
 
-    // Stage 3–4 (G5): build OperationPlan then render. Order matches legacy:
-    // peek polarity → fuse if no prefix → else single-chunk plan (NLI+G4/G2).
+    // Stage 3–4 (G5): build OperationPlan then render.
+    // G5c: try fuse first when reranker ready (per-segment polarity inside
+    // planFuseParts); fall back to single-chunk plan.
     let replyText = chosen.chunk.value;
     let generated = false;
     let operation:
@@ -520,7 +523,7 @@ export class ChunkKVEngine {
       nliLabel = polarity.nliLabel;
       nliScore = polarity.nliScore;
 
-      if (!polarity.prefix && isRerankerReady()) {
+      if (isRerankerReady()) {
         const fused = await this.fuseCompound(
           gateQuery,
           composed.vector,
@@ -531,6 +534,8 @@ export class ChunkKVEngine {
           fuseParts = fusePartsFromMatched(fused.parts, fused.plan);
           fusedWith = fusedWithFromPlan(fused.plan);
           fusedCompose = fusedComposeFromPlan(fused.plan);
+          if (fused.nliLabel != null) nliLabel = fused.nliLabel;
+          if (fused.nliScore != null) nliScore = fused.nliScore;
         }
       }
 
