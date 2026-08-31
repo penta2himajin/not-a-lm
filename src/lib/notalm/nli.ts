@@ -9,14 +9,20 @@
  * correction (see engine.ts). No token generation: the reply is a closed
  * negation opener + the chunk's own (copied) value.
  *
- * Model: onnx-community/multilingual-MiniLMv2-L6-mnli-xnli-ONNX. fp32 (the q8
- * variant is unreliable in onnxruntime-node, like the reranker); scored one pair
- * at a time for determinism.
+ * Model: onnx-community/multilingual-MiniLMv2-L6-mnli-xnli-ONNX. **fp32 required**
+ * for grounded-generation quality (q8 is deterministic but breaks negate-correct;
+ * see docs/nli-model-selection.md). Scored one pair at a time for determinism.
  */
 
 export const NLI_MODEL_ID =
   "onnx-community/multilingual-MiniLMv2-L6-mnli-xnli-ONNX";
 export const NLI_MODEL_LABEL = "MiniLMv2-L6-xnli";
+/**
+ * fp32 only in production: q8 is deterministic but drops grounded-generation
+ * negate accuracy (4/9 vs 9/9) — see docs/nli-model-selection.md.
+ * Override with NLI_DTYPE for A/B eval.
+ */
+export const NLI_DTYPE = process.env.NLI_DTYPE ?? "fp32";
 
 type Tokenizer = (
   text: string,
@@ -84,7 +90,7 @@ export async function loadNli(
     })) as unknown as Tokenizer;
     model = (await AutoModelForSequenceClassification.from_pretrained(
       NLI_MODEL_ID,
-      { dtype: "fp32", device: "cpu", progress_callback },
+      { dtype: NLI_DTYPE, device: "cpu", progress_callback },
     )) as unknown as SeqClsModel;
     id2label = model.config?.id2label ?? {
       "0": "entailment",

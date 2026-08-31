@@ -17,7 +17,7 @@
 
 質問を仮説にすると機能しない（NLIは宣言文が前提）。4通り試し、**NLI(premise=質問, hypothesis=主張の宣言文)** が最良：偽前提の質問→entailment、中立質問→neutral とクリーンに弁別。
 
-- モデル：`onnx-community/multilingual-MiniLMv2-L6-mnli-xnli-ONNX`（小型 L6・多言語）。Transformers.js で動作、**fp32 で決定的**（q8はリランカー同様に不安定なので不可）。1ペアずつ採点。
+- モデル：`onnx-community/multilingual-MiniLMv2-L6-mnli-xnli-ONNX`（小型 L6・多言語）。**fp32 必須**（q8 は決定的だが negate-correct が 4/9 に劣化 — [`nli-model-selection.md`](nli-model-selection.md)）。1ペアずつ採点。
 
 ## 対象クレーム
 
@@ -51,7 +51,7 @@
 
 汎用接続詞「ちなみに、」は使わない。単一話題は融合しない。非先頭パートでは、話題前置の後に冗長になる**先頭の肯定・相槌（「あるよ。」「Sure.」「有的。」等・閉じた集合）を除去**する（先頭スパンの削除＝抽出的編集、トークン生成なし）。例：「…については、あるよ。retrieval-only…」→「…については、retrieval-only…」。
 
-> 埋め込みは **q8 デフォルト**（[`embedding-model-selection.md`](embedding-model-selection.md)）。リランカーは **q8 デフォルト**（[`reranker-model-selection.md`](reranker-model-selection.md)）。NLI は fp32 のまま。
+> 埋め込み・リランカーは **q8 デフォルト**。NLI は **fp32 必須**（q8 は接地生成品質劣化のため不採用 — [`nli-model-selection.md`](nli-model-selection.md)）。
 
 **限界**：パート選択はリランカー/検索の品質に依存する。特に一部の短語（例：素の「仕組み」）はリランカーが「使い方/ヘルプ」と混同しやすく（システム全体の既知の弱点）、当該パートが help チャンクに誤対応することがある（「動作原理」等の言い回しで解消）。`usedIds` の再利用ペナルティにより同一クエリ反復時に候補窓が変わり結果が揺れることもある。
 
