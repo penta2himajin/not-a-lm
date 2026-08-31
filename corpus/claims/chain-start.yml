@@ -1,0 +1,64 @@
+claim: chain-start
+speaker: bot
+tags:
+  - chain
+ja:
+  key: 連鎖デモ 自動で会話 続けて オート
+  nat: 連鎖デモをお願い。自動で会話を続けて。
+  value: 了解。こちらから次のユーザー発話も予測して、数ターン連鎖してみるね。
+  spans:
+    - id: ack
+      text: 了解。
+      tags:
+        - ack
+        - filler
+    - id: predict-user
+      text: こちらから次のユーザー発話も予測して、
+      tags:
+        - chain
+        - detail
+    - id: chain-turns
+      text: 数ターン連鎖してみるね。
+      tags:
+        - chain
+        - summary
+en:
+  key: chain demo auto conversation keep going auto
+  nat: Run a chain demo. Continue the conversation automatically.
+  value: Got it. I'll also predict the next user utterance and chain a few turns.
+  spans:
+    - id: ack
+      text: Got it.
+      tags:
+        - ack
+        - filler
+    - id: predict-user
+      text: I'll also predict the next user utterance and
+      tags:
+        - chain
+        - detail
+    - id: chain-turns
+      text: chain a few turns.
+      tags:
+        - chain
+        - summary
+zh:
+  key: 连锁演示 自动对话 继续 自动
+  nat: 来个连锁演示，自动继续对话。
+  value: 好的。我会连用户的下一句也预测出来，连锁几轮试试。
+  spans:
+    - id: ack
+      text: 好的。
+      tags:
+        - ack
+        - filler
+    - id: predict-user
+      text: 我会连用户的下一句也预测出来，
+      tags:
+        - chain
+        - detail
+    - id: chain-turns
+      text: 连锁几轮试试。
+      tags:
+        - chain
+        - summary

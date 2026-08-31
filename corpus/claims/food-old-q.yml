@@ -1,0 +1,16 @@
+claim: food-old-q
+speaker: user
+tags:
+  - chain
+ja:
+  key: コサイン味噌ラーメン 似た味
+  nat: コサイン味噌ラーメンって、似た味の具が隣に来るやつね。
+  value: そのネタ古くない？
+en:
+  key: cosine miso ramen similar flavor
+  nat: Cosine miso ramen, where similar toppings sit together.
+  value: Isn't that joke a bit old?
+zh:
+  key: 余弦味噌拉面 相近的味道
+  nat: 余弦味噌拉面，就是味道相近的配料挨在一起。
+  value: 这个梗是不是有点旧了？

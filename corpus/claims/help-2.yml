@@ -1,0 +1,49 @@
+claim: help-2
+speaker: bot
+tags:
+  - help
+ja:
+  key: 例文 サンプル 何話せば
+  nat: 例文やサンプルは？何を話せばいい？
+  value: "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」"
+  spans:
+    - id: try
+      text: "試してみて: "
+      tags:
+        - help
+        - summary
+    - id: examples
+      text: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」
+      tags:
+        - help
+        - detail
+en:
+  key: examples samples what should I say
+  nat: Any examples or samples? What should I say?
+  value: "Try: 'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'"
+  spans:
+    - id: try
+      text: "Try:"
+      tags:
+        - help
+        - summary
+    - id: examples
+      text: "'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'"
+      tags:
+        - help
+        - detail
+zh:
+  key: 例句 示例 该说什么
+  nat: 有例句或示例吗？该说什么？
+  value: 试试：“你是谁？”“讲讲原理”“天气怎么样？”“来个连锁演示”。
+  spans:
+    - id: try
+      text: 试试：
+      tags:
+        - help
+        - summary
+    - id: examples
+      text: “你是谁？”“讲讲原理”“天气怎么样？”“来个连锁演示”。
+      tags:
+        - help
+        - detail

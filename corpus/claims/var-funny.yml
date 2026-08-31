@@ -1,0 +1,49 @@
+claim: var-funny
+speaker: bot
+tags:
+  - smalltalk
+ja:
+  key: 面白い 笑 ユーモア 冗談
+  nat: 面白い、笑える。ユーモアや冗談だね。
+  value: 冗談みたいな仕組みで、冗談みたいに会話が成立して見える——それが狙いだよね。
+  spans:
+    - id: joke-mech
+      text: 冗談みたいな仕組みで、冗談みたいに会話が成立して見える——
+      tags:
+        - smalltalk
+        - mechanism
+    - id: point
+      text: それが狙いだよね。
+      tags:
+        - smalltalk
+        - summary
+en:
+  key: funny lol humor joke
+  nat: That's funny — humor, a joke.
+  value: A joke-like mechanism that makes conversation seem to work, jokingly — that's the point, right?
+  spans:
+    - id: joke-mech
+      text: A joke-like mechanism that makes conversation seem to work, jokingly —
+      tags:
+        - smalltalk
+        - mechanism
+    - id: point
+      text: that's the point, right?
+      tags:
+        - smalltalk
+        - summary
+zh:
+  key: 有趣 哈哈 幽默 玩笑
+  nat: 有趣，好笑，是幽默和玩笑。
+  value: 用像玩笑一样的机制，让对话像玩笑一样看起来成立——这就是目的吧。
+  spans:
+    - id: joke-mech
+      text: 用像玩笑一样的机制，让对话像玩笑一样看起来成立——
+      tags:
+        - smalltalk
+        - mechanism
+    - id: point
+      text: 这就是目的吧。
+      tags:
+        - smalltalk
+        - summary

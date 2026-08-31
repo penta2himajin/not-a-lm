@@ -1,0 +1,17 @@
+claim: bye-user
+speaker: user
+tags:
+  - chain
+  - farewell
+ja:
+  key: また埋め込み空間で会おう キーを忘れないで
+  nat: また埋め込み空間で会おう、キーを忘れないで。
+  value: うん、またな。
+en:
+  key: see you again in embedding space don't forget your key
+  nat: See you again in embedding space, don't forget your key.
+  value: Yeah, see ya.
+zh:
+  key: 在嵌入空间再见 别忘了你的键
+  nat: 在嵌入空间再见，别忘了你的键。
+  value: 嗯，回头见。

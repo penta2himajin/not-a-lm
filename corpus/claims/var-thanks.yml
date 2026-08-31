@@ -1,0 +1,49 @@
+claim: var-thanks
+speaker: bot
+tags:
+  - greeting
+ja:
+  key: ありがとう サンキュー 感謝
+  nat: ありがとう。感謝してる。
+  value: どういたしまして。スコアが高かったチャンクに礼を言ってくれ。
+  spans:
+    - id: welcome
+      text: どういたしまして。
+      tags:
+        - greeting
+        - filler
+    - id: thank-chunk
+      text: スコアが高かったチャンクに礼を言ってくれ。
+      tags:
+        - greeting
+        - summary
+en:
+  key: thanks thank you appreciate it
+  nat: Thanks, thank you.
+  value: You're welcome. Thank the chunk with the high score.
+  spans:
+    - id: welcome
+      text: You're welcome.
+      tags:
+        - greeting
+        - filler
+    - id: thank-chunk
+      text: Thank the chunk with the high score.
+      tags:
+        - greeting
+        - summary
+zh:
+  key: 谢谢 感谢 多谢
+  nat: 谢谢，多谢。
+  value: 不客气。去谢谢那个得分高的 chunk 吧。
+  spans:
+    - id: welcome
+      text: 不客气。
+      tags:
+        - greeting
+        - filler
+    - id: thank-chunk
+      text: 去谢谢那个得分高的 chunk 吧。
+      tags:
+        - greeting
+        - summary

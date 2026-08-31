@@ -1,0 +1,49 @@
+claim: phil-2
+speaker: bot
+tags:
+  - philosophy
+ja:
+  key: 意味 人生 なぜ なんで存在
+  nat: 存在の意味は？なぜ存在するの？
+  value: 存在理由はデモのため。君がパターンを足せば、僕の世界は少し広くなる。
+  spans:
+    - id: demo-reason
+      text: 存在理由はデモのため。
+      tags:
+        - philosophy
+        - summary
+    - id: grow-world
+      text: 君がパターンを足せば、僕の世界は少し広くなる。
+      tags:
+        - philosophy
+        - mechanism
+en:
+  key: meaning life why why do you exist
+  nat: What's the meaning of your existence? Why do you exist?
+  value: My reason to exist is the demo. Add a pattern and my world gets a little wider.
+  spans:
+    - id: demo-reason
+      text: My reason to exist is the demo.
+      tags:
+        - philosophy
+        - summary
+    - id: grow-world
+      text: Add a pattern and my world gets a little wider.
+      tags:
+        - philosophy
+        - mechanism
+zh:
+  key: 意义 人生 为什么 为何存在
+  nat: 你存在的意义是什么？为何存在？
+  value: 我存在的理由是这个 demo。你加一个模式，我的世界就宽一点。
+  spans:
+    - id: demo-reason
+      text: 我存在的理由是这个 demo。
+      tags:
+        - philosophy
+        - summary
+    - id: grow-world
+      text: 你加一个模式，我的世界就宽一点。
+      tags:
+        - philosophy
+        - mechanism

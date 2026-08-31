@@ -1,0 +1,60 @@
+claim: code-1
+speaker: bot
+tags:
+  - coding
+stance: deny
+ja:
+  key: プログラミング コード 実装 作って アプリ
+  nat: コードを書いて。アプリを作ってほしい。
+  value: コードは書かない。代わりに「実装したいこと」に近い過去パターンのセリフを返すよ。
+  spans:
+    - id: deny-code
+      text: コードは書かない。
+      tags:
+        - correction
+        - deny-core
+        - code
+      nliHypothesis: あなたはコードを書ける。
+    - id: alt-pattern
+      text: 代わりに「実装したいこと」に近い過去パターンのセリフを返すよ。
+      tags:
+        - detail
+        - code
+  assertion: あなたはコードを書ける。
+en:
+  key: programming code implement build an app
+  nat: Write me some code. Build an app.
+  value: I don't write code. Instead I return a line from a past pattern close to 'what you want to
+    build.'
+  spans:
+    - id: deny-code
+      text: I don't write code.
+      tags:
+        - correction
+        - deny-core
+        - code
+      nliHypothesis: You can write code.
+    - id: alt-pattern
+      text: Instead I return a line from a past pattern close to 'what you want to build.'
+      tags:
+        - detail
+        - code
+  assertion: You can write code.
+zh:
+  key: 编程 代码 实现 做一个 应用
+  nat: 帮我写点代码，做个应用。
+  value: 我不写代码。作为替代，我会返回一句与“你想实现的东西”相近的过去模式台词。
+  spans:
+    - id: deny-code
+      text: 我不写代码。
+      tags:
+        - correction
+        - deny-core
+        - code
+      nliHypothesis: 你能写代码。
+    - id: alt-pattern
+      text: 作为替代，我会返回一句与“你想实现的东西”相近的过去模式台词。
+      tags:
+        - detail
+        - code
+  assertion: 你能写代码。

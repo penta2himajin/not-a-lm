@@ -1,0 +1,49 @@
+claim: bye-a
+speaker: bot
+tags:
+  - farewell
+ja:
+  key: うん またな
+  nat: うん、またね。
+  value: 接続は切れるけど、チャンクは残る。それがこの世界の永続性。
+  spans:
+    - id: disconnect
+      text: 接続は切れるけど、チャンクは残る。
+      tags:
+        - farewell
+        - detail
+    - id: permanence
+      text: それがこの世界の永続性。
+      tags:
+        - farewell
+        - summary
+en:
+  key: yeah see ya later
+  nat: Yeah, see ya.
+  value: The connection drops, but the chunks remain. That's the permanence of this world.
+  spans:
+    - id: disconnect
+      text: The connection drops, but the chunks remain.
+      tags:
+        - farewell
+        - detail
+    - id: permanence
+      text: That's the permanence of this world.
+      tags:
+        - farewell
+        - summary
+zh:
+  key: 嗯 回头见
+  nat: 嗯，回头见。
+  value: 连接会断，但 chunk 会留下。这就是这个世界的持久性。
+  spans:
+    - id: disconnect
+      text: 连接会断，但 chunk 会留下。
+      tags:
+        - farewell
+        - detail
+    - id: permanence
+      text: 这就是这个世界的持久性。
+      tags:
+        - farewell
+        - summary

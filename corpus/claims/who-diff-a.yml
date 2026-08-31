@@ -1,0 +1,49 @@
+claim: who-diff-a
+speaker: bot
+tags:
+  - mechanism
+ja:
+  key: LLM と何が違う 違い ちがう
+  nat: LLMと何が違うの？
+  value: LLM は次トークンを確率で捏ねる。こっちは既知のセリフ断片を相似でつまみ出すだけ。
+  spans:
+    - id: llm-way
+      text: LLM は次トークンを確率で捏ねる。
+      tags:
+        - mechanism
+        - prior-art-item
+    - id: our-way
+      text: こっちは既知のセリフ断片を相似でつまみ出すだけ。
+      tags:
+        - mechanism
+        - summary
+en:
+  key: what is different from an LLM difference
+  nat: How is it different from an LLM?
+  value: An LLM kneads the next token by probability. I just pick out known line fragments by similarity.
+  spans:
+    - id: llm-way
+      text: An LLM kneads the next token by probability.
+      tags:
+        - mechanism
+        - prior-art-item
+    - id: our-way
+      text: I just pick out known line fragments by similarity.
+      tags:
+        - mechanism
+        - summary
+zh:
+  key: 和 LLM 有什么区别 差异 不同
+  nat: 和 LLM 有什么区别？
+  value: LLM 用概率去捏下一个 token。我只是按相似度把已知的台词片段挑出来。
+  spans:
+    - id: llm-way
+      text: LLM 用概率去捏下一个 token。
+      tags:
+        - mechanism
+        - prior-art-item
+    - id: our-way
+      text: 我只是按相似度把已知的台词片段挑出来。
+      tags:
+        - mechanism
+        - summary

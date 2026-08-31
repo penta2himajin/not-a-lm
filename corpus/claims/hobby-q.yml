@@ -1,0 +1,16 @@
+claim: hobby-q
+speaker: user
+tags:
+  - chain
+ja:
+  key: 近傍探索 似た文 兄弟
+  nat: 近傍探索が趣味で、似た文を並べて兄弟って言うんだ。
+  value: それ趣味って言う？
+en:
+  key: nearest neighbor search similar sentences siblings
+  nat: Your hobby is nearest-neighbor search, lining up similar sentences.
+  value: Do you call that a hobby?
+zh:
+  key: 最近邻搜索 相似的句子 兄弟
+  nat: 你的爱好是最近邻搜索，把相似句子排在一起。
+  value: 那也算爱好？

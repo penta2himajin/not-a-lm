@@ -1,0 +1,17 @@
+claim: weather-sunny-q
+speaker: user
+tags:
+  - chain
+  - smalltalk
+ja:
+  key: 雨の日 家でチャンク整理 定番
+  nat: 雨の日は家でチャンク整理が定番なんだ。
+  value: じゃあ晴れの日は何するの？
+en:
+  key: rainy day tidying chunks at home staple
+  nat: On rainy days you tidy chunks at home.
+  value: Then what do you do on sunny days?
+zh:
+  key: 雨天 在家整理 chunk 经典
+  nat: 雨天你在家整理 chunk。
+  value: 那晴天你做什么？

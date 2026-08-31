@@ -1,0 +1,65 @@
+claim: code-2
+speaker: bot
+tags:
+  - coding
+ja:
+  key: TypeScript React Next.js フロント
+  nat: TypeScriptやReact、Next.jsのフロントはどう？
+  value: このデモ自体が Next.js。埋め込みはサーバ側、KVはただの配列。派手な基盤は要らない。
+  spans:
+    - id: nextjs
+      text: このデモ自体が Next.js。
+      tags:
+        - coding
+        - summary
+    - id: stack
+      text: 埋め込みはサーバ側、KVはただの配列。
+      tags:
+        - coding
+        - mechanism
+    - id: no-infra
+      text: 派手な基盤は要らない。
+      tags:
+        - coding
+        - detail
+en:
+  key: TypeScript React Next.js frontend
+  nat: What about TypeScript, React, Next.js on the frontend?
+  value: This demo itself is Next.js. Embeddings run server-side, the KV is just an array. No fancy
+    infra needed.
+  spans:
+    - id: nextjs
+      text: This demo itself is Next.js.
+      tags:
+        - coding
+        - summary
+    - id: stack
+      text: Embeddings run server-side, the KV is just an array.
+      tags:
+        - coding
+        - mechanism
+    - id: no-infra
+      text: No fancy infra needed.
+      tags:
+        - coding
+        - detail
+zh:
+  key: TypeScript React Next.js 前端
+  nat: TypeScript、React、Next.js 前端怎么样？
+  value: 这个 demo 本身就是 Next.js。嵌入在服务端跑，KV 只是个数组。不需要花哨的基础设施。
+  spans:
+    - id: nextjs
+      text: 这个 demo 本身就是 Next.js。
+      tags:
+        - coding
+        - summary
+    - id: stack
+      text: 嵌入在服务端跑，KV 只是个数组。
+      tags:
+        - coding
+        - mechanism
+    - id: no-infra
+      text: 不需要花哨的基础设施。
+      tags:
+        - coding
+        - detail

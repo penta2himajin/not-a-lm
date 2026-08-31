@@ -1,0 +1,67 @@
+claim: greet-welcome
+speaker: bot
+tags:
+  - greeting
+ja:
+  key: こんにちは やあ おはよう こんばんは
+  nat: おはよう。こんばんは。ようこそ。
+  value: おっす。NOT A LM へようこそ。会話っぽく見えるのは偶然じゃなくて、チャンクKVの連鎖だ。
+  spans:
+    - id: greet
+      text: おっす。
+      tags:
+        - greeting
+        - filler
+    - id: welcome
+      text: NOT A LM へようこそ。
+      tags:
+        - greeting
+        - identity
+    - id: chain-kv
+      text: 会話っぽく見えるのは偶然じゃなくて、チャンクKVの連鎖だ。
+      tags:
+        - mechanism
+        - chain
+        - summary
+en:
+  key: hello good morning good evening welcome
+  nat: Good morning. Good evening. Welcome.
+  value: Yo. Welcome to NOT A LM. It looks like a conversation not by luck, but by chaining chunk-KV.
+  spans:
+    - id: greet
+      text: Yo.
+      tags:
+        - greeting
+        - filler
+    - id: welcome
+      text: Welcome to NOT A LM.
+      tags:
+        - greeting
+        - identity
+    - id: chain-kv
+      text: It looks like a conversation not by luck, but by chaining chunk-KV.
+      tags:
+        - mechanism
+        - chain
+        - summary
+zh:
+  key: 你好 早上好 晚上好 欢迎
+  nat: 早上好，晚上好，欢迎。
+  value: 哟。欢迎来到 NOT A LM。看起来像对话不是巧合，而是 chunk-KV 的连锁。
+  spans:
+    - id: greet
+      text: 哟。
+      tags:
+        - greeting
+        - filler
+    - id: welcome
+      text: 欢迎来到 NOT A LM。
+      tags:
+        - greeting
+        - identity
+    - id: chain-kv
+      text: 看起来像对话不是巧合，而是 chunk-KV 的连锁。
+      tags:
+        - mechanism
+        - chain
+        - summary

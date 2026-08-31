@@ -1,0 +1,16 @@
+claim: who-diff-q
+speaker: user
+tags:
+  - chain
+ja:
+  key: NOT A LM 言語モデルではない チャンクKV
+  nat: NOT A LM は言語モデルじゃなくてチャンクKVなんだね。
+  value: じゃあ LLM と何が違うの？
+en:
+  key: NOT A LM not a language model chunk KV
+  nat: So NOT A LM isn't a language model, it's a chunk-KV.
+  value: So what's different from an LLM?
+zh:
+  key: NOT A LM 不是语言模型 chunk KV
+  nat: 所以 NOT A LM 不是语言模型，而是 chunk-KV。
+  value: 那你和 LLM 有什么区别？

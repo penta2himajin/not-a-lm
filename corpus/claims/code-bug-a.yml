@@ -1,0 +1,59 @@
+claim: code-bug-a
+speaker: bot
+tags:
+  - coding
+stance: deny
+ja:
+  key: バグ 直せ できない
+  nat: じゃあバグ直しはできる？
+  value: 直せない。ただし「バグってる気がする」に近いキーがあれば、共感セリフは出せる。
+  spans:
+    - id: deny-fix
+      text: 直せない。
+      tags:
+        - correction
+        - deny-core
+        - code
+      nliHypothesis: あなたはバグを修正できる。
+    - id: sympathy
+      text: ただし「バグってる気がする」に近いキーがあれば、共感セリフは出せる。
+      tags:
+        - detail
+        - code
+  assertion: あなたはバグを修正できる。
+en:
+  key: bug fix can't debug
+  nat: So can you fix bugs?
+  value: I can't. But if there's a key close to 'I feel like it's buggy,' I can offer a sympathetic line.
+  spans:
+    - id: deny-fix
+      text: I can't.
+      tags:
+        - correction
+        - deny-core
+        - code
+      nliHypothesis: You can fix bugs.
+    - id: sympathy
+      text: But if there's a key close to 'I feel like it's buggy,' I can offer a sympathetic line.
+      tags:
+        - detail
+        - code
+  assertion: You can fix bugs.
+zh:
+  key: bug 修复 不能 调试
+  nat: 那你能修 bug 吗？
+  value: 修不了。不过要是有接近“我感觉它有 bug”的键，我能给一句共情台词。
+  spans:
+    - id: deny-fix
+      text: 修不了。
+      tags:
+        - correction
+        - deny-core
+        - code
+      nliHypothesis: 你能修复 bug。
+    - id: sympathy
+      text: 不过要是有接近“我感觉它有 bug”的键，我能给一句共情台词。
+      tags:
+        - detail
+        - code
+  assertion: 你能修复 bug。

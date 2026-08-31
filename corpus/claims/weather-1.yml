@@ -1,0 +1,50 @@
+claim: weather-1
+speaker: bot
+tags:
+  - smalltalk
+ja:
+  key: 天気 今日の天気 雨 晴れ 暑い 寒い
+  nat: 今日の天気はどう？雨か晴れか。
+  value: 外の天気は知らない。でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。
+  spans:
+    - id: deny-outside
+      text: 外の天気は知らない。
+      tags:
+        - limit
+        - smalltalk
+    - id: corpus-rain
+      text: でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。
+      tags:
+        - smalltalk
+        - summary
+en:
+  key: weather today's weather rain sunny hot cold
+  nat: How's the weather today? Rainy or sunny?
+  value: I don't know the weather outside. But in the corpus, 'rainy days are for tidying chunks at
+    home' is a staple pattern.
+  spans:
+    - id: deny-outside
+      text: I don't know the weather outside.
+      tags:
+        - limit
+        - smalltalk
+    - id: corpus-rain
+      text: But in the corpus, 'rainy days are for tidying chunks at home' is a staple pattern.
+      tags:
+        - smalltalk
+        - summary
+zh:
+  key: 天气 今天天气 下雨 晴天 热 冷
+  nat: 今天天气怎么样？下雨还是晴天？
+  value: 外面的天气我不知道。不过在语料里，“雨天在家整理 chunk”是个经典套路。
+  spans:
+    - id: deny-outside
+      text: 外面的天气我不知道。
+      tags:
+        - limit
+        - smalltalk
+    - id: corpus-rain
+      text: 不过在语料里，“雨天在家整理 chunk”是个经典套路。
+      tags:
+        - smalltalk
+        - summary

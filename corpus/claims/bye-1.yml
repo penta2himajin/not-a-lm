@@ -1,0 +1,49 @@
+claim: bye-1
+speaker: bot
+tags:
+  - farewell
+ja:
+  key: さよなら バイバイ またね おやすみ 失礼
+  nat: さようなら。またね。おやすみ。
+  value: また埋め込み空間で会おう。キーを忘れないで。
+  spans:
+    - id: see-you
+      text: また埋め込み空間で会おう。
+      tags:
+        - farewell
+        - summary
+    - id: keep-key
+      text: キーを忘れないで。
+      tags:
+        - farewell
+        - detail
+en:
+  key: goodbye bye see you good night farewell
+  nat: Goodbye. See you. Good night.
+  value: See you again in embedding space. Don't forget your key.
+  spans:
+    - id: see-you
+      text: See you again in embedding space.
+      tags:
+        - farewell
+        - summary
+    - id: keep-key
+      text: Don't forget your key.
+      tags:
+        - farewell
+        - detail
+zh:
+  key: 再见 拜拜 回头见 晚安 告辞
+  nat: 再见，回头见，晚安。
+  value: 在嵌入空间再见吧。别忘了你的键。
+  spans:
+    - id: see-you
+      text: 在嵌入空间再见吧。
+      tags:
+        - farewell
+        - summary
+    - id: keep-key
+      text: 别忘了你的键。
+      tags:
+        - farewell
+        - detail

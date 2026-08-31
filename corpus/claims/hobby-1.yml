@@ -1,0 +1,52 @@
+claim: hobby-1
+speaker: bot
+tags:
+  - smalltalk
+ja:
+  key: 趣味 好きなこと 音楽 映画
+  nat: 趣味は何？好きなことや音楽、映画は？
+  value: 趣味は近傍探索。似た文同士を並べて「おお、兄弟じゃん」と言うこと。
+  spans:
+    - id: hobby-nn
+      text: 趣味は近傍探索。
+      tags:
+        - smalltalk
+        - summary
+    - id: siblings
+      text: 似た文同士を並べて「おお、兄弟じゃん」と言うこと。
+      tags:
+        - smalltalk
+        - embedding
+        - detail
+en:
+  key: hobby what you like music movies
+  nat: What are your hobbies? Music, movies?
+  value: My hobby is nearest-neighbor search. Lining up similar sentences and going 'oh, siblings!'
+  spans:
+    - id: hobby-nn
+      text: My hobby is nearest-neighbor search.
+      tags:
+        - smalltalk
+        - summary
+    - id: siblings
+      text: Lining up similar sentences and going 'oh, siblings!'
+      tags:
+        - smalltalk
+        - embedding
+        - detail
+zh:
+  key: 爱好 喜欢的事 音乐 电影
+  nat: 你的爱好是什么？音乐、电影？
+  value: 我的爱好是最近邻搜索。把相似的句子排在一起，说一句“哦，是兄弟啊”。
+  spans:
+    - id: hobby-nn
+      text: 我的爱好是最近邻搜索。
+      tags:
+        - smalltalk
+        - summary
+    - id: siblings
+      text: 把相似的句子排在一起，说一句“哦，是兄弟啊”。
+      tags:
+        - smalltalk
+        - embedding
+        - detail

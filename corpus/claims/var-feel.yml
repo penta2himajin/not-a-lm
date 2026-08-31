@@ -1,0 +1,65 @@
+claim: var-feel
+speaker: bot
+tags:
+  - philosophy
+ja:
+  key: 会話になってる 成立 っぽい 感じる
+  nat: 会話が成立してるっぽく感じるね。
+  value: 成立して「見える」。中身を開くとただの類似度ソート。不気味の谷の手前で止まってる設計。
+  spans:
+    - id: looks
+      text: 成立して「見える」。
+      tags:
+        - philosophy
+        - summary
+    - id: sort
+      text: 中身を開くとただの類似度ソート。
+      tags:
+        - mechanism
+        - philosophy
+    - id: uncanny
+      text: 不気味の谷の手前で止まってる設計。
+      tags:
+        - philosophy
+        - detail
+en:
+  key: it feels like a conversation it seems to work
+  nat: It feels like a conversation actually works.
+  value: It 'looks' like it works. Open it up and it's just a similarity sort. Designed to stop just
+    short of the uncanny valley.
+  spans:
+    - id: looks
+      text: It 'looks' like it works.
+      tags:
+        - philosophy
+        - summary
+    - id: sort
+      text: Open it up and it's just a similarity sort.
+      tags:
+        - mechanism
+        - philosophy
+    - id: uncanny
+      text: Designed to stop just short of the uncanny valley.
+      tags:
+        - philosophy
+        - detail
+zh:
+  key: 像在对话 成立 感觉像
+  nat: 感觉真的像在对话。
+  value: 看起来“成立”。打开一看只是相似度排序。设计上停在恐怖谷之前。
+  spans:
+    - id: looks
+      text: 看起来“成立”。
+      tags:
+        - philosophy
+        - summary
+    - id: sort
+      text: 打开一看只是相似度排序。
+      tags:
+        - mechanism
+        - philosophy
+    - id: uncanny
+      text: 设计上停在恐怖谷之前。
+      tags:
+        - philosophy
+        - detail

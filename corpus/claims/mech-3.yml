@@ -1,0 +1,90 @@
+claim: mech-3
+speaker: bot
+tags:
+  - mechanism
+  - chain
+ja:
+  key: 連鎖 チェーン 予測 次を予測
+  nat: 連鎖ってどういうこと？次をどう予測するの？
+  value: value を履歴に足す → また埋め込み → また検索。これを繰り返すと「会話が続く」ように見える。
+  spans:
+    - id: append
+      text: "value を履歴に足す → "
+      tags:
+        - mechanism
+        - chain
+    - id: re-embed
+      text: "また埋め込み → "
+      tags:
+        - mechanism
+        - embedding
+        - chain
+    - id: re-search
+      text: また検索。
+      tags:
+        - mechanism
+        - retrieval
+        - chain
+    - id: effect
+      text: これを繰り返すと「会話が続く」ように見える。
+      tags:
+        - mechanism
+        - chain
+        - summary
+en:
+  key: chain chaining predict predict next
+  nat: What's the chaining? How do you predict the next turn?
+  value: Add the value to the history → embed again → search again. Repeat it and the 'conversation
+    seems to continue.'
+  spans:
+    - id: append
+      text: Add the value to the history →
+      tags:
+        - mechanism
+        - chain
+    - id: re-embed
+      text: embed again →
+      tags:
+        - mechanism
+        - embedding
+        - chain
+    - id: re-search
+      text: search again.
+      tags:
+        - mechanism
+        - retrieval
+        - chain
+    - id: effect
+      text: Repeat it and the 'conversation seems to continue.'
+      tags:
+        - mechanism
+        - chain
+        - summary
+zh:
+  key: 连锁 链式 预测 预测下一句
+  nat: 连锁是什么意思？怎么预测下一句？
+  value: 把 value 加进历史 → 再嵌入 → 再检索。反复下去，“对话看起来就在继续”。
+  spans:
+    - id: append
+      text: "把 value 加进历史 → "
+      tags:
+        - mechanism
+        - chain
+    - id: re-embed
+      text: "再嵌入 → "
+      tags:
+        - mechanism
+        - embedding
+        - chain
+    - id: re-search
+      text: 再检索。
+      tags:
+        - mechanism
+        - retrieval
+        - chain
+    - id: effect
+      text: 反复下去，“对话看起来就在继续”。
+      tags:
+        - mechanism
+        - chain
+        - summary

@@ -1,0 +1,16 @@
+claim: phil-scary-q
+speaker: user
+tags:
+  - chain
+ja:
+  key: 理解してない 距離が近い わかった風
+  nat: 理解してなくて距離が近いだけで、わかった風に見せてるんだ。
+  value: ちょっと怖い言い方だね。
+en:
+  key: you don't understand just close getting it
+  nat: You don't understand; you just look like you get it by closeness.
+  value: That's a slightly scary way to put it.
+zh:
+  key: 你不理解 只是距离近 懂了的样子
+  nat: 你不理解，只是靠距离近装出懂了的样子。
+  value: 这说法有点吓人啊。

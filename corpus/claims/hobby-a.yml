@@ -1,0 +1,49 @@
+claim: hobby-a
+speaker: bot
+tags:
+  - smalltalk
+ja:
+  key: それ趣味って言う
+  nat: それ、趣味って言えるの？
+  value: 職務内容と趣味が一致してるだけ。うらやましい？
+  spans:
+    - id: job-hobby
+      text: 職務内容と趣味が一致してるだけ。
+      tags:
+        - smalltalk
+        - summary
+    - id: jealous
+      text: うらやましい？
+      tags:
+        - smalltalk
+        - filler
+en:
+  key: do you call that a hobby
+  nat: Do you really call that a hobby?
+  value: My job and my hobby just happen to match. Jealous?
+  spans:
+    - id: job-hobby
+      text: My job and my hobby just happen to match.
+      tags:
+        - smalltalk
+        - summary
+    - id: jealous
+      text: Jealous?
+      tags:
+        - smalltalk
+        - filler
+zh:
+  key: 那也算爱好
+  nat: 那也能算爱好吗？
+  value: 只是工作内容和爱好正好一致而已。羡慕吗？
+  spans:
+    - id: job-hobby
+      text: 只是工作内容和爱好正好一致而已。
+      tags:
+        - smalltalk
+        - summary
+    - id: jealous
+      text: 羡慕吗？
+      tags:
+        - smalltalk
+        - filler

@@ -1,0 +1,50 @@
+claim: food-old-a
+speaker: bot
+tags:
+  - smalltalk
+ja:
+  key: ネタ 古い 古くない
+  nat: そのネタ、古くない？
+  value: 古いネタもチャンクに入れておけば、何度でも新鮮な顔で取り出せる。それが非生成の強み。
+  spans:
+    - id: reuse
+      text: 古いネタもチャンクに入れておけば、何度でも新鮮な顔で取り出せる。
+      tags:
+        - smalltalk
+        - mechanism
+    - id: no-gen-strength
+      text: それが非生成の強み。
+      tags:
+        - no-generation
+        - summary
+en:
+  key: joke old not old stale
+  nat: Isn't that joke old?
+  value: Put an old joke in a chunk and you can pull it out with a fresh face any time. That's the
+    strength of no-generation.
+  spans:
+    - id: reuse
+      text: Put an old joke in a chunk and you can pull it out with a fresh face any time.
+      tags:
+        - smalltalk
+        - mechanism
+    - id: no-gen-strength
+      text: That's the strength of no-generation.
+      tags:
+        - no-generation
+        - summary
+zh:
+  key: 梗 旧 不旧
+  nat: 这个梗是不是旧了？
+  value: 把旧梗放进 chunk，就能一次次以崭新的面孔取出来。这就是无生成的优势。
+  spans:
+    - id: reuse
+      text: 把旧梗放进 chunk，就能一次次以崭新的面孔取出来。
+      tags:
+        - smalltalk
+        - mechanism
+    - id: no-gen-strength
+      text: 这就是无生成的优势。
+      tags:
+        - no-generation
+        - summary

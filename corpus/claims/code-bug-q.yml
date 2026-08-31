@@ -1,0 +1,16 @@
+claim: code-bug-q
+speaker: user
+tags:
+  - chain
+ja:
+  key: コードは書かない 近い過去パターン
+  nat: コードは書かないで、近い過去パターンのセリフを返すんだね。
+  value: じゃあバグ直しもできないの？
+en:
+  key: you don't write code close past pattern
+  nat: You don't write code; you return a line from a close past pattern.
+  value: So you can't fix bugs either?
+zh:
+  key: 你不写代码 相近的过去模式
+  nat: 你不写代码，只返回相近过去模式的台词。
+  value: 那你也不能修 bug 咯？

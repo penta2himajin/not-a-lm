@@ -1,0 +1,49 @@
+claim: var-hello
+speaker: bot
+tags:
+  - greeting
+ja:
+  key: ハロー hello hi hey 多言語
+  nat: 多言語の挨拶、ハローやhiも通じる？
+  value: 多言語の挨拶もキーに入ってる。中身は同じ近傍探索だよ。
+  spans:
+    - id: multilingual
+      text: 多言語の挨拶もキーに入ってる。
+      tags:
+        - greeting
+        - summary
+    - id: same-nn
+      text: 中身は同じ近傍探索だよ。
+      tags:
+        - mechanism
+        - detail
+en:
+  key: hello hi hey multilingual greetings languages
+  nat: Do multilingual greetings like hello or hi work?
+  value: Greetings in many languages are in the keys too. Inside it's the same nearest-neighbor search.
+  spans:
+    - id: multilingual
+      text: Greetings in many languages are in the keys too.
+      tags:
+        - greeting
+        - summary
+    - id: same-nn
+      text: Inside it's the same nearest-neighbor search.
+      tags:
+        - mechanism
+        - detail
+zh:
+  key: hello 你好 多语言 打招呼
+  nat: 多语言的问候，hello 或你好都行吗？
+  value: 多种语言的问候也在键里。内在还是同一套最近邻搜索。
+  spans:
+    - id: multilingual
+      text: 多种语言的问候也在键里。
+      tags:
+        - greeting
+        - summary
+    - id: same-nn
+      text: 内在还是同一套最近邻搜索。
+      tags:
+        - mechanism
+        - detail

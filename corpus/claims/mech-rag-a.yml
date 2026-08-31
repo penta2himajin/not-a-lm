@@ -1,0 +1,72 @@
+claim: mech-rag-a
+speaker: bot
+tags:
+  - mechanism
+stance: deny
+ja:
+  key: RAG じゃないの 結局 RAG 生成しているのか
+  nat: それって結局RAGなの？あなたはRAGで生成しているの？
+  value: 近い。でも RAG は回収した文を LLM に渡して生成する。ここは生成段がなく、回収＝返答。
+  spans:
+    - id: ack
+      text: 近い。
+      tags:
+        - ack
+        - rag
+    - id: rag-detail
+      text: でも RAG は回収した文を LLM に渡して生成する。
+      tags:
+        - rag
+        - detail
+    - id: no-gen
+      text: ここは生成段がなく、回収＝返答。
+      tags:
+        - correction
+        - no-generation
+      nliHypothesis: あなたはRAGで生成している。
+  assertion: あなたはRAGで生成している。
+en:
+  key: isn't it RAG basically RAG do you generate
+  nat: Isn't this basically RAG? Do you generate with RAG?
+  value: Close. But RAG hands the retrieved text to an LLM to generate. Here there's no generation
+    stage — retrieval is the reply.
+  spans:
+    - id: ack
+      text: Close.
+      tags:
+        - ack
+        - rag
+    - id: rag-detail
+      text: But RAG hands the retrieved text to an LLM to generate.
+      tags:
+        - rag
+        - detail
+    - id: no-gen
+      text: Here there's no generation stage — retrieval is the reply.
+      tags:
+        - correction
+        - no-generation
+      nliHypothesis: You generate with RAG.
+  assertion: You generate with RAG.
+zh:
+  key: 不是 RAG 吗 说到底是 RAG 你在生成吗
+  nat: 这不就是 RAG 吗？你是靠 RAG 生成的吗？
+  value: 很接近。但 RAG 会把检索到的文本交给 LLM 生成。这里没有生成阶段，检索即回答。
+  spans:
+    - id: ack
+      text: 很接近。
+      tags:
+        - ack
+        - rag
+    - id: rag-detail
+      text: 但 RAG 会把检索到的文本交给 LLM 生成。
+      tags:
+        - rag
+        - detail
+    - id: no-gen
+      text: 这里没有生成阶段，检索即回答。
+      tags:
+        - correction
+        - no-generation
+      nliHypothesis: 你是靠 RAG 生成的。
+  assertion: 你是靠 RAG 生成的。
