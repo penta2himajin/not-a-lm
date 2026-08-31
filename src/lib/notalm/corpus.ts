@@ -14,7 +14,7 @@
 
 import type { ChunkRecord, Lang } from "./types";
 import type { AuthorClaim, AuthorSurface } from "./corpus-author";
-import { GENERATED_CLAIMS } from "./corpus.generated";
+import { GENERATED_CLAIMS } from "./corpus.generated.ts";
 
 function assertionsOf(surface: AuthorSurface): string[] | undefined {
   if (!surface.assertion) return undefined;
