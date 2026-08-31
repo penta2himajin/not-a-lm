@@ -38,5 +38,5 @@ npm run dev -- --port 43123
 
 - Next.js (App Router) + TypeScript + Tailwind + shadcn/ui
 - `@huggingface/transformers` 経由の paraphrase-multilingual-MiniLM-L12-v2（多言語埋め込み）
-- 同 bge-reranker-base（多言語 cross-encoder, fp32・信頼度ゲート用）
+- 同 bge-reranker-base（多言語 cross-encoder, **q8 デフォルト**・信頼度ゲート用）— 軽量化の経緯は [`docs/reranker-model-selection.md`](docs/reranker-model-selection.md)
 - 同 multilingual-MiniLMv2-L6-mnli-xnli（多言語NLI, fp32・接地生成の前提判定用）

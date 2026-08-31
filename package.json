@@ -6,7 +6,9 @@
     "dev": "next dev --port 43123",
     "build": "next build",
     "start": "next start --port 43123",
-    "lint": "eslint"
+    "lint": "eslint",
+    "eval:reranker": "node --experimental-strip-types scripts/eval-reranker.mjs",
+    "eval:reranker:engine": "node --experimental-strip-types scripts/eval-reranker-engine.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
