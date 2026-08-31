@@ -13,6 +13,11 @@
  * Override with RERANK_MODEL_ID / RERANK_DTYPE. Smaller multilingual
  * cross-encoders (e.g. mmarco-mMiniLMv2) were evaluated and rejected — see
  * docs/reranker-model-selection.md.
+ *
+ * Batching (see scripts/eval-rerank-batch.mjs / docs/reranker-batching.md):
+ * - fp32 + pad-to-longest + attention_mask: batch ≡ single (exact).
+ * - q8: padding alone changes scores (ONNX q8 path); default stays sequential.
+ * - RERANK_BATCH=1 forces batched forwards (intended for RERANK_DTYPE=fp32).
  */
 
 export const RERANK_MODEL_ID =
@@ -24,7 +29,12 @@ export const RERANK_DTYPE = process.env.RERANK_DTYPE ?? "q8";
 
 type Tokenizer = (
   text: string[],
-  options: { text_pair: string[]; padding: boolean; truncation: boolean },
+  options: {
+    text_pair: string[];
+    padding: boolean | "longest" | "max_length";
+    truncation: boolean;
+    max_length?: number;
+  },
 ) => Promise<Record<string, unknown>>;
 
 type SeqClsModel = (
@@ -110,19 +120,19 @@ function sigmoid(x: number): number {
   return 1 / (1 + Math.exp(-x));
 }
 
-/**
- * Score each candidate against the query with the cross-encoder.
- * Returns a relevance probability in [0,1] per candidate (same order).
- * Throws if the reranker is not loaded — callers should check isRerankerReady().
- *
- * IMPORTANT: candidates are scored one pair at a time (batch size 1). Batched
- * inference with padding is not reliable through this ONNX path — padded
- * sequences distort each other's scores, so the same (query, candidate) pair
- * gets different scores depending on batch composition. Scoring per pair keeps
- * results deterministic and correct at the cost of N sequential forwards
- * (N is small — see RERANK_CANDIDATES in engine.ts).
- */
-export async function rerankScores(
+function logitsToScores(logits: {
+  tolist: () => number[][] | number[];
+}): number[] {
+  const rows = logits.tolist();
+  if (rows.length === 0) return [];
+  if (Array.isArray(rows[0])) {
+    return (rows as number[][]).map((r) => sigmoid(Number(r[0])));
+  }
+  return [sigmoid(Number((rows as number[])[0]))];
+}
+
+/** Per-pair forwards — correctness oracle / default for q8. */
+export async function rerankScoresSequential(
   query: string,
   candidates: string[],
 ): Promise<number[]> {
@@ -137,11 +147,57 @@ export async function rerankScores(
       truncation: true,
     });
     const { logits } = await model(inputs);
-    const rows = logits.tolist();
-    const val = Array.isArray(rows[0])
-      ? (rows as number[][])[0][0]
-      : (rows as number[])[0];
-    scores.push(sigmoid(val));
+    scores.push(...logitsToScores(logits));
   }
   return scores;
+}
+
+/**
+ * Pad-to-longest (+ attention_mask) batched forward.
+ * Safe when RERANK_DTYPE=fp32 (exact match vs sequential).
+ * Unsafe for default q8 — padding alone shifts scores (see eval-rerank-batch).
+ */
+export async function rerankScoresBatched(
+  query: string,
+  candidates: string[],
+): Promise<number[]> {
+  if (!tokenizer || !model) throw new Error("reranker not ready");
+  if (candidates.length === 0) return [];
+  if (candidates.length === 1) {
+    return rerankScoresSequential(query, candidates);
+  }
+
+  const inputs = await tokenizer(
+    candidates.map(() => query),
+    {
+      text_pair: candidates,
+      padding: true,
+      truncation: true,
+    },
+  );
+  const { logits } = await model(inputs);
+  const scores = logitsToScores(logits);
+  if (scores.length !== candidates.length) {
+    throw new Error(
+      `rerank batch size mismatch: got ${scores.length} scores for ${candidates.length} candidates`,
+    );
+  }
+  return scores;
+}
+
+/**
+ * Score each candidate against the query with the cross-encoder.
+ * Returns a relevance probability in [0,1] per candidate (same order).
+ *
+ * Default: sequential (safe for q8). Set RERANK_BATCH=1 to use pad-batch
+ * (use with RERANK_DTYPE=fp32 after reading docs/reranker-batching.md).
+ */
+export async function rerankScores(
+  query: string,
+  candidates: string[],
+): Promise<number[]> {
+  const useBatch = process.env.RERANK_BATCH === "1";
+  return useBatch
+    ? rerankScoresBatched(query, candidates)
+    : rerankScoresSequential(query, candidates);
 }

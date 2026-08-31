@@ -29,6 +29,8 @@
     "corpus:build": "node --experimental-strip-types scripts/corpus-build.mjs",
     "corpus:add": "node --experimental-strip-types scripts/corpus-add.mjs",
     "eval:corpus-author": "node --experimental-strip-types scripts/eval-corpus-author.mjs",
+    "eval:rerank-batch": "node --experimental-strip-types scripts/eval-rerank-batch.mjs",
+    "eval:rerank-batch:fp32": "RERANK_DTYPE=fp32 node --experimental-strip-types scripts/eval-rerank-batch.mjs",
     "eval:corpus-draft": "node --experimental-strip-types scripts/eval-corpus-draft.mjs"
   },
   "dependencies": {
