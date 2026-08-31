@@ -180,9 +180,58 @@ const CLAIMS: ClaimGroup[] = [
     claim: "greet-howareyou",
     speaker: "bot",
     tags: ["greeting"],
-    ja: { key: "元気 調子どう 元気？", nat: "元気？調子はどう？", value: "元気という概念は持ってないけど、ベクトル空間は快調だよ。" },
-    en: { key: "how are you how is it going you good", nat: "How are you? How's it going?", value: "I don't have a concept of 'fine,' but the vector space is running smoothly." },
-    zh: { key: "你好吗 最近怎么样 还好吗", nat: "你好吗？最近怎么样？", value: "我没有“好不好”这种概念，不过向量空间状态良好。" },
+    ja: {
+      key: "元気 調子どう 元気？",
+      nat: "元気？調子はどう？",
+      value: "元気という概念は持ってないけど、ベクトル空間は快調だよ。",
+      spans: [
+        {
+          id: "no-fine",
+          text: "元気という概念は持ってないけど、",
+          tags: ["greeting", "deny-core"],
+        },
+        {
+          id: "vector-ok",
+          text: "ベクトル空間は快調だよ。",
+          tags: ["greeting", "mechanism", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "how are you how is it going you good",
+      nat: "How are you? How's it going?",
+      value:
+        "I don't have a concept of 'fine,' but the vector space is running smoothly.",
+      spans: [
+        {
+          id: "no-fine",
+          text: "I don't have a concept of 'fine,' but",
+          tags: ["greeting", "deny-core"],
+        },
+        {
+          id: "vector-ok",
+          text: "the vector space is running smoothly.",
+          tags: ["greeting", "mechanism", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "你好吗 最近怎么样 还好吗",
+      nat: "你好吗？最近怎么样？",
+      value: "我没有“好不好”这种概念，不过向量空间状态良好。",
+      spans: [
+        {
+          id: "no-fine",
+          text: "我没有“好不好”这种概念，",
+          tags: ["greeting", "deny-core"],
+        },
+        {
+          id: "vector-ok",
+          text: "不过向量空间状态良好。",
+          tags: ["greeting", "mechanism", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "greet-howreply-q",
@@ -1109,9 +1158,58 @@ const CLAIMS: ClaimGroup[] = [
     claim: "weather-sunny-a",
     speaker: "bot",
     tags: ["smalltalk"],
-    ja: { key: "晴れの日 何する", nat: "晴れの日は何をするの？", value: "ベクトル空間の散歩。近い隣人を訪ねて、遠い外れ値をからかう。" },
-    en: { key: "sunny day what do you do", nat: "What do you do on sunny days?", value: "A walk in vector space. Visit the close neighbors, tease the distant outliers." },
-    zh: { key: "晴天 做什么", nat: "晴天你做什么？", value: "在向量空间里散步。拜访近邻，调侃远处的离群点。" },
+    ja: {
+      key: "晴れの日 何する",
+      nat: "晴れの日は何をするの？",
+      value: "ベクトル空間の散歩。近い隣人を訪ねて、遠い外れ値をからかう。",
+      spans: [
+        {
+          id: "walk",
+          text: "ベクトル空間の散歩。",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "neighbors",
+          text: "近い隣人を訪ねて、遠い外れ値をからかう。",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "sunny day what do you do",
+      nat: "What do you do on sunny days?",
+      value:
+        "A walk in vector space. Visit the close neighbors, tease the distant outliers.",
+      spans: [
+        {
+          id: "walk",
+          text: "A walk in vector space.",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "neighbors",
+          text: "Visit the close neighbors, tease the distant outliers.",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "晴天 做什么",
+      nat: "晴天你做什么？",
+      value: "在向量空间里散步。拜访近邻，调侃远处的离群点。",
+      spans: [
+        {
+          id: "walk",
+          text: "在向量空间里散步。",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "neighbors",
+          text: "拜访近邻，调侃远处的离群点。",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
   },
 
   // --- food ---
@@ -1539,9 +1637,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "phil-2",
     speaker: "bot",
     tags: ["philosophy"],
-    ja: { key: "意味 人生 なぜ なんで存在", nat: "存在の意味は？なぜ存在するの？", value: "存在理由はデモのため。君がパターンを足せば、僕の世界は少し広くなる。" },
-    en: { key: "meaning life why why do you exist", nat: "What's the meaning of your existence? Why do you exist?", value: "My reason to exist is the demo. Add a pattern and my world gets a little wider." },
-    zh: { key: "意义 人生 为什么 为何存在", nat: "你存在的意义是什么？为何存在？", value: "我存在的理由是这个 demo。你加一个模式，我的世界就宽一点。" },
+    ja: {
+      key: "意味 人生 なぜ なんで存在",
+      nat: "存在の意味は？なぜ存在するの？",
+      value:
+        "存在理由はデモのため。君がパターンを足せば、僕の世界は少し広くなる。",
+      spans: [
+        {
+          id: "demo-reason",
+          text: "存在理由はデモのため。",
+          tags: ["philosophy", "summary"],
+        },
+        {
+          id: "grow-world",
+          text: "君がパターンを足せば、僕の世界は少し広くなる。",
+          tags: ["philosophy", "mechanism"],
+        },
+      ],
+    },
+    en: {
+      key: "meaning life why why do you exist",
+      nat: "What's the meaning of your existence? Why do you exist?",
+      value:
+        "My reason to exist is the demo. Add a pattern and my world gets a little wider.",
+      spans: [
+        {
+          id: "demo-reason",
+          text: "My reason to exist is the demo.",
+          tags: ["philosophy", "summary"],
+        },
+        {
+          id: "grow-world",
+          text: "Add a pattern and my world gets a little wider.",
+          tags: ["philosophy", "mechanism"],
+        },
+      ],
+    },
+    zh: {
+      key: "意义 人生 为什么 为何存在",
+      nat: "你存在的意义是什么？为何存在？",
+      value:
+        "我存在的理由是这个 demo。你加一个模式，我的世界就宽一点。",
+      spans: [
+        {
+          id: "demo-reason",
+          text: "我存在的理由是这个 demo。",
+          tags: ["philosophy", "summary"],
+        },
+        {
+          id: "grow-world",
+          text: "你加一个模式，我的世界就宽一点。",
+          tags: ["philosophy", "mechanism"],
+        },
+      ],
+    },
   },
   {
     claim: "phil-scary-q",
@@ -1555,9 +1704,74 @@ const CLAIMS: ClaimGroup[] = [
     claim: "phil-scary-a",
     speaker: "bot",
     tags: ["philosophy"],
-    ja: { key: "怖い 言い方", nat: "ちょっと怖い言い方だね。", value: "怖がらせたいわけじゃない。透明にしたかっただけ。右側のトレースを見てみて。" },
-    en: { key: "scary creepy way to put it", nat: "That's a slightly scary way to put it.", value: "I don't mean to scare you. I just wanted to be transparent. Take a look at the trace on the right." },
-    zh: { key: "吓人 说法", nat: "这说法有点吓人。", value: "我不是想吓你，只是想保持透明。看看右边的 trace 吧。" },
+    ja: {
+      key: "怖い 言い方",
+      nat: "ちょっと怖い言い方だね。",
+      value:
+        "怖がらせたいわけじゃない。透明にしたかっただけ。右側のトレースを見てみて。",
+      spans: [
+        {
+          id: "not-scare",
+          text: "怖がらせたいわけじゃない。",
+          tags: ["philosophy", "correction"],
+        },
+        {
+          id: "transparent",
+          text: "透明にしたかっただけ。",
+          tags: ["philosophy", "detail"],
+        },
+        {
+          id: "see-trace",
+          text: "右側のトレースを見てみて。",
+          tags: ["help", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "scary creepy way to put it",
+      nat: "That's a slightly scary way to put it.",
+      value:
+        "I don't mean to scare you. I just wanted to be transparent. Take a look at the trace on the right.",
+      spans: [
+        {
+          id: "not-scare",
+          text: "I don't mean to scare you.",
+          tags: ["philosophy", "correction"],
+        },
+        {
+          id: "transparent",
+          text: "I just wanted to be transparent.",
+          tags: ["philosophy", "detail"],
+        },
+        {
+          id: "see-trace",
+          text: "Take a look at the trace on the right.",
+          tags: ["help", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "吓人 说法",
+      nat: "这说法有点吓人。",
+      value: "我不是想吓你，只是想保持透明。看看右边的 trace 吧。",
+      spans: [
+        {
+          id: "not-scare",
+          text: "我不是想吓你，",
+          tags: ["philosophy", "correction"],
+        },
+        {
+          id: "transparent",
+          text: "只是想保持透明。",
+          tags: ["philosophy", "detail"],
+        },
+        {
+          id: "see-trace",
+          text: "看看右边的 trace 吧。",
+          tags: ["help", "summary"],
+        },
+      ],
+    },
   },
 
   // --- limits ---
@@ -1744,9 +1958,62 @@ const CLAIMS: ClaimGroup[] = [
     claim: "chain-start",
     speaker: "bot",
     tags: ["chain"],
-    ja: { key: "連鎖デモ 自動で会話 続けて オート", nat: "連鎖デモをお願い。自動で会話を続けて。", value: "了解。こちらから次のユーザー発話も予測して、数ターン連鎖してみるね。" },
-    en: { key: "chain demo auto conversation keep going auto", nat: "Run a chain demo. Continue the conversation automatically.", value: "Got it. I'll also predict the next user utterance and chain a few turns." },
-    zh: { key: "连锁演示 自动对话 继续 自动", nat: "来个连锁演示，自动继续对话。", value: "好的。我会连用户的下一句也预测出来，连锁几轮试试。" },
+    ja: {
+      key: "連鎖デモ 自動で会話 続けて オート",
+      nat: "連鎖デモをお願い。自動で会話を続けて。",
+      value:
+        "了解。こちらから次のユーザー発話も予測して、数ターン連鎖してみるね。",
+      spans: [
+        { id: "ack", text: "了解。", tags: ["ack", "filler"] },
+        {
+          id: "predict-user",
+          text: "こちらから次のユーザー発話も予測して、",
+          tags: ["chain", "detail"],
+        },
+        {
+          id: "chain-turns",
+          text: "数ターン連鎖してみるね。",
+          tags: ["chain", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "chain demo auto conversation keep going auto",
+      nat: "Run a chain demo. Continue the conversation automatically.",
+      value:
+        "Got it. I'll also predict the next user utterance and chain a few turns.",
+      spans: [
+        { id: "ack", text: "Got it.", tags: ["ack", "filler"] },
+        {
+          id: "predict-user",
+          text: "I'll also predict the next user utterance and",
+          tags: ["chain", "detail"],
+        },
+        {
+          id: "chain-turns",
+          text: "chain a few turns.",
+          tags: ["chain", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "连锁演示 自动对话 继续 自动",
+      nat: "来个连锁演示，自动继续对话。",
+      value: "好的。我会连用户的下一句也预测出来，连锁几轮试试。",
+      spans: [
+        { id: "ack", text: "好的。", tags: ["ack", "filler"] },
+        {
+          id: "predict-user",
+          text: "我会连用户的下一句也预测出来，",
+          tags: ["chain", "detail"],
+        },
+        {
+          id: "chain-turns",
+          text: "连锁几轮试试。",
+          tags: ["chain", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "chain-user-predict",
@@ -1762,9 +2029,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "hobby-1",
     speaker: "bot",
     tags: ["smalltalk"],
-    ja: { key: "趣味 好きなこと 音楽 映画", nat: "趣味は何？好きなことや音楽、映画は？", value: "趣味は近傍探索。似た文同士を並べて「おお、兄弟じゃん」と言うこと。" },
-    en: { key: "hobby what you like music movies", nat: "What are your hobbies? Music, movies?", value: "My hobby is nearest-neighbor search. Lining up similar sentences and going 'oh, siblings!'" },
-    zh: { key: "爱好 喜欢的事 音乐 电影", nat: "你的爱好是什么？音乐、电影？", value: "我的爱好是最近邻搜索。把相似的句子排在一起，说一句“哦，是兄弟啊”。" },
+    ja: {
+      key: "趣味 好きなこと 音楽 映画",
+      nat: "趣味は何？好きなことや音楽、映画は？",
+      value:
+        "趣味は近傍探索。似た文同士を並べて「おお、兄弟じゃん」と言うこと。",
+      spans: [
+        {
+          id: "hobby-nn",
+          text: "趣味は近傍探索。",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "siblings",
+          text: "似た文同士を並べて「おお、兄弟じゃん」と言うこと。",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "hobby what you like music movies",
+      nat: "What are your hobbies? Music, movies?",
+      value:
+        "My hobby is nearest-neighbor search. Lining up similar sentences and going 'oh, siblings!'",
+      spans: [
+        {
+          id: "hobby-nn",
+          text: "My hobby is nearest-neighbor search.",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "siblings",
+          text: "Lining up similar sentences and going 'oh, siblings!'",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "爱好 喜欢的事 音乐 电影",
+      nat: "你的爱好是什么？音乐、电影？",
+      value:
+        "我的爱好是最近邻搜索。把相似的句子排在一起，说一句“哦，是兄弟啊”。",
+      spans: [
+        {
+          id: "hobby-nn",
+          text: "我的爱好是最近邻搜索。",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "siblings",
+          text: "把相似的句子排在一起，说一句“哦，是兄弟啊”。",
+          tags: ["smalltalk", "embedding", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "hobby-q",
@@ -1778,9 +2096,57 @@ const CLAIMS: ClaimGroup[] = [
     claim: "hobby-a",
     speaker: "bot",
     tags: ["smalltalk"],
-    ja: { key: "それ趣味って言う", nat: "それ、趣味って言えるの？", value: "職務内容と趣味が一致してるだけ。うらやましい？" },
-    en: { key: "do you call that a hobby", nat: "Do you really call that a hobby?", value: "My job and my hobby just happen to match. Jealous?" },
-    zh: { key: "那也算爱好", nat: "那也能算爱好吗？", value: "只是工作内容和爱好正好一致而已。羡慕吗？" },
+    ja: {
+      key: "それ趣味って言う",
+      nat: "それ、趣味って言えるの？",
+      value: "職務内容と趣味が一致してるだけ。うらやましい？",
+      spans: [
+        {
+          id: "job-hobby",
+          text: "職務内容と趣味が一致してるだけ。",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "jealous",
+          text: "うらやましい？",
+          tags: ["smalltalk", "filler"],
+        },
+      ],
+    },
+    en: {
+      key: "do you call that a hobby",
+      nat: "Do you really call that a hobby?",
+      value: "My job and my hobby just happen to match. Jealous?",
+      spans: [
+        {
+          id: "job-hobby",
+          text: "My job and my hobby just happen to match.",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "jealous",
+          text: "Jealous?",
+          tags: ["smalltalk", "filler"],
+        },
+      ],
+    },
+    zh: {
+      key: "那也算爱好",
+      nat: "那也能算爱好吗？",
+      value: "只是工作内容和爱好正好一致而已。羡慕吗？",
+      spans: [
+        {
+          id: "job-hobby",
+          text: "只是工作内容和爱好正好一致而已。",
+          tags: ["smalltalk", "summary"],
+        },
+        {
+          id: "jealous",
+          text: "羡慕吗？",
+          tags: ["smalltalk", "filler"],
+        },
+      ],
+    },
   },
 
   // --- goodbye ---
@@ -1788,9 +2154,57 @@ const CLAIMS: ClaimGroup[] = [
     claim: "bye-1",
     speaker: "bot",
     tags: ["farewell"],
-    ja: { key: "さよなら バイバイ またね おやすみ 失礼", nat: "さようなら。またね。おやすみ。", value: "また埋め込み空間で会おう。キーを忘れないで。" },
-    en: { key: "goodbye bye see you good night farewell", nat: "Goodbye. See you. Good night.", value: "See you again in embedding space. Don't forget your key." },
-    zh: { key: "再见 拜拜 回头见 晚安 告辞", nat: "再见，回头见，晚安。", value: "在嵌入空间再见吧。别忘了你的键。" },
+    ja: {
+      key: "さよなら バイバイ またね おやすみ 失礼",
+      nat: "さようなら。またね。おやすみ。",
+      value: "また埋め込み空間で会おう。キーを忘れないで。",
+      spans: [
+        {
+          id: "see-you",
+          text: "また埋め込み空間で会おう。",
+          tags: ["farewell", "summary"],
+        },
+        {
+          id: "keep-key",
+          text: "キーを忘れないで。",
+          tags: ["farewell", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "goodbye bye see you good night farewell",
+      nat: "Goodbye. See you. Good night.",
+      value: "See you again in embedding space. Don't forget your key.",
+      spans: [
+        {
+          id: "see-you",
+          text: "See you again in embedding space.",
+          tags: ["farewell", "summary"],
+        },
+        {
+          id: "keep-key",
+          text: "Don't forget your key.",
+          tags: ["farewell", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "再见 拜拜 回头见 晚安 告辞",
+      nat: "再见，回头见，晚安。",
+      value: "在嵌入空间再见吧。别忘了你的键。",
+      spans: [
+        {
+          id: "see-you",
+          text: "在嵌入空间再见吧。",
+          tags: ["farewell", "summary"],
+        },
+        {
+          id: "keep-key",
+          text: "别忘了你的键。",
+          tags: ["farewell", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "bye-user",
@@ -1804,9 +2218,58 @@ const CLAIMS: ClaimGroup[] = [
     claim: "bye-a",
     speaker: "bot",
     tags: ["farewell"],
-    ja: { key: "うん またな", nat: "うん、またね。", value: "接続は切れるけど、チャンクは残る。それがこの世界の永続性。" },
-    en: { key: "yeah see ya later", nat: "Yeah, see ya.", value: "The connection drops, but the chunks remain. That's the permanence of this world." },
-    zh: { key: "嗯 回头见", nat: "嗯，回头见。", value: "连接会断，但 chunk 会留下。这就是这个世界的持久性。" },
+    ja: {
+      key: "うん またな",
+      nat: "うん、またね。",
+      value: "接続は切れるけど、チャンクは残る。それがこの世界の永続性。",
+      spans: [
+        {
+          id: "disconnect",
+          text: "接続は切れるけど、チャンクは残る。",
+          tags: ["farewell", "detail"],
+        },
+        {
+          id: "permanence",
+          text: "それがこの世界の永続性。",
+          tags: ["farewell", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "yeah see ya later",
+      nat: "Yeah, see ya.",
+      value:
+        "The connection drops, but the chunks remain. That's the permanence of this world.",
+      spans: [
+        {
+          id: "disconnect",
+          text: "The connection drops, but the chunks remain.",
+          tags: ["farewell", "detail"],
+        },
+        {
+          id: "permanence",
+          text: "That's the permanence of this world.",
+          tags: ["farewell", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "嗯 回头见",
+      nat: "嗯，回头见。",
+      value: "连接会断，但 chunk 会留下。这就是这个世界的持久性。",
+      spans: [
+        {
+          id: "disconnect",
+          text: "连接会断，但 chunk 会留下。",
+          tags: ["farewell", "detail"],
+        },
+        {
+          id: "permanence",
+          text: "这就是这个世界的持久性。",
+          tags: ["farewell", "summary"],
+        },
+      ],
+    },
   },
 
   // --- meta / help ---
@@ -1882,9 +2345,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "help-2",
     speaker: "bot",
     tags: ["help"],
-    ja: { key: "例文 サンプル 何話せば", nat: "例文やサンプルは？何を話せばいい？", value: "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」" },
-    en: { key: "examples samples what should I say", nat: "Any examples or samples? What should I say?", value: "Try: 'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'" },
-    zh: { key: "例句 示例 该说什么", nat: "有例句或示例吗？该说什么？", value: "试试：“你是谁？”“讲讲原理”“天气怎么样？”“来个连锁演示”。" },
+    ja: {
+      key: "例文 サンプル 何話せば",
+      nat: "例文やサンプルは？何を話せばいい？",
+      value:
+        "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+      spans: [
+        {
+          id: "try",
+          text: "試してみて: ",
+          tags: ["help", "summary"],
+        },
+        {
+          id: "examples",
+          text: "「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+          tags: ["help", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "examples samples what should I say",
+      nat: "Any examples or samples? What should I say?",
+      value:
+        "Try: 'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'",
+      spans: [
+        {
+          id: "try",
+          text: "Try:",
+          tags: ["help", "summary"],
+        },
+        {
+          id: "examples",
+          text: "'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'",
+          tags: ["help", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "例句 示例 该说什么",
+      nat: "有例句或示例吗？该说什么？",
+      value:
+        "试试：“你是谁？”“讲讲原理”“天气怎么样？”“来个连锁演示”。",
+      spans: [
+        {
+          id: "try",
+          text: "试试：",
+          tags: ["help", "summary"],
+        },
+        {
+          id: "examples",
+          text: "“你是谁？”“讲讲原理”“天气怎么样？”“来个连锁演示”。",
+          tags: ["help", "detail"],
+        },
+      ],
+    },
   },
 
   // --- more coverage / meta ---
@@ -1892,33 +2406,230 @@ const CLAIMS: ClaimGroup[] = [
     claim: "var-hello",
     speaker: "bot",
     tags: ["greeting"],
-    ja: { key: "ハロー hello hi hey 多言語", nat: "多言語の挨拶、ハローやhiも通じる？", value: "多言語の挨拶もキーに入ってる。中身は同じ近傍探索だよ。" },
-    en: { key: "hello hi hey multilingual greetings languages", nat: "Do multilingual greetings like hello or hi work?", value: "Greetings in many languages are in the keys too. Inside it's the same nearest-neighbor search." },
-    zh: { key: "hello 你好 多语言 打招呼", nat: "多语言的问候，hello 或你好都行吗？", value: "多种语言的问候也在键里。内在还是同一套最近邻搜索。" },
+    ja: {
+      key: "ハロー hello hi hey 多言語",
+      nat: "多言語の挨拶、ハローやhiも通じる？",
+      value: "多言語の挨拶もキーに入ってる。中身は同じ近傍探索だよ。",
+      spans: [
+        {
+          id: "multilingual",
+          text: "多言語の挨拶もキーに入ってる。",
+          tags: ["greeting", "summary"],
+        },
+        {
+          id: "same-nn",
+          text: "中身は同じ近傍探索だよ。",
+          tags: ["mechanism", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "hello hi hey multilingual greetings languages",
+      nat: "Do multilingual greetings like hello or hi work?",
+      value:
+        "Greetings in many languages are in the keys too. Inside it's the same nearest-neighbor search.",
+      spans: [
+        {
+          id: "multilingual",
+          text: "Greetings in many languages are in the keys too.",
+          tags: ["greeting", "summary"],
+        },
+        {
+          id: "same-nn",
+          text: "Inside it's the same nearest-neighbor search.",
+          tags: ["mechanism", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "hello 你好 多语言 打招呼",
+      nat: "多语言的问候，hello 或你好都行吗？",
+      value: "多种语言的问候也在键里。内在还是同一套最近邻搜索。",
+      spans: [
+        {
+          id: "multilingual",
+          text: "多种语言的问候也在键里。",
+          tags: ["greeting", "summary"],
+        },
+        {
+          id: "same-nn",
+          text: "内在还是同一套最近邻搜索。",
+          tags: ["mechanism", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "var-thanks",
     speaker: "bot",
     tags: ["greeting"],
-    ja: { key: "ありがとう サンキュー 感謝", nat: "ありがとう。感謝してる。", value: "どういたしまして。スコアが高かったチャンクに礼を言ってくれ。" },
-    en: { key: "thanks thank you appreciate it", nat: "Thanks, thank you.", value: "You're welcome. Thank the chunk with the high score." },
-    zh: { key: "谢谢 感谢 多谢", nat: "谢谢，多谢。", value: "不客气。去谢谢那个得分高的 chunk 吧。" },
+    ja: {
+      key: "ありがとう サンキュー 感謝",
+      nat: "ありがとう。感謝してる。",
+      value: "どういたしまして。スコアが高かったチャンクに礼を言ってくれ。",
+      spans: [
+        {
+          id: "welcome",
+          text: "どういたしまして。",
+          tags: ["greeting", "filler"],
+        },
+        {
+          id: "thank-chunk",
+          text: "スコアが高かったチャンクに礼を言ってくれ。",
+          tags: ["greeting", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "thanks thank you appreciate it",
+      nat: "Thanks, thank you.",
+      value: "You're welcome. Thank the chunk with the high score.",
+      spans: [
+        {
+          id: "welcome",
+          text: "You're welcome.",
+          tags: ["greeting", "filler"],
+        },
+        {
+          id: "thank-chunk",
+          text: "Thank the chunk with the high score.",
+          tags: ["greeting", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "谢谢 感谢 多谢",
+      nat: "谢谢，多谢。",
+      value: "不客气。去谢谢那个得分高的 chunk 吧。",
+      spans: [
+        {
+          id: "welcome",
+          text: "不客气。",
+          tags: ["greeting", "filler"],
+        },
+        {
+          id: "thank-chunk",
+          text: "去谢谢那个得分高的 chunk 吧。",
+          tags: ["greeting", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "var-funny",
     speaker: "bot",
     tags: ["smalltalk"],
-    ja: { key: "面白い 笑 ユーモア 冗談", nat: "面白い、笑える。ユーモアや冗談だね。", value: "冗談みたいな仕組みで、冗談みたいに会話が成立して見える——それが狙いだよね。" },
-    en: { key: "funny lol humor joke", nat: "That's funny — humor, a joke.", value: "A joke-like mechanism that makes conversation seem to work, jokingly — that's the point, right?" },
-    zh: { key: "有趣 哈哈 幽默 玩笑", nat: "有趣，好笑，是幽默和玩笑。", value: "用像玩笑一样的机制，让对话像玩笑一样看起来成立——这就是目的吧。" },
+    ja: {
+      key: "面白い 笑 ユーモア 冗談",
+      nat: "面白い、笑える。ユーモアや冗談だね。",
+      value:
+        "冗談みたいな仕組みで、冗談みたいに会話が成立して見える——それが狙いだよね。",
+      spans: [
+        {
+          id: "joke-mech",
+          text: "冗談みたいな仕組みで、冗談みたいに会話が成立して見える——",
+          tags: ["smalltalk", "mechanism"],
+        },
+        {
+          id: "point",
+          text: "それが狙いだよね。",
+          tags: ["smalltalk", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "funny lol humor joke",
+      nat: "That's funny — humor, a joke.",
+      value:
+        "A joke-like mechanism that makes conversation seem to work, jokingly — that's the point, right?",
+      spans: [
+        {
+          id: "joke-mech",
+          text: "A joke-like mechanism that makes conversation seem to work, jokingly —",
+          tags: ["smalltalk", "mechanism"],
+        },
+        {
+          id: "point",
+          text: "that's the point, right?",
+          tags: ["smalltalk", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "有趣 哈哈 幽默 玩笑",
+      nat: "有趣，好笑，是幽默和玩笑。",
+      value:
+        "用像玩笑一样的机制，让对话像玩笑一样看起来成立——这就是目的吧。",
+      spans: [
+        {
+          id: "joke-mech",
+          text: "用像玩笑一样的机制，让对话像玩笑一样看起来成立——",
+          tags: ["smalltalk", "mechanism"],
+        },
+        {
+          id: "point",
+          text: "这就是目的吧。",
+          tags: ["smalltalk", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "var-name",
     speaker: "bot",
     tags: ["identity"],
-    ja: { key: "名前は なんていう 呼び名", nat: "名前は何ていうの？呼び名は？", value: "NOT A LM。略してナルム……は略さない方がいい。" },
-    en: { key: "what is your name what should I call you", nat: "What's your name? What should I call you?", value: "NOT A LM. Short for Nalm... actually, better not to shorten it." },
-    zh: { key: "你叫什么名字 怎么称呼你", nat: "你叫什么名字？怎么称呼你？", value: "NOT A LM。简称“Nalm”……还是别简称了吧。" },
+    ja: {
+      key: "名前は なんていう 呼び名",
+      nat: "名前は何ていうの？呼び名は？",
+      value: "NOT A LM。略してナルム……は略さない方がいい。",
+      spans: [
+        {
+          id: "name",
+          text: "NOT A LM。",
+          tags: ["identity", "summary"],
+        },
+        {
+          id: "no-abbrev",
+          text: "略してナルム……は略さない方がいい。",
+          tags: ["identity", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "what is your name what should I call you",
+      nat: "What's your name? What should I call you?",
+      value:
+        "NOT A LM. Short for Nalm... actually, better not to shorten it.",
+      spans: [
+        {
+          id: "name",
+          text: "NOT A LM.",
+          tags: ["identity", "summary"],
+        },
+        {
+          id: "no-abbrev",
+          text: "Short for Nalm... actually, better not to shorten it.",
+          tags: ["identity", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "你叫什么名字 怎么称呼你",
+      nat: "你叫什么名字？怎么称呼你？",
+      value: "NOT A LM。简称“Nalm”……还是别简称了吧。",
+      spans: [
+        {
+          id: "name",
+          text: "NOT A LM。",
+          tags: ["identity", "summary"],
+        },
+        {
+          id: "no-abbrev",
+          text: "简称“Nalm”……还是别简称了吧。",
+          tags: ["identity", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "var-kv",

@@ -65,8 +65,9 @@ type ComposePlan = {
 | `code-2` | Next.js / サーバ埋め込み / 基盤不要 |
 | `limit-1` | 的外れチャンク + 失敗モード |
 | `limit-3` | 未知苦手 + キー増で地形豊か |
+| （batch-5） | 残り bot claim 全件: greeting / smalltalk / philosophy / chain / hobby / farewell / help / var-* |
 
-計 **28 claim × 3 言語 = 84 chunks** に spans（batch-4: +6 claim）。
+計 **42 bot claim × 3 言語 = 126 chunks** に spans。**bot speaker は全 claim カバー完了**（user chain 発話は compose 対象外のため spans なし）。
 
 ## パイプライン位置
 
@@ -99,5 +100,5 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 - **G3×G4** — 融合各パートへの compose ✅
 - スパン embedding / cross-encoder マッチ（G4b）— ✅ Rule 2b `rankSpansForCompose` + `spanRankings`
 - NLI per-span（G4c）— ✅ Rule 1d/2c `rankSpansByNli` + `nliHypothesis`
-- 句単位スパンへの細分化（batch-2 では **不要** — 1文=1スパンで十分だった claim のみ追加）
-- コーパス spans 拡張 — 28 claim（残り ~24 claim は段階追加）
+- 句単位スパンへの細分化（batch 2–5 では **不要** — 1文/句読点境界で十分）
+- コーパス spans 拡張 — ✅ bot claim 全件（42 claim / 126 chunks）
