@@ -334,6 +334,8 @@ export class ChunkKVEngine {
     parts: { seg: string; chunk: ChunkRecord; score: number }[];
     nliLabel?: string;
     nliScore?: number;
+    fuseRerankMs?: number;
+    fusePlanMs?: number;
   } | null> {
     const segments = this.compoundSegments(query, lang);
     if (segments.length < 2) return null;
@@ -341,10 +343,12 @@ export class ChunkKVEngine {
     const cands = this.search(queryVec, "bot", lang, 12, continuity);
     if (cands.length < 2) return null;
 
+    const tRr = performance.now();
     const rr: number[][] = [];
     for (let i = 0; i < segments.length; i++) {
       rr.push(await rerankScores(segments[i], cands.map((c) => c.chunk.key)));
     }
+    const fuseRerankMs = Math.round(performance.now() - tRr);
     const pairs: { i: number; j: number; s: number }[] = [];
     for (let i = 0; i < segments.length; i++) {
       for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
@@ -375,9 +379,18 @@ export class ChunkKVEngine {
     }
     if (parts.length < 2) return null;
 
+    const tPlan = performance.now();
     const planned = await planFuseParts(parts, lang);
+    const fusePlanMs = Math.round(performance.now() - tPlan);
     if (!planned) return null;
-    return { plan: planned.plan, parts, nliLabel: planned.nliLabel, nliScore: planned.nliScore };
+    return {
+      plan: planned.plan,
+      parts,
+      nliLabel: planned.nliLabel,
+      nliScore: planned.nliScore,
+      fuseRerankMs,
+      fusePlanMs,
+    };
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -399,6 +412,12 @@ export class ChunkKVEngine {
     }
 
     const t0 = performance.now();
+    const timingMs: NonNullable<TraceStep["timingMs"]> = { total: 0 };
+    const mark = (key: keyof NonNullable<TraceStep["timingMs"]>, since: number) => {
+      timingMs[key] = Math.round(performance.now() - since);
+    };
+
+    const tPre = performance.now();
     const queryLang = latestUser?.trim()
       ? detectLang(latestUser)
       : detectLangFromHistory(history);
@@ -433,12 +452,15 @@ export class ChunkKVEngine {
       planningUser = inj.effectiveQuery;
       g6bReasons.push(...inj.reasons);
     }
+    mark("preprocess", tPre);
 
+    const tQuery = performance.now();
     const composed = await composeQueryVector(
       history,
       planningUser || latestUser,
       this.backend,
     );
+    mark("queryEmbed", tQuery);
 
     // G6b-clarify: short-circuit before retrieve/gate (avoid OOC refuse on さっきの).
     if (
@@ -447,6 +469,7 @@ export class ChunkKVEngine {
       anaphora === "non-proximal" &&
       recentGroundings.length >= 2
     ) {
+      const tClarify = performance.now();
       const clarifyPlan = planClarifyRecent(recentGroundings, queryLang);
       const replyText = renderOperationPlan(
         clarifyPlan,
@@ -478,6 +501,8 @@ export class ChunkKVEngine {
           g.excerptTexts.slice(0, 1),
         ),
       });
+      mark("clarify", tClarify);
+      timingMs.total = Math.round(performance.now() - t0);
       return {
         message: {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -500,12 +525,14 @@ export class ChunkKVEngine {
           querySummary: composed.summary,
           hits: [hit],
           chosen: hit,
-          latencyMs: Math.round(performance.now() - t0),
+          latencyMs: timingMs.total,
+          timingMs,
         },
       };
     }
 
     // Stage 1 (ranking): bi-encoder over natural keys (+ dual-index span merge).
+    const tRet = performance.now();
     const searchLimit = this.spanIndex.length > 0 ? KEY_POOL : TOP_K;
     let hits = this.search(
       composed.vector,
@@ -559,6 +586,7 @@ export class ChunkKVEngine {
       matchedSpanText = dual.matchedSpanText;
       spanScore = dual.spanScore;
     }
+    mark("retrieve", tRet);
 
     let chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
@@ -588,12 +616,14 @@ export class ChunkKVEngine {
 
     if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
       try {
+        const tGate = performance.now();
         // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
         topRerankScore = await this.gateConfidence(
           gateQuery,
           keyHitsForGate,
           chosen,
         );
+        mark("gate", tGate);
         gated = true;
       } catch {
         /* gate unavailable: fall through without refusing */
@@ -665,7 +695,9 @@ export class ChunkKVEngine {
       const chunkById = new Map(this.index.map((c) => [c.id, c]));
       const getChunk = (id: string) => chunkById.get(id);
 
+      const tPol = performance.now();
       const polarity = await peekPolarity(gateQuery, chosen.chunk);
+      mark("polarity", tPol);
       nliLabel = polarity.nliLabel;
       nliScore = polarity.nliScore;
 
@@ -677,13 +709,17 @@ export class ChunkKVEngine {
       } | null = null;
 
       if (isRerankerReady()) {
+        const tFuse = performance.now();
         const fused = await this.fuseCompound(
           gateQuery,
           composed.vector,
           chosen.chunk.lang,
           continuity,
         );
+        mark("fuse", tFuse);
         if (fused) {
+          if (fused.fuseRerankMs != null) timingMs.fuseRerank = fused.fuseRerankMs;
+          if (fused.fusePlanMs != null) timingMs.fusePlan = fused.fusePlanMs;
           const meanRel =
             fused.parts.reduce((a, p) => a + p.score, 0) / fused.parts.length;
           candidates.push({
@@ -709,6 +745,7 @@ export class ChunkKVEngine {
           ? priorGroundingEarly.kept?.[0]
           : undefined;
 
+      const tSingle = performance.now();
       const single = await planSingleChunk({
         query: gateQuery,
         chunk: chosen.chunk,
@@ -726,6 +763,9 @@ export class ChunkKVEngine {
               : undefined,
         polarity,
       });
+      mark("single", tSingle);
+      if (single?.spanEmbedMs != null) timingMs.spanEmbed = single.spanEmbedMs;
+      if (single?.spanNliMs != null) timingMs.spanNli = single.spanNliMs;
       if (single) {
         let singleRel = topRerankScore ?? Math.max(0, chosen.score);
         // G6c: prefer continuing the prior claim when ranking plans.
@@ -749,6 +789,7 @@ export class ChunkKVEngine {
         });
       }
 
+      const tSel = performance.now();
       const selection = selectBestPlan(candidates);
       if (selection) {
         operationPlan = selection.winner.plan;
@@ -783,6 +824,7 @@ export class ChunkKVEngine {
         // Legacy: generated only when the reply was modified (not plain as-is).
         if (operation !== "as-is") generated = true;
       }
+      mark("selectRender", tSel);
     }
 
     const queryText = composed.summary;
@@ -802,6 +844,8 @@ export class ChunkKVEngine {
       fuseParts,
       getChunk: (id) => chunkByIdForGround.get(id),
     });
+
+    timingMs.total = Math.round(performance.now() - t0);
 
     return {
       message: {
@@ -868,7 +912,8 @@ export class ChunkKVEngine {
         })),
         hits,
         chosen,
-        latencyMs: Math.round(performance.now() - t0),
+        latencyMs: timingMs.total,
+        timingMs,
       },
     };
   }

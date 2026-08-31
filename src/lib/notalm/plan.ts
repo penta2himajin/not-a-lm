@@ -262,6 +262,10 @@ export type SingleChunkPlanResult = {
   plan: OperationPlan;
   nliLabel?: string;
   nliScore?: number;
+  /** P0: ms spent re-embedding spans for compose rank */
+  spanEmbedMs?: number;
+  /** P0: ms spent per-span NLI hypotheses */
+  spanNliMs?: number;
 };
 
 /**
@@ -278,6 +282,8 @@ export async function planSingleChunk(
   const nliLabel = polarity.nliLabel;
   const nliScore = polarity.nliScore;
   const nliRan = polarity.nliRan;
+  let spanEmbedMs: number | undefined;
+  let spanNliMs: number | undefined;
 
   if (chunk.spans?.length) {
     const composeCtx: ComposeContext = {
@@ -286,8 +292,12 @@ export async function planSingleChunk(
       focusKeySpanText,
     };
     if (query) {
+      const tEmbed = performance.now();
       composeCtx.spanRankings = await rankSpansForCompose(query, chunk.spans);
+      spanEmbedMs = Math.round(performance.now() - tEmbed);
+      const tNli = performance.now();
       composeCtx.spanNliRankings = await rankSpansByNli(query, chunk.spans);
+      spanNliMs = Math.round(performance.now() - tNli);
     }
     const g4 = planComposeG4a(query, chunk, composeCtx);
     if (
@@ -310,6 +320,8 @@ export async function planSingleChunk(
         },
         nliLabel,
         nliScore,
+        spanEmbedMs,
+        spanNliMs,
       };
     }
   }
@@ -325,6 +337,8 @@ export async function planSingleChunk(
       },
       nliLabel,
       nliScore,
+      spanEmbedMs,
+      spanNliMs,
     };
   }
 
@@ -337,6 +351,8 @@ export async function planSingleChunk(
       },
       nliLabel,
       nliScore,
+      spanEmbedMs,
+      spanNliMs,
     };
   }
 

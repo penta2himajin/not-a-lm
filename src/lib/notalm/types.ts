@@ -264,6 +264,26 @@ export type TraceStep = {
   hits: MatchHit[];
   chosen: MatchHit;
   latencyMs: number;
+  /**
+   * P0 RTT breakdown (ms, rounded). Keys present when that stage ran.
+   * `total` mirrors latencyMs. Stages omitted when skipped (e.g. no generate).
+   */
+  timingMs?: {
+    total: number;
+    preprocess?: number;
+    queryEmbed?: number;
+    retrieve?: number;
+    gate?: number;
+    polarity?: number;
+    fuse?: number;
+    fuseRerank?: number;
+    fusePlan?: number;
+    single?: number;
+    spanEmbed?: number;
+    spanNli?: number;
+    selectRender?: number;
+    clarify?: number;
+  };
 };
 
 export type ChatMessage = {
