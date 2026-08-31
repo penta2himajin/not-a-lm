@@ -504,6 +504,9 @@ export function NotALMApp() {
                         {tr.operation === "compose"
                           ? ` · compose${tr.composePlan?.prefix ? ` (${tr.composePlan.prefix})` : ""}${tr.composePlan?.kept?.length ? ` ${tr.composePlan.kept.map((k) => k.spanId).join("+")}` : ""}`
                           : ""}
+                        {tr.retrievalSource === "span"
+                          ? ` · span→${tr.matchedSpanId ?? "?"}`
+                          : ""}
                       </span>
                       {tr.lowConfidence ? (
                         <Badge

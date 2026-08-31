@@ -16,6 +16,14 @@ import {
   planComposeG4a,
   renderCompose,
 } from "./compose";
+import {
+  buildSpanIndexManifest,
+  KEY_POOL,
+  mergeDualRetrieval,
+  searchSpanIndex,
+  SPAN_AUTHOR_MIN_COS,
+  type SpanIndexEntry,
+} from "./span-index";
 import { isNliReady, nliClassify } from "./nli";
 import type {
   ChatMessage,
@@ -149,6 +157,7 @@ function normalizeForNli(q: string): string {
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
+  private spanIndex: SpanIndexEntry[] = [];
   private backend: EmbedBackend = "hash";
   private usedIds = new Set<string>();
   private initPromise: Promise<void> | null = null;
@@ -186,6 +195,23 @@ export class ChunkKVEngine {
       ...c,
       embedding: vectors[i],
     }));
+    await this.rebuildSpanIndex("hash");
+  }
+
+  private async rebuildSpanIndex(backend: EmbedBackend): Promise<void> {
+    const manifest = buildSpanIndexManifest(CHUNK_CORPUS);
+    if (manifest.length === 0) {
+      this.spanIndex = [];
+      return;
+    }
+    const vectors = await embedMany(
+      manifest.map((m) => m.text),
+      backend,
+    );
+    this.spanIndex = manifest.map((m, i) => ({
+      ...m,
+      embedding: vectors[i],
+    }));
   }
 
   /** Load the multilingual dense model and rebuild the chunk KV index */
@@ -210,6 +236,8 @@ export class ChunkKVEngine {
           ...c,
           embedding: vectors[i],
         }));
+        onProgress?.("スパン索引を埋め込み中…");
+        await this.rebuildSpanIndex("dense");
         this.usedIds.clear();
         onProgress?.("多言語インデックス完了");
       })().finally(() => {
@@ -270,14 +298,26 @@ export class ChunkKVEngine {
    */
   private async gateConfidence(
     query: string,
-    hits: MatchHit[],
+    keyHits: MatchHit[],
+    chosen?: MatchHit,
   ): Promise<number> {
-    const top = hits.slice(0, GATE_CANDIDATES);
+    const top = keyHits.slice(0, GATE_CANDIDATES);
+    const candidates = [...top];
+    if (
+      chosen &&
+      !candidates.some((h) => h.chunk.id === chosen.chunk.id)
+    ) {
+      candidates.push(chosen);
+    }
     const scores = await rerankScores(
       query,
-      top.map((h) => h.chunk.key),
+      candidates.map((h) => h.chunk.key),
     );
-    top.forEach((h, i) => (h.rerankScore = scores[i]));
+    candidates.forEach((h, i) => (h.rerankScore = scores[i]));
+    top.forEach((h) => {
+      const idx = candidates.findIndex((c) => c.chunk.id === h.chunk.id);
+      if (idx >= 0) h.rerankScore = scores[idx];
+    });
     return scores.length ? Math.max(...scores) : 0;
   }
 
@@ -388,14 +428,51 @@ export class ChunkKVEngine {
       this.backend,
     );
 
-    // Stage 1 (ranking): bi-encoder over natural keys. This alone ranks best on
-    // this corpus; the cross-encoder does not improve ranking, so it is NOT used
-    // to reorder — only to gate (below).
-    let hits = this.search(composed.vector, preferSpeaker, queryLang, TOP_K);
+    // Stage 1 (ranking): bi-encoder over natural keys (+ dual-index span merge).
+    const searchLimit = this.spanIndex.length > 0 ? KEY_POOL : TOP_K;
+    let hits = this.search(
+      composed.vector,
+      preferSpeaker,
+      queryLang,
+      searchLimit,
+    );
     // Fallback: if the corpus has nothing in the detected language, drop the
     // language filter rather than returning nothing.
     if (hits.length === 0) {
-      hits = this.search(composed.vector, preferSpeaker, undefined, TOP_K);
+      hits = this.search(composed.vector, preferSpeaker, undefined, searchLimit);
+    }
+
+    const keyHitsForGate = hits.map((h) => ({ ...h }));
+
+    let retrievalSource: "natKey" | "span" = "natKey";
+    let matchedSpanId: string | undefined;
+    let matchedSpanKind: "author" | "key-span" | undefined;
+    let matchedSpanText: string | undefined;
+    let spanScore: number | undefined;
+
+    if (this.spanIndex.length > 0 && preferSpeaker === "bot") {
+      const chunkById = new Map(this.index.map((c) => [c.id, c]));
+      const spanHits = searchSpanIndex(
+        composed.vector,
+        this.spanIndex,
+        chunkById,
+        queryLang,
+      );
+      const gateQueryEarly = composed.anchorText || latestUser?.trim() || "";
+      const dual = mergeDualRetrieval(
+        composed.vector,
+        hits,
+        spanHits,
+        chunkById,
+        this.usedIds,
+        gateQueryEarly,
+      );
+      hits = dual.hits;
+      retrievalSource = dual.retrievalSource;
+      matchedSpanId = dual.matchedSpanId;
+      matchedSpanKind = dual.matchedSpanKind;
+      matchedSpanText = dual.matchedSpanText;
+      spanScore = dual.spanScore;
     }
 
     let chosen = hits[0];
@@ -417,9 +494,19 @@ export class ChunkKVEngine {
     let topRerankScore: number | undefined;
     let lowConfidence = false;
     let rescued = false;
+    const spanGateBypass =
+      retrievalSource === "span" &&
+      matchedSpanKind === "author" &&
+      (spanScore ?? 0) >= SPAN_AUTHOR_MIN_COS;
+
     if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
       try {
-        topRerankScore = await this.gateConfidence(gateQuery, hits);
+        // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
+        topRerankScore = await this.gateConfidence(
+          gateQuery,
+          keyHitsForGate,
+          chosen,
+        );
         gated = true;
       } catch {
         /* gate unavailable: fall through without refusing */
@@ -430,11 +517,17 @@ export class ChunkKVEngine {
     // threshold, nothing in the corpus is a close match — refuse gracefully with
     // the language's "no close key" chunk. One-way cosine rescue: if the nearest
     // corpus element is very close (topCosine >= RESCUE_COS), the low reranker
-    // score is likely a fluke, so answer instead of refusing.
+    // score is likely a fluke, so answer instead of refusing. Span author rescue
+    // bypass: strong span match already validated the parent chunk.
     if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && topCosine >= RESCUE_COS) {
       rescued = true;
     }
-    if (gated && (topRerankScore ?? 0) < GATE_MIN_SCORE && !rescued) {
+    if (
+      gated &&
+      (topRerankScore ?? 0) < GATE_MIN_SCORE &&
+      !rescued &&
+      !spanGateBypass
+    ) {
       const refusal = this.refusalChunk(queryLang);
       if (refusal) {
         lowConfidence = true;
@@ -547,6 +640,14 @@ export class ChunkKVEngine {
     ) {
       const plan = planComposeG4a(gateQuery, chosen.chunk, {
         prefix: composePrefix,
+        focusSpanId:
+          retrievalSource === "span" && matchedSpanKind === "author"
+            ? matchedSpanId
+            : undefined,
+        focusKeySpanText:
+          retrievalSource === "span" && matchedSpanKind === "key-span"
+            ? matchedSpanText
+            : undefined,
       });
       if (plan) {
         const openers = {
@@ -590,6 +691,10 @@ export class ChunkKVEngine {
         composePlan,
         nliLabel,
         nliScore,
+        retrievalSource,
+        matchedSpanId,
+        matchedSpanKind,
+        spanScore,
         reranked: gated,
         topRerankScore,
         topCosine,

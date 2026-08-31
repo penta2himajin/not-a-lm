@@ -59,6 +59,7 @@ npm run eval:nli:engine       # E2E negate（G2+G4 連携）
 
 ## フォローアップ（G4.1+）
 
+- **Dual-index retrieval** — [`retrieval-dual-index.md`](retrieval-dual-index.md)（natKey + author/key-span 二次索引）
 - G3 融合の各パートに G4 compose を適用
 - スパン embedding / cross-encoder マッチ（G4b）
 - NLI per-span（G4c）
