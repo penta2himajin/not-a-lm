@@ -1,0 +1,65 @@
+claim: phil-scary-a
+speaker: bot
+tags:
+  - philosophy
+ja:
+  key: 怖い 言い方
+  nat: ちょっと怖い言い方だね。
+  value: 怖がらせたいわけじゃない。透明にしたかっただけ。右側のトレースを見てみて。
+  spans:
+    - id: not-scare
+      text: 怖がらせたいわけじゃない。
+      tags:
+        - philosophy
+        - correction
+    - id: transparent
+      text: 透明にしたかっただけ。
+      tags:
+        - philosophy
+        - detail
+    - id: see-trace
+      text: 右側のトレースを見てみて。
+      tags:
+        - help
+        - summary
+en:
+  key: scary creepy way to put it
+  nat: That's a slightly scary way to put it.
+  value: I don't mean to scare you. I just wanted to be transparent. Take a look at the trace on the
+    right.
+  spans:
+    - id: not-scare
+      text: I don't mean to scare you.
+      tags:
+        - philosophy
+        - correction
+    - id: transparent
+      text: I just wanted to be transparent.
+      tags:
+        - philosophy
+        - detail
+    - id: see-trace
+      text: Take a look at the trace on the right.
+      tags:
+        - help
+        - summary
+zh:
+  key: 吓人 说法
+  nat: 这说法有点吓人。
+  value: 我不是想吓你，只是想保持透明。看看右边的 trace 吧。
+  spans:
+    - id: not-scare
+      text: 我不是想吓你，
+      tags:
+        - philosophy
+        - correction
+    - id: transparent
+      text: 只是想保持透明。
+      tags:
+        - philosophy
+        - detail
+    - id: see-trace
+      text: 看看右边的 trace 吧。
+      tags:
+        - help
+        - summary

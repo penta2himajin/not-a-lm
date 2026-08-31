@@ -1,0 +1,16 @@
+claim: mech-rag-q
+speaker: user
+tags:
+  - chain
+ja:
+  key: 会話履歴を埋め込み 近いチャンク value 次のセリフ
+  nat: 会話履歴を埋め込んで、近いチャンクの value を次のセリフにするんだね。
+  value: それって結局 RAG じゃないの？
+en:
+  key: embed conversation history nearest chunk value next line
+  nat: You embed the history and use the nearest chunk's value as the next line.
+  value: Isn't that basically RAG?
+zh:
+  key: 把对话历史嵌入 最近 chunk value 下一句
+  nat: 把对话历史嵌入，用最近 chunk 的 value 当下一句。
+  value: 那说到底不就是 RAG 吗？

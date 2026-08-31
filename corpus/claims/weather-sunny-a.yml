@@ -1,0 +1,52 @@
+claim: weather-sunny-a
+speaker: bot
+tags:
+  - smalltalk
+ja:
+  key: 晴れの日 何する
+  nat: 晴れの日は何をするの？
+  value: ベクトル空間の散歩。近い隣人を訪ねて、遠い外れ値をからかう。
+  spans:
+    - id: walk
+      text: ベクトル空間の散歩。
+      tags:
+        - smalltalk
+        - summary
+    - id: neighbors
+      text: 近い隣人を訪ねて、遠い外れ値をからかう。
+      tags:
+        - smalltalk
+        - embedding
+        - detail
+en:
+  key: sunny day what do you do
+  nat: What do you do on sunny days?
+  value: A walk in vector space. Visit the close neighbors, tease the distant outliers.
+  spans:
+    - id: walk
+      text: A walk in vector space.
+      tags:
+        - smalltalk
+        - summary
+    - id: neighbors
+      text: Visit the close neighbors, tease the distant outliers.
+      tags:
+        - smalltalk
+        - embedding
+        - detail
+zh:
+  key: 晴天 做什么
+  nat: 晴天你做什么？
+  value: 在向量空间里散步。拜访近邻，调侃远处的离群点。
+  spans:
+    - id: walk
+      text: 在向量空间里散步。
+      tags:
+        - smalltalk
+        - summary
+    - id: neighbors
+      text: 拜访近邻，调侃远处的离群点。
+      tags:
+        - smalltalk
+        - embedding
+        - detail

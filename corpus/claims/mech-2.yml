@@ -1,0 +1,59 @@
+claim: mech-2
+speaker: bot
+tags:
+  - mechanism
+ja:
+  key: 埋め込み エンベディング embedding ベクトル
+  nat: 埋め込み（エンベディング）って何？ベクトルの話。
+  value: 意味の近い文は近いベクトルになる。だから言い回しが違っても同じパターンに着地しやすい。
+  spans:
+    - id: vec-close
+      text: 意味の近い文は近いベクトルになる。
+      tags:
+        - embedding
+        - mechanism
+      nliHypothesis: ユーザーは意味の近いベクトルについて質問している。
+    - id: paraphrase
+      text: だから言い回しが違っても同じパターンに着地しやすい。
+      tags:
+        - embedding
+        - paraphrase
+        - mechanism
+      nliHypothesis: ユーザーは言い回しの違いについて質問している。
+en:
+  key: embedding vector representation semantic
+  nat: What is an embedding? The vector representation.
+  value: Sentences close in meaning become close vectors. So even different wording tends to land on
+    the same pattern.
+  spans:
+    - id: vec-close
+      text: Sentences close in meaning become close vectors.
+      tags:
+        - embedding
+        - mechanism
+      nliHypothesis: The user is asking about semantically close vectors.
+    - id: paraphrase
+      text: So even different wording tends to land on the same pattern.
+      tags:
+        - embedding
+        - paraphrase
+        - mechanism
+      nliHypothesis: The user is asking about wording differences.
+zh:
+  key: 嵌入 向量 embedding 语义表示
+  nat: 嵌入（embedding）是什么？向量表示。
+  value: 意思相近的句子会变成相近的向量。所以就算措辞不同，也容易落到同一个模式上。
+  spans:
+    - id: vec-close
+      text: 意思相近的句子会变成相近的向量。
+      tags:
+        - embedding
+        - mechanism
+      nliHypothesis: 用户在问语义相近的向量。
+    - id: paraphrase
+      text: 所以就算措辞不同，也容易落到同一个模式上。
+      tags:
+        - embedding
+        - paraphrase
+        - mechanism
+      nliHypothesis: 用户在问措辞差异。

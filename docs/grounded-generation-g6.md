@@ -77,3 +77,4 @@ npm run eval:g6d
 - レシピに bot claim 固定（`resolve:"corpus"`）を混ぜるモード
 - 明確化文言のコーパス claim 化
 - en/zh シード文言での連鎖ボタン（現状デモは ja 起点）
+- **G7 コーパス編集** — [`grounded-generation-g7.md`](grounded-generation-g7.md)

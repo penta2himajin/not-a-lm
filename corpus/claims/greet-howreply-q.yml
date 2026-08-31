@@ -1,0 +1,16 @@
+claim: greet-howreply-q
+speaker: user
+tags:
+  - chain
+ja:
+  key: やあ ここは言語モデルじゃない 埋め込み
+  nat: ここは言語モデルじゃなくて、埋め込みで次のセリフを拾ってるだけ。
+  value: え、じゃあどうやって返事してるの？
+en:
+  key: hey this isn't a language model embedding
+  nat: This isn't a language model; it just picks the next line by embedding.
+  value: Wait, so how are you replying then?
+zh:
+  key: 嗨 这里不是语言模型 嵌入
+  nat: 这里不是语言模型，只是用嵌入挑出下一句。
+  value: 咦，那你是怎么回复的？

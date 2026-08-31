@@ -1,0 +1,140 @@
+claim: mech-existing
+speaker: bot
+tags:
+  - prior-art
+ja:
+  key: 既存 似た仕組み ある 前例
+  nat: 似たような既存の仕組みや前例はある？
+  value: あるよ。retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。
+  spans:
+    - id: ack
+      text: あるよ。
+      tags:
+        - ack
+        - filler
+    - id: item-retrieval
+      text: retrieval-only chatbot、
+      tags:
+        - prior-art
+        - prior-art-item
+        - retrieval-only
+    - id: item-response
+      text: response selection、
+      tags:
+        - prior-art
+        - prior-art-item
+        - response-selection
+    - id: item-memnet
+      text: Memory Networks、
+      tags:
+        - prior-art
+        - prior-art-item
+        - memory-networks
+    - id: item-knn
+      text: kNN-LM、
+      tags:
+        - prior-art
+        - prior-art-item
+        - knn-lm
+    - id: item-retro
+      text: RETRO。
+      tags:
+        - prior-art
+        - prior-art-item
+        - retro
+    - id: closing
+      text: ここはその極端な「生成なし版」。
+      tags:
+        - summary
+        - no-generation
+en:
+  key: existing similar systems any prior art
+  nat: Are there existing similar systems or prior art?
+  value: Sure. retrieval-only chatbots, response selection, Memory Networks, kNN-LM, RETRO. This is
+    the extreme 'no-generation' version.
+  spans:
+    - id: ack
+      text: Sure.
+      tags:
+        - ack
+        - filler
+    - id: item-retrieval
+      text: retrieval-only chatbots,
+      tags:
+        - prior-art
+        - prior-art-item
+        - retrieval-only
+    - id: item-response
+      text: response selection,
+      tags:
+        - prior-art
+        - prior-art-item
+        - response-selection
+    - id: item-memnet
+      text: Memory Networks,
+      tags:
+        - prior-art
+        - prior-art-item
+        - memory-networks
+    - id: item-knn
+      text: kNN-LM,
+      tags:
+        - prior-art
+        - prior-art-item
+        - knn-lm
+    - id: item-retro
+      text: RETRO.
+      tags:
+        - prior-art
+        - prior-art-item
+        - retro
+    - id: closing
+      text: This is the extreme 'no-generation' version.
+      tags:
+        - summary
+        - no-generation
+zh:
+  key: 已有的 类似的机制 有吗 先例
+  nat: 有类似的已有机制或先例吗？
+  value: 有的。retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。这里是它们极端的“无生成版”。
+  spans:
+    - id: ack
+      text: 有的。
+      tags:
+        - ack
+        - filler
+    - id: item-retrieval
+      text: retrieval-only chatbot、
+      tags:
+        - prior-art
+        - prior-art-item
+        - retrieval-only
+    - id: item-response
+      text: response selection、
+      tags:
+        - prior-art
+        - prior-art-item
+        - response-selection
+    - id: item-memnet
+      text: Memory Networks、
+      tags:
+        - prior-art
+        - prior-art-item
+        - memory-networks
+    - id: item-knn
+      text: kNN-LM、
+      tags:
+        - prior-art
+        - prior-art-item
+        - knn-lm
+    - id: item-retro
+      text: RETRO。
+      tags:
+        - prior-art
+        - prior-art-item
+        - retro
+    - id: closing
+      text: 这里是它们极端的“无生成版”。
+      tags:
+        - summary
+        - no-generation

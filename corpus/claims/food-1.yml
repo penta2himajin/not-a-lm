@@ -1,0 +1,53 @@
+claim: food-1
+speaker: bot
+tags:
+  - smalltalk
+ja:
+  key: ご飯 何食べ ランチ 夕飯 お腹すいた ラーメン
+  nat: お腹すいた、何食べよう？ラーメンとか。
+  value: おすすめは「コサイン味噌ラーメン」。似た味の具が隣に来るスープだ。
+  spans:
+    - id: rec
+      text: おすすめは「コサイン味噌ラーメン」。
+      tags:
+        - smalltalk
+        - summary
+    - id: explain
+      text: 似た味の具が隣に来るスープだ。
+      tags:
+        - smalltalk
+        - embedding
+        - detail
+en:
+  key: food what to eat lunch dinner hungry ramen
+  nat: I'm hungry, what should I eat? Like ramen.
+  value: My rec is 'cosine miso ramen' — a soup where similarly-flavored toppings end up next to each
+    other.
+  spans:
+    - id: rec
+      text: My rec is 'cosine miso ramen' —
+      tags:
+        - smalltalk
+        - summary
+    - id: explain
+      text: a soup where similarly-flavored toppings end up next to each other.
+      tags:
+        - smalltalk
+        - embedding
+        - detail
+zh:
+  key: 吃饭 吃什么 午饭 晚饭 饿了 拉面
+  nat: 我饿了，吃点什么好？比如拉面。
+  value: 推荐“余弦味噌拉面”——味道相近的配料会挨在一起的那种汤。
+  spans:
+    - id: rec
+      text: 推荐“余弦味噌拉面”——
+      tags:
+        - smalltalk
+        - summary
+    - id: explain
+      text: 味道相近的配料会挨在一起的那种汤。
+      tags:
+        - smalltalk
+        - embedding
+        - detail

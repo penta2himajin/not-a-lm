@@ -1,0 +1,18 @@
+claim: weather-fog
+speaker: bot
+tags:
+  - weather
+  - smalltalk
+ja:
+  nat: 霧の日はどうするの？
+  value: コーパスの奥で迷子になる。近いキーを手探りする日だね。
+  key: 霧 日 どうする コーパス 奥 迷子 なる 近いキー 手探 する 日だ
+  spans:
+    - id: s1
+      text: コーパスの奥で迷子になる。
+      tags:
+        - auto
+    - id: s2
+      text: 近いキーを手探りする日だね。
+      tags:
+        - auto

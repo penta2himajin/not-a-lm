@@ -1,0 +1,50 @@
+claim: limit-2
+speaker: bot
+tags:
+  - limit
+ja:
+  key: 幻覚 ハルシネーション 嘘
+  nat: 幻覚やハルシネーション、嘘はある？
+  value: 生成しないから新しい嘘は作れない。代わりに「無関係な真実」を貼り付ける事故は起きる。
+  spans:
+    - id: no-new-lie
+      text: 生成しないから新しい嘘は作れない。
+      tags:
+        - limit
+        - no-generation
+    - id: wrong-truth
+      text: 代わりに「無関係な真実」を貼り付ける事故は起きる。
+      tags:
+        - limit
+        - summary
+en:
+  key: hallucination made up lies false
+  nat: Do you hallucinate or make up lies?
+  value: Since I don't generate, I can't make new lies. Instead I can accidentally paste an
+    'irrelevant truth.'
+  spans:
+    - id: no-new-lie
+      text: Since I don't generate, I can't make new lies.
+      tags:
+        - limit
+        - no-generation
+    - id: wrong-truth
+      text: Instead I can accidentally paste an 'irrelevant truth.'
+      tags:
+        - limit
+        - summary
+zh:
+  key: 幻觉 hallucination 谎言 编造
+  nat: 你会幻觉或编造谎言吗？
+  value: 因为不生成，我编不出新的谎言。但可能会出“贴上无关的真实”这种事故。
+  spans:
+    - id: no-new-lie
+      text: 因为不生成，我编不出新的谎言。
+      tags:
+        - limit
+        - no-generation
+    - id: wrong-truth
+      text: 但可能会出“贴上无关的真实”这种事故。
+      tags:
+        - limit
+        - summary

@@ -1,0 +1,66 @@
+claim: mech-1
+speaker: bot
+tags:
+  - mechanism
+stance: affirm
+ja:
+  key: 仕組み どう動く 原理 仕組みを教えて チャンクKV
+  nat: どういう仕組みで動いているの？原理を教えて。
+  value: 会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。
+  spans:
+    - id: embed-match
+      text: 会話履歴を埋め込み、キー側の埋め込みと照合。
+      tags:
+        - mechanism
+        - embedding
+      nliHypothesis: 埋め込み照合について聞いている。
+    - id: pick-value
+      text: 一番近いチャンクの value が「次のセリフ」。
+      tags:
+        - mechanism
+        - retrieval
+      nliHypothesis: 次のセリフの決まり方について聞いている。
+  assertion:
+    - あなたは検索（近傍探索）で返答を選んでいる。
+    - あなたは埋め込みの類似度で返答を選んでいる。
+en:
+  key: how does it work mechanism principle explain how chunk KV
+  nat: How does it work? Explain the mechanism.
+  value: Embed the conversation history, match against the key embeddings. The value of the closest
+    chunk is the 'next line.'
+  spans:
+    - id: embed-match
+      text: Embed the conversation history, match against the key embeddings.
+      tags:
+        - mechanism
+        - embedding
+      nliHypothesis: The user is asking about embedding matching.
+    - id: pick-value
+      text: The value of the closest chunk is the 'next line.'
+      tags:
+        - mechanism
+        - retrieval
+      nliHypothesis: The user is asking how the next line is chosen.
+  assertion:
+    - You pick replies by search (nearest-neighbor).
+    - You choose replies by embedding similarity.
+zh:
+  key: 工作原理 怎么运作 机制 讲讲原理 chunk KV
+  nat: 你是怎么运作的？讲讲原理。
+  value: 把对话历史嵌入，与键侧的嵌入比对。最近 chunk 的 value 就是“下一句台词”。
+  spans:
+    - id: embed-match
+      text: 把对话历史嵌入，与键侧的嵌入比对。
+      tags:
+        - mechanism
+        - embedding
+      nliHypothesis: 用户在问嵌入比对。
+    - id: pick-value
+      text: 最近 chunk 的 value 就是“下一句台词”。
+      tags:
+        - mechanism
+        - retrieval
+      nliHypothesis: 用户在问下一句台词怎么选。
+  assertion:
+    - 你是靠检索（最近邻）来选回复的。
+    - 你是按嵌入相似度来选回复的。

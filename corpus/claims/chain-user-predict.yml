@@ -1,0 +1,16 @@
+claim: chain-user-predict
+speaker: user
+tags:
+  - chain
+ja:
+  key: 了解 次のユーザー発話も予測 数ターン連鎖
+  nat: 次のユーザー発話も予測して、数ターン連鎖してみるね。
+  value: まずは君が何者かもう一回聞かせて。
+en:
+  key: got it predict next user utterance chain a few turns
+  nat: I'll predict the next user utterance and chain a few turns.
+  value: First, tell me again what you are.
+zh:
+  key: 好的 预测下一句用户发言 连锁几轮
+  nat: 我会预测下一句用户发言，连锁几轮。
+  value: 先再告诉我一次你是什么吧。

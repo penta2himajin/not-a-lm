@@ -1,0 +1,90 @@
+claim: greet-howreply-a
+speaker: bot
+tags:
+  - mechanism
+stance: affirm
+ja:
+  key: え どうやって返事 返事してるの
+  nat: どうやって返事しているの？検索で返答を選んでいるの？
+  value: 今の発話を埋め込み → 近いキーのチャンクを探す → その value を返す。生成ゼロ。
+  spans:
+    - id: embed-step
+      text: "今の発話を埋め込み → "
+      tags:
+        - mechanism
+        - embedding
+    - id: search-step
+      text: "近いキーのチャンクを探す → "
+      tags:
+        - mechanism
+        - retrieval
+    - id: return-step
+      text: その value を返す。
+      tags:
+        - mechanism
+        - retrieval
+    - id: zero-gen
+      text: 生成ゼロ。
+      tags:
+        - no-generation
+        - summary
+  assertion:
+    - あなたは検索（近傍探索）で返答を選んでいる。
+    - あなたは埋め込みの類似度で返答を選んでいる。
+en:
+  key: how do you reply how are you answering
+  nat: How are you replying? Do you pick replies by search?
+  value: Embed the current utterance → find the chunk with the nearest key → return its value. Zero
+    generation.
+  spans:
+    - id: embed-step
+      text: Embed the current utterance →
+      tags:
+        - mechanism
+        - embedding
+    - id: search-step
+      text: find the chunk with the nearest key →
+      tags:
+        - mechanism
+        - retrieval
+    - id: return-step
+      text: return its value.
+      tags:
+        - mechanism
+        - retrieval
+    - id: zero-gen
+      text: Zero generation.
+      tags:
+        - no-generation
+        - summary
+  assertion:
+    - You pick replies by search (nearest-neighbor).
+    - You choose replies by embedding similarity.
+zh:
+  key: 怎么回复 你是如何回答的
+  nat: 你是怎么回复的？你是靠检索来选回复的吗？
+  value: 把当前发言嵌入 → 找到最近键的 chunk → 返回它的 value。零生成。
+  spans:
+    - id: embed-step
+      text: "把当前发言嵌入 → "
+      tags:
+        - mechanism
+        - embedding
+    - id: search-step
+      text: "找到最近键的 chunk → "
+      tags:
+        - mechanism
+        - retrieval
+    - id: return-step
+      text: 返回它的 value。
+      tags:
+        - mechanism
+        - retrieval
+    - id: zero-gen
+      text: 零生成。
+      tags:
+        - no-generation
+        - summary
+  assertion:
+    - 你是靠检索（最近邻）来选回复的。
+    - 你是按嵌入相似度来选回复的。

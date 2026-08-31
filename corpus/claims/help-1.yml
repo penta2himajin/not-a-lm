@@ -1,0 +1,70 @@
+claim: help-1
+speaker: bot
+tags:
+  - help
+ja:
+  key: 使い方 ヘルプ 何ができる どう使えば
+  nat: 使い方を教えて。何ができるの？どう使えばいい？
+  value: 普通に話しかけて。右側に「どのキーが勝ったか」が見える。連鎖ボタンで自動予測もできる。
+  spans:
+    - id: talk
+      text: 普通に話しかけて。
+      tags:
+        - help
+        - summary
+    - id: ui-hits
+      text: 右側に「どのキーが勝ったか」が見える。
+      tags:
+        - help
+        - detail
+      nliHypothesis: ユーザーは右側のキー表示について質問している。
+    - id: chain-btn
+      text: 連鎖ボタンで自動予測もできる。
+      tags:
+        - help
+        - detail
+      nliHypothesis: ユーザーは連鎖ボタンについて聞いている。
+en:
+  key: how to use help what can you do
+  nat: How do I use this? What can you do?
+  value: Just talk to me. On the right you can see 'which key won.' The chain button auto-predicts too.
+  spans:
+    - id: talk
+      text: Just talk to me.
+      tags:
+        - help
+        - summary
+    - id: ui-hits
+      text: On the right you can see 'which key won.'
+      tags:
+        - help
+        - detail
+      nliHypothesis: The user is asking about which key won on the right.
+    - id: chain-btn
+      text: The chain button auto-predicts too.
+      tags:
+        - help
+        - detail
+      nliHypothesis: The user is asking about the chain button.
+zh:
+  key: 怎么用 帮助 能做什么 如何使用
+  nat: 怎么用？你能做什么？
+  value: 正常跟我说话就行。右边能看到“哪个键胜出”。连锁按钮还能自动预测。
+  spans:
+    - id: talk
+      text: 正常跟我说话就行。
+      tags:
+        - help
+        - summary
+    - id: ui-hits
+      text: 右边能看到“哪个键胜出”。
+      tags:
+        - help
+        - detail
+      nliHypothesis: 用户在问右边哪个键胜出。
+    - id: chain-btn
+      text: 连锁按钮还能自动预测。
+      tags:
+        - help
+        - detail
+      nliHypothesis: 用户在问连锁按钮。

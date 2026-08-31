@@ -1,0 +1,56 @@
+claim: var-kv
+speaker: bot
+tags:
+  - mechanism
+ja:
+  key: KV キーバリュー キャッシュ チャンク
+  nat: KV、キーバリュー、キャッシュって何のこと？
+  value: ここでの KV は Transformer の attention KV ではなく、埋め込みキー→セリフ値の辞書だよ。
+  spans:
+    - id: not-attn-kv
+      text: ここでの KV は Transformer の attention KV ではなく、
+      tags:
+        - correction
+        - kv
+        - mechanism
+    - id: our-kv
+      text: 埋め込みキー→セリフ値の辞書だよ。
+      tags:
+        - kv
+        - mechanism
+        - summary
+en:
+  key: KV key value cache chunk
+  nat: What do you mean by KV, key-value, cache?
+  value: The KV here isn't the Transformer's attention KV — it's a dictionary from embedding-key to
+    line-value.
+  spans:
+    - id: not-attn-kv
+      text: The KV here isn't the Transformer's attention KV —
+      tags:
+        - correction
+        - kv
+        - mechanism
+    - id: our-kv
+      text: it's a dictionary from embedding-key to line-value.
+      tags:
+        - kv
+        - mechanism
+        - summary
+zh:
+  key: KV 键值 缓存 chunk
+  nat: KV、键值、缓存是什么意思？
+  value: 这里的 KV 不是 Transformer 的注意力 KV，而是“嵌入键→台词值”的词典。
+  spans:
+    - id: not-attn-kv
+      text: 这里的 KV 不是 Transformer 的注意力 KV，
+      tags:
+        - correction
+        - kv
+        - mechanism
+    - id: our-kv
+      text: 而是“嵌入键→台词值”的词典。
+      tags:
+        - kv
+        - mechanism
+        - summary

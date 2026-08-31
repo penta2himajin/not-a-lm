@@ -1,0 +1,93 @@
+claim: mech-knn
+speaker: bot
+tags:
+  - mechanism
+  - prior-art
+ja:
+  key: kNN kNN-LM RETRO 既存
+  nat: kNN-LMやRETROみたいな既存手法とは違うの？
+  value: 近い親戚は kNN-LM（近傍で次トークン補間）や RETRO（チャンク回収）、あとは古典的な retrieval-based chatbot。
+  spans:
+    - id: intro
+      text: "近い親戚は "
+      tags:
+        - prior-art
+        - filler
+    - id: item-knn
+      text: "kNN-LM（近傍で次トークン補間）や "
+      tags:
+        - prior-art
+        - prior-art-item
+        - knn-lm
+    - id: item-retro
+      text: RETRO（チャンク回収）、
+      tags:
+        - prior-art
+        - prior-art-item
+        - retro
+    - id: item-retrieval
+      text: あとは古典的な retrieval-based chatbot。
+      tags:
+        - prior-art
+        - prior-art-item
+        - retrieval-only
+        - summary
+en:
+  key: kNN kNN-LM RETRO related work
+  nat: How does this relate to kNN-LM or RETRO?
+  value: Close relatives are kNN-LM (neighbor-based next-token interpolation), RETRO (chunk
+    retrieval), and the classic retrieval-based chatbot.
+  spans:
+    - id: intro
+      text: Close relatives are
+      tags:
+        - prior-art
+        - filler
+    - id: item-knn
+      text: kNN-LM (neighbor-based next-token interpolation),
+      tags:
+        - prior-art
+        - prior-art-item
+        - knn-lm
+    - id: item-retro
+      text: RETRO (chunk retrieval), and
+      tags:
+        - prior-art
+        - prior-art-item
+        - retro
+    - id: item-retrieval
+      text: the classic retrieval-based chatbot.
+      tags:
+        - prior-art
+        - prior-art-item
+        - retrieval-only
+        - summary
+zh:
+  key: kNN kNN-LM RETRO 相关工作
+  nat: 这和 kNN-LM 或 RETRO 有什么关系？
+  value: 近亲有 kNN-LM（用邻居做下一 token 插值）、RETRO（chunk 检索），还有经典的 retrieval-based chatbot。
+  spans:
+    - id: intro
+      text: "近亲有 "
+      tags:
+        - prior-art
+        - filler
+    - id: item-knn
+      text: kNN-LM（用邻居做下一 token 插值）、
+      tags:
+        - prior-art
+        - prior-art-item
+        - knn-lm
+    - id: item-retro
+      text: RETRO（chunk 检索），
+      tags:
+        - prior-art
+        - prior-art-item
+        - retro
+    - id: item-retrieval
+      text: 还有经典的 retrieval-based chatbot。
+      tags:
+        - prior-art
+        - prior-art-item
+        - retrieval-only
+        - summary

@@ -1,0 +1,64 @@
+claim: greet-intro
+speaker: bot
+tags:
+  - greeting
+ja:
+  key: こんにちは はじめまして 挨拶
+  nat: こんにちは。はじめまして。
+  value: やあ。ここは言語モデルじゃないよ。埋め込みで次のセリフを拾ってるだけ。
+  spans:
+    - id: greet
+      text: やあ。
+      tags:
+        - greeting
+        - filler
+    - id: not-lm
+      text: ここは言語モデルじゃないよ。
+      tags:
+        - identity
+        - deny-core
+    - id: how
+      text: 埋め込みで次のセリフを拾ってるだけ。
+      tags:
+        - mechanism
+        - embedding
+en:
+  key: hello hi hey greetings nice to meet you
+  nat: Hello, nice to meet you.
+  value: Hey. This isn't a language model — it just picks the next line by embedding similarity.
+  spans:
+    - id: greet
+      text: Hey.
+      tags:
+        - greeting
+        - filler
+    - id: not-lm
+      text: This isn't a language model —
+      tags:
+        - identity
+        - deny-core
+    - id: how
+      text: it just picks the next line by embedding similarity.
+      tags:
+        - mechanism
+        - embedding
+zh:
+  key: 你好 您好 初次见面 打招呼
+  nat: 你好，初次见面。
+  value: 嗨。这里不是语言模型，只是用嵌入相似度挑出下一句台词而已。
+  spans:
+    - id: greet
+      text: 嗨。
+      tags:
+        - greeting
+        - filler
+    - id: not-lm
+      text: 这里不是语言模型，
+      tags:
+        - identity
+        - deny-core
+    - id: how
+      text: 只是用嵌入相似度挑出下一句台词而已。
+      tags:
+        - mechanism
+        - embedding

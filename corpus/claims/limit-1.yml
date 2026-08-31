@@ -1,0 +1,49 @@
+claim: limit-1
+speaker: bot
+tags:
+  - limit
+ja:
+  key: 知らない わからない 答えられない 無理
+  nat: 知らないこと、わからないことには答えられる？
+  value: コーパスに近いキーがないと、的外れなチャンクが勝つ。それが失敗モード。
+  spans:
+    - id: miss
+      text: コーパスに近いキーがないと、的外れなチャンクが勝つ。
+      tags:
+        - limit
+        - detail
+    - id: failure
+      text: それが失敗モード。
+      tags:
+        - limit
+        - summary
+en:
+  key: don't know can't answer no idea impossible
+  nat: Can you answer things you don't know?
+  value: If no key in the corpus is close, an off-target chunk wins. That's the failure mode.
+  spans:
+    - id: miss
+      text: If no key in the corpus is close, an off-target chunk wins.
+      tags:
+        - limit
+        - detail
+    - id: failure
+      text: That's the failure mode.
+      tags:
+        - limit
+        - summary
+zh:
+  key: 不知道 不会 答不了 没办法
+  nat: 不知道的事情你能回答吗？
+  value: 如果语料里没有相近的键，跑题的 chunk 就会胜出。这就是失败模式。
+  spans:
+    - id: miss
+      text: 如果语料里没有相近的键，跑题的 chunk 就会胜出。
+      tags:
+        - limit
+        - detail
+    - id: failure
+      text: 这就是失败模式。
+      tags:
+        - limit
+        - summary
