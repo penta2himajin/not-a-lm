@@ -6,6 +6,7 @@
  * closed opener/connector, or a topic phrase copied from the query.
  *
  * G5a: behavior-identical extraction of engine Stage 3–4 branching.
+ * G5d: score multiple candidate plans and pick the best (closed heuristic).
  */
 
 import {
@@ -24,6 +25,8 @@ import type {
   Lang,
   OpStep,
   OperationPlan,
+  PlanCandidate,
+  PlanCandidateSignals,
 } from "./types.ts";
 
 /** Min NLI entailment to treat a query as presupposing the assertion */
@@ -456,4 +459,78 @@ export function formatOpStep(step: OpStep): string {
 /** One-line plan summary for traces. */
 export function formatOperationPlan(plan: OperationPlan): string {
   return plan.steps.map(formatOpStep).join(" → ");
+}
+
+/** Derive G5d scoring signals from a plan (+ optional relevance/NLI). */
+export function planSignals(
+  plan: OperationPlan,
+  opts: { relevance: number; nliEntail?: number },
+): PlanCandidateSignals {
+  const bodies = plan.steps.filter((s) => s.kind === "body").length;
+  const hasCompose = plan.steps.some(
+    (s) => s.kind === "body" && s.composePlan != null,
+  );
+  const hasPolarity =
+    plan.steps.some((s) => s.kind === "prefix") ||
+    plan.steps.some(
+      (s) => s.kind === "body" && s.composePlan?.prefix != null,
+    );
+  return {
+    relevance: opts.relevance,
+    nliEntail: opts.nliEntail,
+    bodies,
+    hasCompose,
+    hasPolarity,
+  };
+}
+
+/**
+ * G5d closed heuristic score. Higher = better grounded recipe.
+ * Relevance (gate / fuse-part mean) dominates; multi-body fuse gets a mild
+ * boost only when those parts are actually strong. Compose + polarity add
+ * small bonuses so a focused single can beat a weak fuse.
+ */
+export function scorePlanCandidate(candidate: PlanCandidate): number {
+  const { relevance, nliEntail = 0, bodies, hasCompose, hasPolarity } =
+    candidate.signals;
+  const bodyFactor = 1 + 0.35 * Math.max(0, bodies - 1);
+  let score = 2.0 * relevance * bodyFactor;
+  if (hasCompose) score += 0.35;
+  if (hasPolarity) {
+    score += 0.4 * Math.max(nliEntail, NLI_ENTAIL_MIN);
+  } else if (nliEntail > 0) {
+    score += 0.1 * nliEntail;
+  }
+  return score;
+}
+
+export type PlanSelection = {
+  winner: PlanCandidate;
+  ranked: PlanCandidate[];
+};
+
+/**
+ * Score candidates and pick the highest. Annotates winner.plan.reasons with
+ * g5d:pick / g5d:rank for audit (G5b UI already shows reasons).
+ */
+export function selectBestPlan(candidates: PlanCandidate[]): PlanSelection | null {
+  if (candidates.length === 0) return null;
+  const ranked = candidates.map((c) => ({
+    ...c,
+    score: scorePlanCandidate(c),
+  }));
+  ranked.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const winner = ranked[0];
+  const rankStr = ranked
+    .map((c) => `${c.id}@${(c.score ?? 0).toFixed(2)}`)
+    .join(">");
+  winner.plan = {
+    ...winner.plan,
+    reasons: [
+      ...winner.plan.reasons,
+      `g5d:pick=${winner.id}`,
+      `g5d:rank=${rankStr}`,
+    ],
+  };
+  return { winner, ranked };
 }

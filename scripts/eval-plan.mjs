@@ -217,5 +217,141 @@ async function g5c() {
 
 await g5c();
 
+// G5d: closed heuristic — weak fuse loses to strong polarity+compose single
+{
+  console.log("\nG5d score selection…");
+  const { scorePlanCandidate, selectBestPlan, planSignals } = await import(
+    "../src/lib/notalm/plan.ts"
+  );
+
+  const weakFuse = {
+    id: "fuse",
+    plan: {
+      steps: [
+        { kind: "body", chunkId: "a" },
+        { kind: "glue", template: "topic", topic: "t" },
+        { kind: "body", chunkId: "b", stripFiller: true },
+      ],
+      reasons: ["fuse:weak"],
+    },
+    signals: planSignals(
+      {
+        steps: [
+          { kind: "body", chunkId: "a" },
+          { kind: "glue", template: "topic", topic: "t" },
+          { kind: "body", chunkId: "b" },
+        ],
+        reasons: [],
+      },
+      { relevance: 0.52 },
+    ),
+  };
+  const strongSingle = {
+    id: "single",
+    plan: {
+      steps: [
+        {
+          kind: "body",
+          chunkId: "a",
+          composePlan: {
+            prefix: "negate-correct",
+            kept: [{ chunkId: "a", spanId: "no-gen" }],
+          },
+        },
+      ],
+      reasons: ["compose"],
+    },
+    signals: planSignals(
+      {
+        steps: [
+          {
+            kind: "body",
+            chunkId: "a",
+            composePlan: {
+              prefix: "negate-correct",
+              kept: [{ chunkId: "a", spanId: "no-gen" }],
+            },
+          },
+        ],
+        reasons: [],
+      },
+      { relevance: 0.9, nliEntail: 0.85 },
+    ),
+  };
+
+  const weakScore = scorePlanCandidate(weakFuse);
+  const strongScore = scorePlanCandidate(strongSingle);
+  check(
+    "g5d weak-fuse < strong-single",
+    weakScore < strongScore,
+    `fuse=${weakScore.toFixed(2)} single=${strongScore.toFixed(2)}`,
+  );
+
+  const pickWeak = selectBestPlan([weakFuse, strongSingle]);
+  check(
+    "g5d pick single over weak fuse",
+    pickWeak?.winner.id === "single",
+    pickWeak?.winner.plan.reasons.find((r) => r.startsWith("g5d:rank=")),
+  );
+
+  const strongFuse = {
+    id: "fuse",
+    plan: {
+      steps: [
+        {
+          kind: "body",
+          chunkId: "a",
+          composePlan: {
+            prefix: "negate-correct",
+            kept: [{ chunkId: "a", spanId: "no-gen" }],
+          },
+        },
+        { kind: "glue", template: "topic", topic: "既存" },
+        { kind: "body", chunkId: "b", stripFiller: true },
+      ],
+      reasons: ["fuse:strong"],
+    },
+    signals: planSignals(
+      {
+        steps: [
+          {
+            kind: "body",
+            chunkId: "a",
+            composePlan: {
+              prefix: "negate-correct",
+              kept: [{ chunkId: "a", spanId: "no-gen" }],
+            },
+          },
+          { kind: "glue", template: "topic", topic: "既存" },
+          { kind: "body", chunkId: "b" },
+        ],
+        reasons: [],
+      },
+      { relevance: 0.85, nliEntail: 0.8 },
+    ),
+  };
+  const plainSingle = {
+    id: "single",
+    plan: {
+      steps: [{ kind: "body", chunkId: "a" }],
+      reasons: ["as-is"],
+    },
+    signals: planSignals(
+      { steps: [{ kind: "body", chunkId: "a" }], reasons: [] },
+      { relevance: 0.7, nliEntail: 0.2 },
+    ),
+  };
+  const pickStrong = selectBestPlan([strongFuse, plainSingle]);
+  check(
+    "g5d pick strong fuse over plain single",
+    pickStrong?.winner.id === "fuse",
+    pickStrong?.winner.plan.reasons.find((r) => r.startsWith("g5d:rank=")),
+  );
+  check(
+    "g5d reasons annotated",
+    !!pickStrong?.winner.plan.reasons.some((r) => r.startsWith("g5d:pick=")),
+  );
+}
+
 console.log(`\nplan: ${pass}/${total}`);
 process.exit(pass === total ? 0 : 1);
