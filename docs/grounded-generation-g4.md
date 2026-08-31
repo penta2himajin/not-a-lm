@@ -49,8 +49,13 @@ type ComposePlan = {
 | `who-diff-a` | LLM との対比（2 スパン） |
 | `help-1` | 使い方 UI / 連鎖ボタン（3 スパン） |
 | `var-kv` | attention KV との区別（2 スパン） |
+| `greet-howreply-a` | 返答パイプライン 4 ステップ + 生成ゼロ |
+| `who-2` | AI/チャットボット → 近傍探索メタファー（2 スパン） |
+| `mech-3` | 連鎖ループ 4 ステップ（append → embed → search → effect） |
+| `code-bug-a` | deny 系 **deny-fix** のみ（coding） |
+| `var-add` | deny 系 **deny-learn** のみ（学習誤解） |
 
-計 **12 claim × 3 言語 = 36 chunks** に spans（2026-08 拡張）。
+計 **17 claim × 3 言語 = 51 chunks** に spans（batch-2: +5 claim）。
 
 ## パイプライン位置
 
@@ -83,5 +88,5 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 - **G3×G4** — 融合各パートへの compose ✅
 - スパン embedding / cross-encoder マッチ（G4b）— ✅ Rule 2b `rankSpansForCompose` + `spanRankings`
 - NLI per-span（G4c）— ✅ Rule 1d/2c `rankSpansByNli` + `nliHypothesis`
-- 句単位スパンへの細分化
-- コーパス spans 拡張 — 12 claim（残り ~40 claim は G4b/c 向けに段階追加）
+- 句単位スパンへの細分化（batch-2 では **不要** — 1文=1スパンで十分だった claim のみ追加）
+- コーパス spans 拡張 — 17 claim（残り ~35 claim は段階追加）
