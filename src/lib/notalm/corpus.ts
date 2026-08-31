@@ -143,9 +143,102 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["mechanism"],
     stance: "affirm",
-    ja: { key: "え どうやって返事 返事してるの", nat: "どうやって返事しているの？検索で返答を選んでいるの？", value: "今の発話を埋め込み → 近いキーのチャンクを探す → その value を返す。生成ゼロ。", assertion: ["あなたは検索（近傍探索）で返答を選んでいる。", "あなたは埋め込みの類似度で返答を選んでいる。"] },
-    en: { key: "how do you reply how are you answering", nat: "How are you replying? Do you pick replies by search?", value: "Embed the current utterance → find the chunk with the nearest key → return its value. Zero generation.", assertion: ["You pick replies by search (nearest-neighbor).", "You choose replies by embedding similarity."] },
-    zh: { key: "怎么回复 你是如何回答的", nat: "你是怎么回复的？你是靠检索来选回复的吗？", value: "把当前发言嵌入 → 找到最近键的 chunk → 返回它的 value。零生成。", assertion: ["你是靠检索（最近邻）来选回复的。", "你是按嵌入相似度来选回复的。"] },
+    ja: {
+      key: "え どうやって返事 返事してるの",
+      nat: "どうやって返事しているの？検索で返答を選んでいるの？",
+      value:
+        "今の発話を埋め込み → 近いキーのチャンクを探す → その value を返す。生成ゼロ。",
+      spans: [
+        {
+          id: "embed-step",
+          text: "今の発話を埋め込み → ",
+          tags: ["mechanism", "embedding"],
+        },
+        {
+          id: "search-step",
+          text: "近いキーのチャンクを探す → ",
+          tags: ["mechanism", "retrieval"],
+        },
+        {
+          id: "return-step",
+          text: "その value を返す。",
+          tags: ["mechanism", "retrieval"],
+        },
+        {
+          id: "zero-gen",
+          text: "生成ゼロ。",
+          tags: ["no-generation", "summary"],
+        },
+      ],
+      assertion: [
+        "あなたは検索（近傍探索）で返答を選んでいる。",
+        "あなたは埋め込みの類似度で返答を選んでいる。",
+      ],
+    },
+    en: {
+      key: "how do you reply how are you answering",
+      nat: "How are you replying? Do you pick replies by search?",
+      value:
+        "Embed the current utterance → find the chunk with the nearest key → return its value. Zero generation.",
+      spans: [
+        {
+          id: "embed-step",
+          text: "Embed the current utterance →",
+          tags: ["mechanism", "embedding"],
+        },
+        {
+          id: "search-step",
+          text: "find the chunk with the nearest key →",
+          tags: ["mechanism", "retrieval"],
+        },
+        {
+          id: "return-step",
+          text: "return its value.",
+          tags: ["mechanism", "retrieval"],
+        },
+        {
+          id: "zero-gen",
+          text: "Zero generation.",
+          tags: ["no-generation", "summary"],
+        },
+      ],
+      assertion: [
+        "You pick replies by search (nearest-neighbor).",
+        "You choose replies by embedding similarity.",
+      ],
+    },
+    zh: {
+      key: "怎么回复 你是如何回答的",
+      nat: "你是怎么回复的？你是靠检索来选回复的吗？",
+      value:
+        "把当前发言嵌入 → 找到最近键的 chunk → 返回它的 value。零生成。",
+      spans: [
+        {
+          id: "embed-step",
+          text: "把当前发言嵌入 → ",
+          tags: ["mechanism", "embedding"],
+        },
+        {
+          id: "search-step",
+          text: "找到最近键的 chunk → ",
+          tags: ["mechanism", "retrieval"],
+        },
+        {
+          id: "return-step",
+          text: "返回它的 value。",
+          tags: ["mechanism", "retrieval"],
+        },
+        {
+          id: "zero-gen",
+          text: "零生成。",
+          tags: ["no-generation", "summary"],
+        },
+      ],
+      assertion: [
+        "你是靠检索（最近邻）来选回复的。",
+        "你是按嵌入相似度来选回复的。",
+      ],
+    },
   },
 
   // --- what are you ---
@@ -238,9 +331,58 @@ const CLAIMS: ClaimGroup[] = [
     claim: "who-2",
     speaker: "bot",
     tags: ["identity"],
-    ja: { key: "AI 人工知能 チャットボット ですか", nat: "あなたはAIですか？チャットボットなの？", value: "チャットの皮をかぶった近傍探索だね。中身は cosine と辞書。" },
-    en: { key: "are you an AI artificial intelligence chatbot", nat: "Are you an AI or a chatbot?", value: "I'm nearest-neighbor search wearing a chat costume. Inside it's cosine and a dictionary." },
-    zh: { key: "你是 AI 吗 人工智能 聊天机器人", nat: "你是 AI 还是聊天机器人？", value: "我是披着聊天外衣的最近邻搜索。内在是 cosine 和一个词典。" },
+    ja: {
+      key: "AI 人工知能 チャットボット ですか",
+      nat: "あなたはAIですか？チャットボットなの？",
+      value: "チャットの皮をかぶった近傍探索だね。中身は cosine と辞書。",
+      spans: [
+        {
+          id: "metaphor",
+          text: "チャットの皮をかぶった近傍探索だね。",
+          tags: ["identity", "mechanism"],
+        },
+        {
+          id: "inside",
+          text: "中身は cosine と辞書。",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "are you an AI artificial intelligence chatbot",
+      nat: "Are you an AI or a chatbot?",
+      value:
+        "I'm nearest-neighbor search wearing a chat costume. Inside it's cosine and a dictionary.",
+      spans: [
+        {
+          id: "metaphor",
+          text: "I'm nearest-neighbor search wearing a chat costume.",
+          tags: ["identity", "mechanism"],
+        },
+        {
+          id: "inside",
+          text: "Inside it's cosine and a dictionary.",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "你是 AI 吗 人工智能 聊天机器人",
+      nat: "你是 AI 还是聊天机器人？",
+      value: "我是披着聊天外衣的最近邻搜索。内在是 cosine 和一个词典。",
+      spans: [
+        {
+          id: "metaphor",
+          text: "我是披着聊天外衣的最近邻搜索。",
+          tags: ["identity", "mechanism"],
+        },
+        {
+          id: "inside",
+          text: "内在是 cosine 和一个词典。",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "who-diff-q",
@@ -401,9 +543,90 @@ const CLAIMS: ClaimGroup[] = [
     claim: "mech-3",
     speaker: "bot",
     tags: ["mechanism", "chain"],
-    ja: { key: "連鎖 チェーン 予測 次を予測", nat: "連鎖ってどういうこと？次をどう予測するの？", value: "value を履歴に足す → また埋め込み → また検索。これを繰り返すと「会話が続く」ように見える。" },
-    en: { key: "chain chaining predict predict next", nat: "What's the chaining? How do you predict the next turn?", value: "Add the value to the history → embed again → search again. Repeat it and the 'conversation seems to continue.'" },
-    zh: { key: "连锁 链式 预测 预测下一句", nat: "连锁是什么意思？怎么预测下一句？", value: "把 value 加进历史 → 再嵌入 → 再检索。反复下去，“对话看起来就在继续”。" },
+    ja: {
+      key: "連鎖 チェーン 予測 次を予測",
+      nat: "連鎖ってどういうこと？次をどう予測するの？",
+      value:
+        "value を履歴に足す → また埋め込み → また検索。これを繰り返すと「会話が続く」ように見える。",
+      spans: [
+        {
+          id: "append",
+          text: "value を履歴に足す → ",
+          tags: ["mechanism", "chain"],
+        },
+        {
+          id: "re-embed",
+          text: "また埋め込み → ",
+          tags: ["mechanism", "embedding", "chain"],
+        },
+        {
+          id: "re-search",
+          text: "また検索。",
+          tags: ["mechanism", "retrieval", "chain"],
+        },
+        {
+          id: "effect",
+          text: "これを繰り返すと「会話が続く」ように見える。",
+          tags: ["mechanism", "chain", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "chain chaining predict predict next",
+      nat: "What's the chaining? How do you predict the next turn?",
+      value:
+        "Add the value to the history → embed again → search again. Repeat it and the 'conversation seems to continue.'",
+      spans: [
+        {
+          id: "append",
+          text: "Add the value to the history →",
+          tags: ["mechanism", "chain"],
+        },
+        {
+          id: "re-embed",
+          text: "embed again →",
+          tags: ["mechanism", "embedding", "chain"],
+        },
+        {
+          id: "re-search",
+          text: "search again.",
+          tags: ["mechanism", "retrieval", "chain"],
+        },
+        {
+          id: "effect",
+          text: "Repeat it and the 'conversation seems to continue.'",
+          tags: ["mechanism", "chain", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "连锁 链式 预测 预测下一句",
+      nat: "连锁是什么意思？怎么预测下一句？",
+      value:
+        "把 value 加进历史 → 再嵌入 → 再检索。反复下去，“对话看起来就在继续”。",
+      spans: [
+        {
+          id: "append",
+          text: "把 value 加进历史 → ",
+          tags: ["mechanism", "chain"],
+        },
+        {
+          id: "re-embed",
+          text: "再嵌入 → ",
+          tags: ["mechanism", "embedding", "chain"],
+        },
+        {
+          id: "re-search",
+          text: "再检索。",
+          tags: ["mechanism", "retrieval", "chain"],
+        },
+        {
+          id: "effect",
+          text: "反复下去，“对话看起来就在继续”。",
+          tags: ["mechanism", "chain", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "mech-rag-q",
@@ -753,9 +976,66 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["coding"],
     stance: "deny",
-    ja: { key: "バグ 直せ できない", nat: "じゃあバグ直しはできる？", value: "直せない。ただし「バグってる気がする」に近いキーがあれば、共感セリフは出せる。", assertion: "あなたはバグを修正できる。" },
-    en: { key: "bug fix can't debug", nat: "So can you fix bugs?", value: "I can't. But if there's a key close to 'I feel like it's buggy,' I can offer a sympathetic line.", assertion: "You can fix bugs." },
-    zh: { key: "bug 修复 不能 调试", nat: "那你能修 bug 吗？", value: "修不了。不过要是有接近“我感觉它有 bug”的键，我能给一句共情台词。", assertion: "你能修复 bug。" },
+    ja: {
+      key: "バグ 直せ できない",
+      nat: "じゃあバグ直しはできる？",
+      value:
+        "直せない。ただし「バグってる気がする」に近いキーがあれば、共感セリフは出せる。",
+      spans: [
+        {
+          id: "deny-fix",
+          text: "直せない。",
+          tags: ["correction", "deny-core", "code"],
+          nliHypothesis: "あなたはバグを修正できる。",
+        },
+        {
+          id: "sympathy",
+          text: "ただし「バグってる気がする」に近いキーがあれば、共感セリフは出せる。",
+          tags: ["detail", "code"],
+        },
+      ],
+      assertion: "あなたはバグを修正できる。",
+    },
+    en: {
+      key: "bug fix can't debug",
+      nat: "So can you fix bugs?",
+      value:
+        "I can't. But if there's a key close to 'I feel like it's buggy,' I can offer a sympathetic line.",
+      spans: [
+        {
+          id: "deny-fix",
+          text: "I can't.",
+          tags: ["correction", "deny-core", "code"],
+          nliHypothesis: "You can fix bugs.",
+        },
+        {
+          id: "sympathy",
+          text: "But if there's a key close to 'I feel like it's buggy,' I can offer a sympathetic line.",
+          tags: ["detail", "code"],
+        },
+      ],
+      assertion: "You can fix bugs.",
+    },
+    zh: {
+      key: "bug 修复 不能 调试",
+      nat: "那你能修 bug 吗？",
+      value:
+        "修不了。不过要是有接近“我感觉它有 bug”的键，我能给一句共情台词。",
+      spans: [
+        {
+          id: "deny-fix",
+          text: "修不了。",
+          tags: ["correction", "deny-core", "code"],
+          nliHypothesis: "你能修复 bug。",
+        },
+        {
+          id: "sympathy",
+          text: "不过要是有接近“我感觉它有 bug”的键，我能给一句共情台词。",
+          tags: ["detail", "code"],
+        },
+      ],
+      assertion: "你能修复 bug。",
+    },
   },
 
   // --- philosophy / joke ---
@@ -1220,9 +1500,83 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["mechanism"],
     stance: "deny",
-    ja: { key: "パターン追加 コーパス増や 学習", nat: "パターンを追加したりコーパスを増やしたり学習するの？", value: "学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。", assertion: ["あなたは学習している。", "あなたは訓練やファインチューニングをしている。"] },
-    en: { key: "add pattern grow the corpus learning training", nat: "Do you add patterns, grow the corpus, or learn?", value: "I don't learn. I just add chunks. The more human-written lines there are, the smarter I 'look.'", assertion: ["You learn.", "You train or fine-tune."] },
-    zh: { key: "添加模式 扩充语料 学习 训练", nat: "你会添加模式、扩充语料或学习吗？", value: "我不学习，只是添加 chunk。人写的台词越多，我就“显得”越聪明。", assertion: ["你会学习。", "你会训练或微调。"] },
+    ja: {
+      key: "パターン追加 コーパス増や 学習",
+      nat: "パターンを追加したりコーパスを増やしたり学習するの？",
+      value:
+        "学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。",
+      spans: [
+        {
+          id: "deny-learn",
+          text: "学習はしない。",
+          tags: ["correction", "deny-core", "mechanism"],
+          nliHypothesis: "あなたは学習している。",
+        },
+        {
+          id: "add-chunks",
+          text: "チャンクを足すだけ。",
+          tags: ["mechanism", "detail"],
+        },
+        {
+          id: "looks-smart",
+          text: "人間が書いたセリフが増えるほど賢く「見える」。",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+      assertion: [
+        "あなたは学習している。",
+        "あなたは訓練やファインチューニングをしている。",
+      ],
+    },
+    en: {
+      key: "add pattern grow the corpus learning training",
+      nat: "Do you add patterns, grow the corpus, or learn?",
+      value:
+        "I don't learn. I just add chunks. The more human-written lines there are, the smarter I 'look.'",
+      spans: [
+        {
+          id: "deny-learn",
+          text: "I don't learn.",
+          tags: ["correction", "deny-core", "mechanism"],
+          nliHypothesis: "You learn.",
+        },
+        {
+          id: "add-chunks",
+          text: "I just add chunks.",
+          tags: ["mechanism", "detail"],
+        },
+        {
+          id: "looks-smart",
+          text: "The more human-written lines there are, the smarter I 'look.'",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+      assertion: ["You learn.", "You train or fine-tune."],
+    },
+    zh: {
+      key: "添加模式 扩充语料 学习 训练",
+      nat: "你会添加模式、扩充语料或学习吗？",
+      value: "我不学习，只是添加 chunk。人写的台词越多，我就“显得”越聪明。",
+      spans: [
+        {
+          id: "deny-learn",
+          text: "我不学习，",
+          tags: ["correction", "deny-core", "mechanism"],
+          nliHypothesis: "你会学习。",
+        },
+        {
+          id: "add-chunks",
+          text: "只是添加 chunk。",
+          tags: ["mechanism", "detail"],
+        },
+        {
+          id: "looks-smart",
+          text: "人写的台词越多，我就“显得”越聪明。",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+      assertion: ["你会学习。", "你会训练或微调。"],
+    },
   },
 ];
 
