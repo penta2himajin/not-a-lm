@@ -40,6 +40,14 @@ type ComposePlan = {
 | `code-1`, `phil-1` | deny 系で **deny-core スパン** に絞る |
 | `mech-existing` | 列挙型 **部分 KEEP**（kNN-LM / RETRO 等） |
 | `mech-1`, `mech-2` | 複文 value の **焦点抽出**（embedding / mechanism） |
+| `who-1` | 否定補正で **deny-llm** のみ（identity） |
+| `var-attention` | Transformer KV 誤解 → **metaphor** 補正 |
+| `greet-intro` | 挨拶 + not-lm + mechanism 3 スパン |
+| `who-diff-a` | LLM との対比（2 スパン） |
+| `help-1` | 使い方 UI / 連鎖ボタン（3 スパン） |
+| `var-kv` | attention KV との区別（2 スパン） |
+
+計 **12 claim × 3 言語 = 36 chunks** に spans（2026-08 拡張）。
 
 ## パイプライン位置
 
@@ -55,6 +63,7 @@ retrieve → G2 NLI (prefix 決定) → G3 fusion (+ G4 per segment) → G4 comp
 ## 評価
 
 ```bash
+npm run eval:corpus-spans     # spans/value 整合性
 npm run eval:compose          # ユニット（プランナー + render）
 npm run eval:fusion-g4        # G3×G4 ユニット（prior-art 部分 KEEP）
 npm run eval:fusion-g4:engine # G3×G4 API（dev server 要）
@@ -69,4 +78,4 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 - スパン embedding / cross-encoder マッチ（G4b）
 - NLI per-span（G4c）
 - 句単位スパンへの細分化
-- コーパス spans 拡張（46 claim 未付与）
+- コーパス spans 拡張 — 12 claim（残り ~40 claim は G4b/c 向けに段階追加）

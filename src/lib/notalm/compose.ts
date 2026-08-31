@@ -30,6 +30,10 @@ const TAG_QUERY_HINTS: Record<string, RegExp[]> = {
   paraphrase: [/言い回し/, /wording/i, /措辞/, /paraphrase/i],
   code: [/コード/, /code/i, /编程/, /写代码/],
   consciousness: [/意識/, /conscious/i, /理解/, /思考/, /意识/],
+  identity: [/誰/, /who are you/i, /你是谁/, /LLM/i, /言語モデル/, /语言模型/],
+  help: [/使い方/, /ヘルプ/, /how to use/i, /怎么用/, /help/i, /何ができる/],
+  kv: [/KV/, /kv cache/i, /キーバリュー/, /键值/, /attention/i, /キャッシュ/],
+  greeting: [/こんにちは/, /hello/i, /你好/, /はじめまして/],
 };
 
 export type ComposeContext = {
@@ -119,7 +123,11 @@ export function planComposeG4a(
 
   // Rule 2 — focus: query mentions a tagged topic → keep matching spans (+ summary)
   const focused = spans.filter((s) => spanMatchesQuery(s, query));
-  if (focused.length > 0 && focused.length < spans.length) {
+  if (
+    focused.length > 0 &&
+    focused.length < spans.length &&
+    ctx.prefix !== "negate-correct"
+  ) {
     const summary = spans.filter((s) => s.tags?.includes("summary"));
     kept = [...new Set([...focused, ...summary])].sort(
       (a, b) =>

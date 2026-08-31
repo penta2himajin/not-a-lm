@@ -54,9 +54,63 @@ const CLAIMS: ClaimGroup[] = [
     claim: "greet-intro",
     speaker: "bot",
     tags: ["greeting"],
-    ja: { key: "こんにちは はじめまして 挨拶", nat: "こんにちは。はじめまして。", value: "やあ。ここは言語モデルじゃないよ。埋め込みで次のセリフを拾ってるだけ。" },
-    en: { key: "hello hi hey greetings nice to meet you", nat: "Hello, nice to meet you.", value: "Hey. This isn't a language model — it just picks the next line by embedding similarity." },
-    zh: { key: "你好 您好 初次见面 打招呼", nat: "你好，初次见面。", value: "嗨。这里不是语言模型，只是用嵌入相似度挑出下一句台词而已。" },
+    ja: {
+      key: "こんにちは はじめまして 挨拶",
+      nat: "こんにちは。はじめまして。",
+      value:
+        "やあ。ここは言語モデルじゃないよ。埋め込みで次のセリフを拾ってるだけ。",
+      spans: [
+        { id: "greet", text: "やあ。", tags: ["greeting", "filler"] },
+        {
+          id: "not-lm",
+          text: "ここは言語モデルじゃないよ。",
+          tags: ["identity", "deny-core"],
+        },
+        {
+          id: "how",
+          text: "埋め込みで次のセリフを拾ってるだけ。",
+          tags: ["mechanism", "embedding"],
+        },
+      ],
+    },
+    en: {
+      key: "hello hi hey greetings nice to meet you",
+      nat: "Hello, nice to meet you.",
+      value:
+        "Hey. This isn't a language model — it just picks the next line by embedding similarity.",
+      spans: [
+        { id: "greet", text: "Hey.", tags: ["greeting", "filler"] },
+        {
+          id: "not-lm",
+          text: "This isn't a language model —",
+          tags: ["identity", "deny-core"],
+        },
+        {
+          id: "how",
+          text: "it just picks the next line by embedding similarity.",
+          tags: ["mechanism", "embedding"],
+        },
+      ],
+    },
+    zh: {
+      key: "你好 您好 初次见面 打招呼",
+      nat: "你好，初次见面。",
+      value:
+        "嗨。这里不是语言模型，只是用嵌入相似度挑出下一句台词而已。",
+      spans: [
+        { id: "greet", text: "嗨。", tags: ["greeting", "filler"] },
+        {
+          id: "not-lm",
+          text: "这里不是语言模型，",
+          tags: ["identity", "deny-core"],
+        },
+        {
+          id: "how",
+          text: "只是用嵌入相似度挑出下一句台词而已。",
+          tags: ["mechanism", "embedding"],
+        },
+      ],
+    },
   },
   {
     claim: "greet-welcome",
@@ -98,9 +152,74 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["identity"],
     stance: "deny",
-    ja: { key: "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ", nat: "あなたは誰？あなたは言語モデル（LLM）なの？", value: "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。", assertion: ["あなたは言語モデル（LLM）だ。", "あなたはLLMだ。", "あなたは言語モデルだ。"] },
-    en: { key: "who are you what are you are you an LM language model", nat: "Who are you? Are you a language model (LLM)?", value: "NOT A LM. Just like the name says, not a language model. I'm a chunk-KV of conversation patterns.", assertion: ["You are a language model (LLM).", "You are an LLM.", "You are a language model."] },
-    zh: { key: "你是谁 你是什么 你是语言模型吗 你是 LM 吗", nat: "你是谁？你是语言模型（LLM）吗？", value: "NOT A LM。正如名字所说，我不是语言模型，而是对话模式的 chunk-KV。", assertion: ["你是语言模型（LLM）。", "你是 LLM。", "你是语言模型。"] },
+    ja: {
+      key: "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ",
+      nat: "あなたは誰？あなたは言語モデル（LLM）なの？",
+      value:
+        "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。",
+      spans: [
+        { id: "name", text: "NOT A LM。", tags: ["identity", "summary"] },
+        {
+          id: "deny-llm",
+          text: "名前どおり言語モデルではない。",
+          tags: ["correction", "deny-core", "identity"],
+        },
+        {
+          id: "detail",
+          text: "会話パターンのチャンクKVだ。",
+          tags: ["identity", "mechanism"],
+        },
+      ],
+      assertion: [
+        "あなたは言語モデル（LLM）だ。",
+        "あなたはLLMだ。",
+        "あなたは言語モデルだ。",
+      ],
+    },
+    en: {
+      key: "who are you what are you are you an LM language model",
+      nat: "Who are you? Are you a language model (LLM)?",
+      value:
+        "NOT A LM. Just like the name says, not a language model. I'm a chunk-KV of conversation patterns.",
+      spans: [
+        { id: "name", text: "NOT A LM.", tags: ["identity", "summary"] },
+        {
+          id: "deny-llm",
+          text: "Just like the name says, not a language model.",
+          tags: ["correction", "deny-core", "identity"],
+        },
+        {
+          id: "detail",
+          text: "I'm a chunk-KV of conversation patterns.",
+          tags: ["identity", "mechanism"],
+        },
+      ],
+      assertion: [
+        "You are a language model (LLM).",
+        "You are an LLM.",
+        "You are a language model.",
+      ],
+    },
+    zh: {
+      key: "你是谁 你是什么 你是语言模型吗 你是 LM 吗",
+      nat: "你是谁？你是语言模型（LLM）吗？",
+      value:
+        "NOT A LM。正如名字所说，我不是语言模型，而是对话模式的 chunk-KV。",
+      spans: [
+        { id: "name", text: "NOT A LM。", tags: ["identity", "summary"] },
+        {
+          id: "deny-llm",
+          text: "正如名字所说，我不是语言模型，",
+          tags: ["correction", "deny-core", "identity"],
+        },
+        {
+          id: "detail",
+          text: "而是对话模式的 chunk-KV。",
+          tags: ["identity", "mechanism"],
+        },
+      ],
+      assertion: ["你是语言模型（LLM）。", "你是 LLM。", "你是语言模型。"],
+    },
   },
   {
     claim: "who-1b",
@@ -130,9 +249,60 @@ const CLAIMS: ClaimGroup[] = [
     claim: "who-diff-a",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "LLM と何が違う 違い ちがう", nat: "LLMと何が違うの？", value: "LLM は次トークンを確率で捏ねる。こっちは既知のセリフ断片を相似でつまみ出すだけ。" },
-    en: { key: "what is different from an LLM difference", nat: "How is it different from an LLM?", value: "An LLM kneads the next token by probability. I just pick out known line fragments by similarity." },
-    zh: { key: "和 LLM 有什么区别 差异 不同", nat: "和 LLM 有什么区别？", value: "LLM 用概率去捏下一个 token。我只是按相似度把已知的台词片段挑出来。" },
+    ja: {
+      key: "LLM と何が違う 違い ちがう",
+      nat: "LLMと何が違うの？",
+      value:
+        "LLM は次トークンを確率で捏ねる。こっちは既知のセリフ断片を相似でつまみ出すだけ。",
+      spans: [
+        {
+          id: "llm-way",
+          text: "LLM は次トークンを確率で捏ねる。",
+          tags: ["mechanism", "prior-art-item"],
+        },
+        {
+          id: "our-way",
+          text: "こっちは既知のセリフ断片を相似でつまみ出すだけ。",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "what is different from an LLM difference",
+      nat: "How is it different from an LLM?",
+      value:
+        "An LLM kneads the next token by probability. I just pick out known line fragments by similarity.",
+      spans: [
+        {
+          id: "llm-way",
+          text: "An LLM kneads the next token by probability.",
+          tags: ["mechanism", "prior-art-item"],
+        },
+        {
+          id: "our-way",
+          text: "I just pick out known line fragments by similarity.",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "和 LLM 有什么区别 差异 不同",
+      nat: "和 LLM 有什么区别？",
+      value:
+        "LLM 用概率去捏下一个 token。我只是按相似度把已知的台词片段挑出来。",
+      spans: [
+        {
+          id: "llm-way",
+          text: "LLM 用概率去捏下一个 token。",
+          tags: ["mechanism", "prior-art-item"],
+        },
+        {
+          id: "our-way",
+          text: "我只是按相似度把已知的台词片段挑出来。",
+          tags: ["mechanism", "summary"],
+        },
+      ],
+    },
   },
 
   // --- mechanism ---
@@ -771,9 +941,63 @@ const CLAIMS: ClaimGroup[] = [
     claim: "help-1",
     speaker: "bot",
     tags: ["help"],
-    ja: { key: "使い方 ヘルプ 何ができる どう使えば", nat: "使い方を教えて。何ができるの？どう使えばいい？", value: "普通に話しかけて。右側に「どのキーが勝ったか」が見える。連鎖ボタンで自動予測もできる。" },
-    en: { key: "how to use help what can you do", nat: "How do I use this? What can you do?", value: "Just talk to me. On the right you can see 'which key won.' The chain button auto-predicts too." },
-    zh: { key: "怎么用 帮助 能做什么 如何使用", nat: "怎么用？你能做什么？", value: "正常跟我说话就行。右边能看到“哪个键胜出”。连锁按钮还能自动预测。" },
+    ja: {
+      key: "使い方 ヘルプ 何ができる どう使えば",
+      nat: "使い方を教えて。何ができるの？どう使えばいい？",
+      value:
+        "普通に話しかけて。右側に「どのキーが勝ったか」が見える。連鎖ボタンで自動予測もできる。",
+      spans: [
+        { id: "talk", text: "普通に話しかけて。", tags: ["help", "summary"] },
+        {
+          id: "ui-hits",
+          text: "右側に「どのキーが勝ったか」が見える。",
+          tags: ["help", "detail"],
+        },
+        {
+          id: "chain-btn",
+          text: "連鎖ボタンで自動予測もできる。",
+          tags: ["help", "detail"],
+        },
+      ],
+    },
+    en: {
+      key: "how to use help what can you do",
+      nat: "How do I use this? What can you do?",
+      value:
+        "Just talk to me. On the right you can see 'which key won.' The chain button auto-predicts too.",
+      spans: [
+        { id: "talk", text: "Just talk to me.", tags: ["help", "summary"] },
+        {
+          id: "ui-hits",
+          text: "On the right you can see 'which key won.'",
+          tags: ["help", "detail"],
+        },
+        {
+          id: "chain-btn",
+          text: "The chain button auto-predicts too.",
+          tags: ["help", "detail"],
+        },
+      ],
+    },
+    zh: {
+      key: "怎么用 帮助 能做什么 如何使用",
+      nat: "怎么用？你能做什么？",
+      value:
+        "正常跟我说话就行。右边能看到“哪个键胜出”。连锁按钮还能自动预测。",
+      spans: [
+        { id: "talk", text: "正常跟我说话就行。", tags: ["help", "summary"] },
+        {
+          id: "ui-hits",
+          text: "右边能看到“哪个键胜出”。",
+          tags: ["help", "detail"],
+        },
+        {
+          id: "chain-btn",
+          text: "连锁按钮还能自动预测。",
+          tags: ["help", "detail"],
+        },
+      ],
+    },
   },
   {
     claim: "help-2",
@@ -821,18 +1045,138 @@ const CLAIMS: ClaimGroup[] = [
     claim: "var-kv",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "KV キーバリュー キャッシュ チャンク", nat: "KV、キーバリュー、キャッシュって何のこと？", value: "ここでの KV は Transformer の attention KV ではなく、埋め込みキー→セリフ値の辞書だよ。" },
-    en: { key: "KV key value cache chunk", nat: "What do you mean by KV, key-value, cache?", value: "The KV here isn't the Transformer's attention KV — it's a dictionary from embedding-key to line-value." },
-    zh: { key: "KV 键值 缓存 chunk", nat: "KV、键值、缓存是什么意思？", value: "这里的 KV 不是 Transformer 的注意力 KV，而是“嵌入键→台词值”的词典。" },
+    ja: {
+      key: "KV キーバリュー キャッシュ チャンク",
+      nat: "KV、キーバリュー、キャッシュって何のこと？",
+      value:
+        "ここでの KV は Transformer の attention KV ではなく、埋め込みキー→セリフ値の辞書だよ。",
+      spans: [
+        {
+          id: "not-attn-kv",
+          text: "ここでの KV は Transformer の attention KV ではなく、",
+          tags: ["correction", "kv", "mechanism"],
+        },
+        {
+          id: "our-kv",
+          text: "埋め込みキー→セリフ値の辞書だよ。",
+          tags: ["kv", "mechanism", "summary"],
+        },
+      ],
+    },
+    en: {
+      key: "KV key value cache chunk",
+      nat: "What do you mean by KV, key-value, cache?",
+      value:
+        "The KV here isn't the Transformer's attention KV — it's a dictionary from embedding-key to line-value.",
+      spans: [
+        {
+          id: "not-attn-kv",
+          text: "The KV here isn't the Transformer's attention KV —",
+          tags: ["correction", "kv", "mechanism"],
+        },
+        {
+          id: "our-kv",
+          text: "it's a dictionary from embedding-key to line-value.",
+          tags: ["kv", "mechanism", "summary"],
+        },
+      ],
+    },
+    zh: {
+      key: "KV 键值 缓存 chunk",
+      nat: "KV、键值、缓存是什么意思？",
+      value:
+        "这里的 KV 不是 Transformer 的注意力 KV，而是“嵌入键→台词值”的词典。",
+      spans: [
+        {
+          id: "not-attn-kv",
+          text: "这里的 KV 不是 Transformer 的注意力 KV，",
+          tags: ["correction", "kv", "mechanism"],
+        },
+        {
+          id: "our-kv",
+          text: "而是“嵌入键→台词值”的词典。",
+          tags: ["kv", "mechanism", "summary"],
+        },
+      ],
+    },
   },
   {
     claim: "var-attention",
     speaker: "bot",
     tags: ["mechanism"],
     stance: "deny",
-    ja: { key: "attention アテンション トランスフォーマー KVキャッシュ", nat: "attentionやトランスフォーマーのKVキャッシュのこと？", value: "本物の KV cache は推論中のキー/値テンソル。メタファーとして借りてるだけ。紛らわしくてごめん。", assertion: "ここでのKVはTransformerのattention KVキャッシュだ。" },
-    en: { key: "attention transformer KV cache", nat: "Do you mean attention or the Transformer's KV cache?", value: "The real KV cache is the key/value tensors during inference. I'm just borrowing it as a metaphor. Sorry for the confusion.", assertion: "The KV here is the Transformer's attention KV cache." },
-    zh: { key: "attention 注意力 transformer KV 缓存", nat: "你是指注意力或 transformer 的 KV 缓存吗？", value: "真正的 KV cache 是推理时的键/值张量。我只是借来当比喻，容易混淆，抱歉。", assertion: "这里的 KV 是 Transformer 的注意力 KV 缓存。" },
+    ja: {
+      key: "attention アテンション トランスフォーマー KVキャッシュ",
+      nat: "attentionやトランスフォーマーのKVキャッシュのこと？",
+      value:
+        "本物の KV cache は推論中のキー/値テンソル。メタファーとして借りてるだけ。紛らわしくてごめん。",
+      spans: [
+        {
+          id: "real-kv",
+          text: "本物の KV cache は推論中のキー/値テンソル。",
+          tags: ["kv", "mechanism"],
+        },
+        {
+          id: "metaphor",
+          text: "メタファーとして借りてるだけ。",
+          tags: ["correction", "deny-core", "kv"],
+        },
+        {
+          id: "apology",
+          text: "紛らわしくてごめん。",
+          tags: ["summary", "filler"],
+        },
+      ],
+      assertion: "ここでのKVはTransformerのattention KVキャッシュだ。",
+    },
+    en: {
+      key: "attention transformer KV cache",
+      nat: "Do you mean attention or the Transformer's KV cache?",
+      value:
+        "The real KV cache is the key/value tensors during inference. I'm just borrowing it as a metaphor. Sorry for the confusion.",
+      spans: [
+        {
+          id: "real-kv",
+          text: "The real KV cache is the key/value tensors during inference.",
+          tags: ["kv", "mechanism"],
+        },
+        {
+          id: "metaphor",
+          text: "I'm just borrowing it as a metaphor.",
+          tags: ["correction", "deny-core", "kv"],
+        },
+        {
+          id: "apology",
+          text: "Sorry for the confusion.",
+          tags: ["summary", "filler"],
+        },
+      ],
+      assertion: "The KV here is the Transformer's attention KV cache.",
+    },
+    zh: {
+      key: "attention 注意力 transformer KV 缓存",
+      nat: "你是指注意力或 transformer 的 KV 缓存吗？",
+      value:
+        "真正的 KV cache 是推理时的键/值张量。我只是借来当比喻，容易混淆，抱歉。",
+      spans: [
+        {
+          id: "real-kv",
+          text: "真正的 KV cache 是推理时的键/值张量。",
+          tags: ["kv", "mechanism"],
+        },
+        {
+          id: "metaphor",
+          text: "我只是借来当比喻，",
+          tags: ["correction", "deny-core", "kv"],
+        },
+        {
+          id: "apology",
+          text: "容易混淆，抱歉。",
+          tags: ["summary", "filler"],
+        },
+      ],
+      assertion: "这里的 KV 是 Transformer 的注意力 KV 缓存。",
+    },
   },
   {
     claim: "var-feel",
