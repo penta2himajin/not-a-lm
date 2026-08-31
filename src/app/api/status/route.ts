@@ -8,6 +8,7 @@ import {
   loadReranker,
 } from "@/lib/notalm/rerank";
 import {
+  NLI_DTYPE,
   NLI_MODEL_LABEL,
   getNliProgress,
   isNliReady,
@@ -58,6 +59,7 @@ export async function GET() {
     rerankerProgress: getRerankerProgress(),
     nliReady: isNliReady(),
     nliLabel: NLI_MODEL_LABEL,
+    nliDtype: NLI_DTYPE,
     nliProgress: getNliProgress(),
     chunkCount: engine.corpus.length,
   });

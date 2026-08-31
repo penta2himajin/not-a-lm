@@ -50,6 +50,6 @@ npm run eval:reranker:engine
 ## 次の検討
 
 - ~~埋め込みの q8 再検証~~ → 採用済（[`embedding-model-selection.md`](embedding-model-selection.md)）
-- NLI の q8 再検証（別 PR）
+- ~~NLI の q8 再検証~~ → **不採用**（[`nli-model-selection.md`](nli-model-selection.md)）
 - 融合を bi-encoder に落とせばリランカー依存を減らせるが、誤対応リスク要実測
 - q8 非決定性の旧事象は別 ORT バージョン由来の可能性 — 回帰テストを CI に載せる価値あり
