@@ -8,6 +8,13 @@
  */
 
 import type { ChunkRecord, ComposePlan, Lang, SpanRecord } from "./types";
+import { cosine, embedMany } from "./embed.ts";
+import { indexTextForSpan } from "./span-index.ts";
+
+/** Min span–query cosine for G4b embedding focus */
+export const G4B_MIN_COS = 0.32;
+/** Keep spans within this margin of the top G4b score */
+export const G4B_MARGIN = 0.06;
 
 /** Tags kept when a false presupposition triggered negate-correct (deny stance). */
 const CORRECTION_TAGS = new Set(["correction", "no-generation", "deny-core"]);
@@ -43,7 +50,26 @@ export type ComposeContext = {
   focusSpanId?: string;
   /** From dual-index retrieval: auto key-span substring (copy-only) */
   focusKeySpanText?: string;
+  /** G4b: span id → query cosine (engine/fusion precomputes) */
+  spanRankings?: { spanId: string; score: number }[];
 };
+
+/** Rank author spans by dense embedding vs query (index-time tag prefixes). */
+export async function rankSpansForCompose(
+  query: string,
+  spans: SpanRecord[],
+): Promise<{ spanId: string; score: number }[]> {
+  if (!spans.length || !query.trim()) return [];
+  const indexed = spans.map((s) => indexTextForSpan(s));
+  const vecs = await embedMany([query, ...indexed], "dense");
+  const qv = vecs[0];
+  return spans
+    .map((s, i) => ({
+      spanId: s.id,
+      score: cosine(qv, vecs[i + 1]),
+    }))
+    .sort((a, b) => b.score - a.score);
+}
 
 export function joinSpanTexts(spans: SpanRecord[], lang: Lang): string {
   if (spans.length === 0) return "";
@@ -136,6 +162,40 @@ export function planComposeG4a(
     );
   }
 
+  // Rule 2b — G4b: embedding focus when tags did not narrow to a proper subset
+  if (
+    ctx.spanRankings?.length &&
+    kept.length === spans.length &&
+    ctx.prefix !== "negate-correct" &&
+    !ctx.focusSpanId &&
+    !ctx.focusKeySpanText
+  ) {
+    const byId = new Map(spans.map((s) => [s.id, s]));
+    const ranked = ctx.spanRankings
+      .map((r) => ({ span: byId.get(r.spanId), score: r.score }))
+      .filter(
+        (r): r is { span: SpanRecord; score: number } =>
+          r.span != null &&
+          r.score >= G4B_MIN_COS &&
+          !r.span.tags?.includes("filler") &&
+          !r.span.tags?.includes("ack"),
+      );
+    if (ranked.length >= 1) {
+      const top = ranked[0].score;
+      const winners = ranked
+        .filter((r) => r.score >= top - G4B_MARGIN)
+        .map((r) => r.span);
+      if (winners.length > 0 && winners.length < spans.length) {
+        const summary = spans.filter((s) => s.tags?.includes("summary"));
+        kept = [...new Set([...winners, ...summary])].sort(
+          (a, b) =>
+            spans.findIndex((s) => s.id === a.id) -
+            spans.findIndex((s) => s.id === b.id),
+        );
+      }
+    }
+  }
+
   // Rule 3 — partial prior-art: if query matches item tags but not ack filler
   const itemSpans = kept.filter((s) => s.tags?.includes("prior-art-item"));
   if (itemSpans.length > 0 && itemSpans.length < kept.length) {
@@ -221,7 +281,7 @@ export type ComposePartResult = {
  * G4 on one G3 fusion segment: plan from the segment query, render copy-only body.
  * Returns full `value` when the chunk has no spans or compose would be unchanged.
  */
-export function composePartBody(
+export async function composePartBody(
   segmentQuery: string,
   chunk: ChunkRecord,
   lang: Lang,
@@ -230,11 +290,18 @@ export function composePartBody(
     affirm: Record<Lang, string>;
   },
   ctx: ComposeContext = {},
-): ComposePartResult {
+): Promise<ComposePartResult> {
   if (!chunk.spans?.length) {
     return { text: chunk.value, plan: null };
   }
-  const plan = planComposeG4a(segmentQuery, chunk, ctx);
+  const fullCtx: ComposeContext = { ...ctx };
+  if (!fullCtx.spanRankings?.length) {
+    fullCtx.spanRankings = await rankSpansForCompose(
+      segmentQuery,
+      chunk.spans,
+    );
+  }
+  const plan = planComposeG4a(segmentQuery, chunk, fullCtx);
   if (!plan || !composeChangesReply(plan, chunk, lang, openers)) {
     return { text: chunk.value, plan: null };
   }
