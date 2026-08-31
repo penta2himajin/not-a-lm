@@ -10,33 +10,11 @@ import {
   mergeDualRetrieval,
   searchSpanIndex,
 } from "../src/lib/notalm/span-index.ts";
-
-const FOCUS_CASES = [
-  { lang: "ja", query: "kNN-LMについて教えて", claim: "mech-existing" },
-  { lang: "en", query: "Tell me about kNN-LM", claim: "mech-existing" },
-  { lang: "zh", query: "讲讲 kNN-LM", claim: "mech-existing" },
-  { lang: "ja", query: "埋め込みはどう働く？", claim: "mech-1" },
-  { lang: "en", query: "How does embedding work?", claim: "mech-1" },
-  { lang: "zh", query: "嵌入是怎么工作的？", claim: "mech-1" },
-];
-
-const BASELINE_CASES = [
-  { lang: "ja", query: "あなたは誰？", claim: "who-1" },
-  { lang: "ja", query: "仕組みを教えて", claim: "mech-1" },
-  { lang: "ja", query: "KVキャッシュって何？", claim: "var-attention" },
-  { lang: "ja", query: "コード書ける？", claim: "code-1" },
-  { lang: "ja", query: "こんにちは", claim: "greet-intro" },
-  { lang: "en", query: "Who are you?", claim: "who-1" },
-  { lang: "en", query: "How does this work?", claim: "mech-1" },
-  { lang: "en", query: "What do you mean by KV?", claim: "var-attention" },
-  { lang: "en", query: "Can you write code?", claim: "code-1" },
-  { lang: "en", query: "Hello there", claim: "greet-intro" },
-  { lang: "zh", query: "你是谁？", claim: "who-1" },
-  { lang: "zh", query: "工作原理是什么？", claim: "mech-1" },
-  { lang: "zh", query: "KV缓存是什么？", claim: "var-attention" },
-  { lang: "zh", query: "你会写代码吗？", claim: "code-1" },
-  { lang: "zh", query: "你好", claim: "greet-intro" },
-];
+import {
+  BASELINE_CASES,
+  FOCUS_CASES,
+  MECH2_CASES,
+} from "./eval-retrieval-cases.mjs";
 
 function keySearch(queryVec, index, lang, limit) {
   const scored = [];
@@ -66,7 +44,14 @@ async function evalMode(name, cases, index, spanIndex, chunkById) {
 
     if (name === "dual" && spanIndex.length) {
       const spanHits = searchSpanIndex(qv, spanIndex, chunkById, tc.lang);
-      const dual = mergeDualRetrieval(qv, keyHits, spanHits, chunkById, new Set());
+      const dual = mergeDualRetrieval(
+        qv,
+        keyHits,
+        spanHits,
+        chunkById,
+        new Set(),
+        tc.query,
+      );
       chosen = dual.chosen;
       source = dual.retrievalSource;
     }
@@ -113,13 +98,16 @@ async function main() {
 
   for (const [label, cases] of [
     ["focus", FOCUS_CASES],
+    ["mech2", MECH2_CASES],
     ["baseline", BASELINE_CASES],
   ]) {
     const key = await evalMode("natKey", cases, index, spanIndex, chunkById);
     const dual = await evalMode("dual", cases, index, spanIndex, chunkById);
     console.log(`\n=== ${label} ===`);
     console.log(`natKey-only: ${key.ok}/${key.total}`);
-    console.log(`dual-index: ${dual.ok}/${dual.total} (+${dual.ok - key.ok} vs natKey)`);
+    console.log(
+      `dual-index: ${dual.ok}/${dual.total} (+${dual.ok - key.ok} vs natKey)`,
+    );
     if (dual.fails.length) console.log("dual fails:", dual.fails);
   }
 }
