@@ -14,7 +14,7 @@ G3 までで「チャンク丸ごとの融合＋極性前置」は実装済み�
 ## データモデル
 
 ```ts
-type SpanRecord = { id: string; text: string; tags?: string[] };
+type SpanRecord = { id: string; text: string; tags?: string[]; nliHypothesis?: string };
 type ComposePlan = {
   prefix?: "negate-correct" | "affirm-confirm";
   kept: { chunkId: string; spanId: string }[];
@@ -27,7 +27,10 @@ type ComposePlan = {
 ## G4a プランナー規則（v1）
 
 1. **極性 + deny** — `negate-correct` 時、タグ `correction` / `no-generation` / `deny-core` のスパンのみ KEEP
+1d. **G4c 否定 refine** — 上記 correction 集合に `nliHypothesis` 付き span があるとき、NLI entail ≥ 0.5 でさらに絞る
 2. **焦点** — クエリがスパンタグにマッチしたら、該当スパン（＋ `summary`）のみ KEEP
+2b. **G4b** — タグで絞れないとき dense cosine で焦点
+2c. **G4c** — タグ + G4b でも絞れないとき `span.nliHypothesis` への NLI entail で焦点
 3. **列挙部分** — `prior-art-item` が絞られたとき `summary` を付与
 
 変更がなければ `null`（G2 レガシー: prefix + 全文）。
@@ -57,7 +60,8 @@ retrieve → G2 NLI (prefix 決定) → G3 fusion (+ G4 per segment) → G4 comp
 
 - G3 融合時は **各セグメントに G4a compose を適用**（`fuseCompound` 内、`composePartBody`）
 - **G4b**: タグ Rule 2 で絞れないとき `rankSpansForCompose`（dense cosine + `indexTextForSpan`）で Rule 2b 焦点
-- 単一チャンク応答は Stage 4 の G4a+G4b（dual-index の `focusSpanId` 優先）
+- **G4c**: `rankSpansByNli` — `nliHypothesis` 付き span を NLI(premise=query) で採点。Rule 1d（否定 refine）/ Rule 2c（焦点）
+- 単一チャンク応答は Stage 4 の G4a+G4b+G4c（dual-index の `focusSpanId` 優先）
 - `trace.fuseParts[]` にセグメントごとの `composePlan` を記録
 - `trace.fusedCompose`: 融合パートのいずれかが G4 で狭められたとき true
 
@@ -66,6 +70,7 @@ retrieve → G2 NLI (prefix 決定) → G3 fusion (+ G4 per segment) → G4 comp
 ```bash
 npm run eval:corpus-spans     # spans/value 整合性
 npm run eval:compose          # ユニット（プランナー + render）
+npm run eval:g4c:compose      # G4c per-span NLI（unit + NLI 統合）
 npm run eval:fusion-g4        # G3×G4 ユニット（prior-art 部分 KEEP）
 npm run eval:fusion-g4:engine # G3×G4 API（dev server 要）
 npm run eval:nli:engine       # E2E negate（G2+G4 連携）
@@ -77,6 +82,6 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 - **Dual-index retrieval** — [`retrieval-dual-index.md`](retrieval-dual-index.md) ✅
 - **G3×G4** — 融合各パートへの compose ✅
 - スパン embedding / cross-encoder マッチ（G4b）— ✅ Rule 2b `rankSpansForCompose` + `spanRankings`
-- NLI per-span（G4c）
+- NLI per-span（G4c）— ✅ Rule 1d/2c `rankSpansByNli` + `nliHypothesis`
 - 句単位スパンへの細分化
 - コーパス spans 拡張 — 12 claim（残り ~40 claim は G4b/c 向けに段階追加）

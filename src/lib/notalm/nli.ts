@@ -128,6 +128,11 @@ export type NliResult = {
   entail: number;
 };
 
+/** Trim trailing punctuation so questions read more like declarations for NLI. */
+export function normalizeForNli(q: string): string {
+  return q.trim().replace(/[？?！!。．.、,\s]+$/u, "");
+}
+
 /**
  * NLI(premise, hypothesis). Throws if not loaded — check isNliReady() first.
  */

@@ -15,6 +15,7 @@ import {
   composeChangesReply,
   composePartBody,
   planComposeG4a,
+  rankSpansByNli,
   rankSpansForCompose,
   renderCompose,
   type ComposeContext,
@@ -27,7 +28,7 @@ import {
   SPAN_AUTHOR_MIN_COS,
   type SpanIndexEntry,
 } from "./span-index";
-import { isNliReady, nliClassify } from "./nli";
+import { isNliReady, nliClassify, normalizeForNli } from "./nli";
 import type {
   ChatMessage,
   ChunkRecord,
@@ -148,16 +149,6 @@ const AFFIRM_OPENER: Record<Lang, string> = {
   en: "Yes, exactly. ",
   zh: "对，正是如此。",
 };
-
-/**
- * Light normalization of the user question before NLI: strip trailing
- * punctuation so a question reads a bit more like a statement (NLI premises are
- * declarative). No token generation — this only trims the NLI input, not the
- * reply.
- */
-function normalizeForNli(q: string): string {
-  return q.trim().replace(/[？?！!。．.、,\s]+$/u, "");
-}
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
@@ -688,6 +679,10 @@ export class ChunkKVEngine {
       };
       if (gateQuery) {
         composeCtx.spanRankings = await rankSpansForCompose(
+          gateQuery,
+          chosen.chunk.spans,
+        );
+        composeCtx.spanNliRankings = await rankSpansByNli(
           gateQuery,
           chosen.chunk.spans,
         );

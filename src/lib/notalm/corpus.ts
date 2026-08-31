@@ -21,6 +21,8 @@ type SpanDef = {
   id: string;
   text: string;
   tags?: string[];
+  /** G4c: per-span NLI hypothesis (premise = user query) */
+  nliHypothesis?: string;
 };
 
 type Surface = {
@@ -163,6 +165,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-llm",
           text: "名前どおり言語モデルではない。",
           tags: ["correction", "deny-core", "identity"],
+          nliHypothesis: "あなたは言語モデル（LLM）だ。",
         },
         {
           id: "detail",
@@ -187,6 +190,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-llm",
           text: "Just like the name says, not a language model.",
           tags: ["correction", "deny-core", "identity"],
+          nliHypothesis: "You are a language model (LLM).",
         },
         {
           id: "detail",
@@ -211,6 +215,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-llm",
           text: "正如名字所说，我不是语言模型，",
           tags: ["correction", "deny-core", "identity"],
+          nliHypothesis: "你是语言模型（LLM）。",
         },
         {
           id: "detail",
@@ -321,11 +326,13 @@ const CLAIMS: ClaimGroup[] = [
           id: "embed-match",
           text: "会話履歴を埋め込み、キー側の埋め込みと照合。",
           tags: ["mechanism", "embedding"],
+          nliHypothesis: "埋め込み照合について聞いている。",
         },
         {
           id: "pick-value",
           text: "一番近いチャンクの value が「次のセリフ」。",
           tags: ["mechanism", "retrieval"],
+          nliHypothesis: "次のセリフの決まり方について聞いている。",
         },
       ],
       assertion: [
@@ -343,11 +350,13 @@ const CLAIMS: ClaimGroup[] = [
           id: "embed-match",
           text: "Embed the conversation history, match against the key embeddings.",
           tags: ["mechanism", "embedding"],
+          nliHypothesis: "The user is asking about embedding matching.",
         },
         {
           id: "pick-value",
           text: "The value of the closest chunk is the 'next line.'",
           tags: ["mechanism", "retrieval"],
+          nliHypothesis: "The user is asking how the next line is chosen.",
         },
       ],
       assertion: [
@@ -365,11 +374,13 @@ const CLAIMS: ClaimGroup[] = [
           id: "embed-match",
           text: "把对话历史嵌入，与键侧的嵌入比对。",
           tags: ["mechanism", "embedding"],
+          nliHypothesis: "用户在问嵌入比对。",
         },
         {
           id: "pick-value",
           text: "最近 chunk 的 value 就是“下一句台词”。",
           tags: ["mechanism", "retrieval"],
+          nliHypothesis: "用户在问下一句台词怎么选。",
         },
       ],
       assertion: [
@@ -382,9 +393,9 @@ const CLAIMS: ClaimGroup[] = [
     claim: "mech-2",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "埋め込み エンベディング embedding ベクトル", nat: "埋め込み（エンベディング）って何？ベクトルの話。", value: "意味の近い文は近いベクトルになる。だから言い回しが違っても同じパターンに着地しやすい。", spans: [{ id: "vec-close", text: "意味の近い文は近いベクトルになる。", tags: ["embedding", "mechanism"] }, { id: "paraphrase", text: "だから言い回しが違っても同じパターンに着地しやすい。", tags: ["embedding", "paraphrase", "mechanism"] }] },
-    en: { key: "embedding vector representation semantic", nat: "What is an embedding? The vector representation.", value: "Sentences close in meaning become close vectors. So even different wording tends to land on the same pattern.", spans: [{ id: "vec-close", text: "Sentences close in meaning become close vectors.", tags: ["embedding", "mechanism"] }, { id: "paraphrase", text: "So even different wording tends to land on the same pattern.", tags: ["embedding", "paraphrase", "mechanism"] }] },
-    zh: { key: "嵌入 向量 embedding 语义表示", nat: "嵌入（embedding）是什么？向量表示。", value: "意思相近的句子会变成相近的向量。所以就算措辞不同，也容易落到同一个模式上。", spans: [{ id: "vec-close", text: "意思相近的句子会变成相近的向量。", tags: ["embedding", "mechanism"] }, { id: "paraphrase", text: "所以就算措辞不同，也容易落到同一个模式上。", tags: ["embedding", "paraphrase", "mechanism"] }] },
+    ja: { key: "埋め込み エンベディング embedding ベクトル", nat: "埋め込み（エンベディング）って何？ベクトルの話。", value: "意味の近い文は近いベクトルになる。だから言い回しが違っても同じパターンに着地しやすい。", spans: [{ id: "vec-close", text: "意味の近い文は近いベクトルになる。", tags: ["embedding", "mechanism"], nliHypothesis: "ユーザーは意味の近いベクトルについて質問している。" }, { id: "paraphrase", text: "だから言い回しが違っても同じパターンに着地しやすい。", tags: ["embedding", "paraphrase", "mechanism"], nliHypothesis: "ユーザーは言い回しの違いについて質問している。" }] },
+    en: { key: "embedding vector representation semantic", nat: "What is an embedding? The vector representation.", value: "Sentences close in meaning become close vectors. So even different wording tends to land on the same pattern.", spans: [{ id: "vec-close", text: "Sentences close in meaning become close vectors.", tags: ["embedding", "mechanism"], nliHypothesis: "The user is asking about semantically close vectors." }, { id: "paraphrase", text: "So even different wording tends to land on the same pattern.", tags: ["embedding", "paraphrase", "mechanism"], nliHypothesis: "The user is asking about wording differences." }] },
+    zh: { key: "嵌入 向量 embedding 语义表示", nat: "嵌入（embedding）是什么？向量表示。", value: "意思相近的句子会变成相近的向量。所以就算措辞不同，也容易落到同一个模式上。", spans: [{ id: "vec-close", text: "意思相近的句子会变成相近的向量。", tags: ["embedding", "mechanism"], nliHypothesis: "用户在问语义相近的向量。" }, { id: "paraphrase", text: "所以就算措辞不同，也容易落到同一个模式上。", tags: ["embedding", "paraphrase", "mechanism"], nliHypothesis: "用户在问措辞差异。" }] },
   },
   {
     claim: "mech-3",
@@ -423,6 +434,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "no-gen",
           text: "ここは生成段がなく、回収＝返答。",
           tags: ["correction", "no-generation"],
+          nliHypothesis: "あなたはRAGで生成している。",
         },
       ],
       assertion: "あなたはRAGで生成している。",
@@ -443,6 +455,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "no-gen",
           text: "Here there's no generation stage — retrieval is the reply.",
           tags: ["correction", "no-generation"],
+          nliHypothesis: "You generate with RAG.",
         },
       ],
       assertion: "You generate with RAG.",
@@ -463,6 +476,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "no-gen",
           text: "这里没有生成阶段，检索即回答。",
           tags: ["correction", "no-generation"],
+          nliHypothesis: "你是靠 RAG 生成的。",
         },
       ],
       assertion: "你是靠 RAG 生成的。",
@@ -667,6 +681,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-code",
           text: "コードは書かない。",
           tags: ["correction", "deny-core", "code"],
+          nliHypothesis: "あなたはコードを書ける。",
         },
         {
           id: "alt-pattern",
@@ -686,6 +701,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-code",
           text: "I don't write code.",
           tags: ["correction", "deny-core", "code"],
+          nliHypothesis: "You can write code.",
         },
         {
           id: "alt-pattern",
@@ -705,6 +721,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-code",
           text: "我不写代码。",
           tags: ["correction", "deny-core", "code"],
+          nliHypothesis: "你能写代码。",
         },
         {
           id: "alt-pattern",
@@ -757,6 +774,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-understand",
           text: "理解してない。",
           tags: ["correction", "deny-core", "consciousness"],
+          nliHypothesis: "あなたには意識がある。",
         },
         {
           id: "distance",
@@ -781,6 +799,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-understand",
           text: "I don't understand.",
           tags: ["correction", "deny-core", "consciousness"],
+          nliHypothesis: "You are conscious.",
         },
         {
           id: "distance",
@@ -805,6 +824,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "deny-understand",
           text: "我不理解，只是距离近而已。",
           tags: ["correction", "deny-core", "consciousness"],
+          nliHypothesis: "你有意识。",
         },
         {
           id: "trick",
@@ -952,11 +972,13 @@ const CLAIMS: ClaimGroup[] = [
           id: "ui-hits",
           text: "右側に「どのキーが勝ったか」が見える。",
           tags: ["help", "detail"],
+          nliHypothesis: "ユーザーは右側のキー表示について質問している。",
         },
         {
           id: "chain-btn",
           text: "連鎖ボタンで自動予測もできる。",
           tags: ["help", "detail"],
+          nliHypothesis: "ユーザーは連鎖ボタンについて聞いている。",
         },
       ],
     },
@@ -971,11 +993,13 @@ const CLAIMS: ClaimGroup[] = [
           id: "ui-hits",
           text: "On the right you can see 'which key won.'",
           tags: ["help", "detail"],
+          nliHypothesis: "The user is asking about which key won on the right.",
         },
         {
           id: "chain-btn",
           text: "The chain button auto-predicts too.",
           tags: ["help", "detail"],
+          nliHypothesis: "The user is asking about the chain button.",
         },
       ],
     },
@@ -990,11 +1014,13 @@ const CLAIMS: ClaimGroup[] = [
           id: "ui-hits",
           text: "右边能看到“哪个键胜出”。",
           tags: ["help", "detail"],
+          nliHypothesis: "用户在问右边哪个键胜出。",
         },
         {
           id: "chain-btn",
           text: "连锁按钮还能自动预测。",
           tags: ["help", "detail"],
+          nliHypothesis: "用户在问连锁按钮。",
         },
       ],
     },
@@ -1120,6 +1146,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "metaphor",
           text: "メタファーとして借りてるだけ。",
           tags: ["correction", "deny-core", "kv"],
+          nliHypothesis: "ここでのKVはTransformerのattention KVキャッシュだ。",
         },
         {
           id: "apology",
@@ -1144,6 +1171,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "metaphor",
           text: "I'm just borrowing it as a metaphor.",
           tags: ["correction", "deny-core", "kv"],
+          nliHypothesis: "The KV here is the Transformer's attention KV cache.",
         },
         {
           id: "apology",
@@ -1168,6 +1196,7 @@ const CLAIMS: ClaimGroup[] = [
           id: "metaphor",
           text: "我只是借来当比喻，",
           tags: ["correction", "deny-core", "kv"],
+          nliHypothesis: "这里的 KV 是 Transformer 的注意力 KV 缓存。",
         },
         {
           id: "apology",
