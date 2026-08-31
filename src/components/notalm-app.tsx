@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, TraceStep } from "@/lib/notalm/types";
 import { formatOperationPlan } from "@/lib/notalm/plan";
+import { formatTurnGrounding } from "@/lib/notalm/grounding";
 
 const SUGGESTIONS = [
   "お前誰？",
@@ -540,6 +541,20 @@ export function NotALMApp() {
                         {tr.operationPlan.reasons.length > 0 && (
                           <p className="text-[var(--nalm-ink-mute)]">
                             {tr.operationPlan.reasons.join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {(tr.priorGrounding || tr.turnGrounding) && (
+                      <div className="mb-2 space-y-0.5 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
+                        {tr.priorGrounding && (
+                          <p>
+                            prior · {formatTurnGrounding(tr.priorGrounding)}
+                          </p>
+                        )}
+                        {tr.turnGrounding && (
+                          <p>
+                            grounding · {formatTurnGrounding(tr.turnGrounding)}
                           </p>
                         )}
                       </div>

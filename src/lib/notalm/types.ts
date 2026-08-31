@@ -143,9 +143,36 @@ export type MatchHit = {
   spanScore?: number;
 };
 
+/**
+ * G6 — per-turn grounded reply state carried on ChatMessage / read as prior.
+ * Copy-only excerpts for proximal resolve (G6b) and clarify examples.
+ */
+export type TurnGrounding = {
+  chunkId: string;
+  claim?: string;
+  lang?: Lang;
+  kept?: SpanRef[];
+  /** kept span texts, or full value when no compose */
+  excerptTexts: string[];
+  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose";
+  /** Extra fuse parts (not the primary chunk) */
+  parts?: {
+    chunkId: string;
+    claim?: string;
+    excerptTexts: string[];
+  }[];
+};
+
 export type TraceStep = {
   /** Detected query language used to filter candidates */
   queryLang?: Lang;
+  /**
+   * G6a: grounding from the previous bot message in history (if any).
+   * Used by G6b for proximal / clarify; audit-only until then.
+   */
+  priorGrounding?: TurnGrounding;
+  /** G6a: grounding attached to this turn's reply (same as message.grounding) */
+  turnGrounding?: TurnGrounding;
   /** Whether the cross-encoder reranker reordered the candidates */
   reranked?: boolean;
   /** Best cross-encoder relevance score for this turn (when reranked) */
@@ -215,6 +242,8 @@ export type ChatMessage = {
   text: string;
   sourceChunkId?: string;
   score?: number;
+  /** G6a: structured grounding for multi-turn (client echoes in history) */
+  grounding?: TurnGrounding;
 };
 
 export type EngineStatus =

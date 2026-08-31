@@ -103,4 +103,5 @@ npm run eval:reranker:engine  # fusion 発火（G3）
 - NLI per-span（G4c）— ✅ Rule 1d/2c `rankSpansByNli` + `nliHypothesis`
 - 句単位スパンへの細分化（batch 2–5 では **不要** — 1文/句読点境界で十分）
 - コーパス spans 拡張 — ✅ bot claim 全件（42 claim / 126 chunks）
-- **G5 操作プランナー** — [`grounded-generation-g5.md`](grounded-generation-g5.md) ✅ G5a/b/c
+- **G5 操作プランナー** — [`grounded-generation-g5.md`](grounded-generation-g5.md) ✅ G5a–d
+- **G6 多ターン接地** — [`grounded-generation-g6.md`](grounded-generation-g6.md) 🔄 G6a

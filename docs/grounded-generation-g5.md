@@ -77,3 +77,4 @@ npm run eval:corpus-spans
 
 - 操作粒度: ラベル互換を保ったまま移行できたら `operation` を plan 派生のみ／廃止
 - （任意）候補 ID 拡張（例: second-hit single）や重みの調整は eval で回帰を見てから
+- **G6 多ターン接地** — [`grounded-generation-g6.md`](grounded-generation-g6.md)
