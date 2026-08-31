@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDenseProgress, isDenseReady } from "@/lib/notalm/embed";
+import { DENSE_MODEL_LABEL, EMBED_DTYPE, getDenseProgress, isDenseReady } from "@/lib/notalm/embed";
 import {
   RERANK_DTYPE,
   RERANK_MODEL_LABEL,
@@ -50,6 +50,8 @@ export async function GET() {
     modelId: engine.modelId,
     progress: getDenseProgress(),
     denseReady: isDenseReady(),
+    embedLabel: DENSE_MODEL_LABEL,
+    embedDtype: EMBED_DTYPE,
     rerankerReady: isRerankerReady(),
     rerankerLabel: RERANK_MODEL_LABEL,
     rerankerDtype: RERANK_DTYPE,
