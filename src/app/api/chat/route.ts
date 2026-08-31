@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getEngine } from "@/lib/notalm/engine";
-import type { ChatMessage } from "@/lib/notalm/types";
+import {
+  CHAIN_SEED_USER_TEXT,
+} from "@/lib/notalm/chain-plan";
+import { detectLang } from "@/lib/notalm/lang";
+import type { ChatMessage, Lang } from "@/lib/notalm/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,10 +13,24 @@ export const maxDuration = 60;
 type Body = {
   history?: ChatMessage[];
   userText?: string;
-  mode?: "reply" | "predict-user";
+  mode?: "reply" | "predict-user" | "chain-plan" | "emit-claim";
   generate?: boolean;
   /** Clear reuse penalty between eval cases */
   resetSession?: boolean;
+  /** G6d */
+  lang?: Lang;
+  pairCount?: number;
+  userClaimOffset?: number;
+  claim?: string;
+  role?: "user" | "bot";
+  chain?: {
+    planId: string;
+    stepIndex: number;
+    role: "user" | "bot";
+    claim?: string;
+    resolve: "corpus" | "generate";
+    reason: string;
+  };
 };
 
 export async function POST(req: Request) {
@@ -30,8 +48,51 @@ export async function POST(req: Request) {
   const mode = body.mode ?? "reply";
 
   try {
+    if (mode === "chain-plan") {
+      const lang: Lang =
+        body.lang ??
+        (history.length
+          ? detectLang(
+              [...history].reverse().find((m) => m.role === "user")?.text ??
+                CHAIN_SEED_USER_TEXT.ja,
+            )
+          : "ja");
+      const plan = engine.buildChainPlan(
+        lang,
+        body.pairCount ?? 3,
+        body.userClaimOffset ?? 0,
+      );
+      return NextResponse.json({
+        plan,
+        seedText: CHAIN_SEED_USER_TEXT[lang],
+        backend: engine.status.kind === "ready" ? engine.status.backend : "hash",
+        modelId: engine.modelId,
+      });
+    }
+
+    if (mode === "emit-claim") {
+      if (!body.claim || !body.role) {
+        return NextResponse.json(
+          { error: "claim and role required" },
+          { status: 400 },
+        );
+      }
+      const lang: Lang = body.lang ?? "ja";
+      const result = await engine.emitClaim({
+        claim: body.claim,
+        lang,
+        role: body.role,
+        chain: body.chain,
+      });
+      return NextResponse.json({
+        ...result,
+        backend: engine.status.kind === "ready" ? engine.status.backend : "hash",
+        modelId: engine.modelId,
+      });
+    }
+
     if (mode === "predict-user") {
-      const result = await engine.predictUser(history);
+      const result = await engine.predictUser(history, { chain: body.chain });
       return NextResponse.json({
         ...result,
         backend: engine.status.kind === "ready" ? engine.status.backend : "hash",
@@ -48,6 +109,7 @@ export async function POST(req: Request) {
 
     const result = await engine.reply(history, userText, {
       generate: body.generate === true,
+      chain: body.chain,
     });
     return NextResponse.json({
       ...result,

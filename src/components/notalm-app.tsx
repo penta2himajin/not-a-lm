@@ -7,9 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { ChatMessage, TraceStep } from "@/lib/notalm/types";
+import type { ChainPlan, ChatMessage, TraceStep } from "@/lib/notalm/types";
 import { formatOperationPlan } from "@/lib/notalm/plan";
 import { formatTurnGrounding } from "@/lib/notalm/grounding";
+import { formatChainPlan } from "@/lib/notalm/chain-plan";
 
 const SUGGESTIONS = [
   "お前誰？",
@@ -45,6 +46,8 @@ type ChatPayload = {
   backend: string;
   modelId: string;
   error?: string;
+  plan?: ChainPlan;
+  seedText?: string;
 };
 
 export function NotALMApp() {
@@ -62,6 +65,7 @@ export function NotALMApp() {
   const [rerankerReady, setRerankerReady] = useState(false);
   const [nliReady, setNliReady] = useState(false);
   const [grounded, setGrounded] = useState(false);
+  const [chainPlan, setChainPlan] = useState<ChainPlan | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const refreshStatus = useCallback(async () => {
@@ -155,7 +159,15 @@ export function NotALMApp() {
 
   async function callChat(
     history: ChatMessage[],
-    opts: { userText?: string; mode?: "reply" | "predict-user" },
+    opts: {
+      userText?: string;
+      mode?: "reply" | "predict-user" | "chain-plan" | "emit-claim";
+      pairCount?: number;
+      claim?: string;
+      role?: "user" | "bot";
+      lang?: string;
+      chain?: TraceStep["chain"];
+    },
   ): Promise<ChatPayload> {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -165,6 +177,11 @@ export function NotALMApp() {
         userText: opts.userText,
         mode: opts.mode ?? "reply",
         generate: grounded,
+        pairCount: opts.pairCount,
+        claim: opts.claim,
+        role: opts.role,
+        lang: opts.lang,
+        chain: opts.chain,
       }),
     });
     const data = (await res.json()) as ChatPayload;
@@ -211,31 +228,77 @@ export function NotALMApp() {
     try {
       let hist = [...messages];
 
+      // G6d: build declarative plan first (audit + freedom: bot stays generate).
+      const planned = await callChat(hist, {
+        mode: "chain-plan",
+        pairCount: steps,
+        lang: "ja",
+      });
+      if (!planned.plan) throw new Error("chain plan missing");
+      setChainPlan(planned.plan);
+      const plan = planned.plan;
+
       if (hist.length === 0) {
+        const seedText = planned.seedText ?? "連鎖デモお願い";
         const seed: ChatMessage = {
           id: `seed-${Date.now()}`,
           role: "user",
-          text: "連鎖デモお願い",
+          text: seedText,
         };
         hist = [seed];
         setMessages(hist);
-        const first = await callChat(hist, { userText: seed.text });
+        const first = await callChat(hist, {
+          userText: seed.text,
+          chain: {
+            planId: plan.id,
+            stepIndex: -1,
+            role: "bot",
+            claim: plan.seedClaim,
+            resolve: "generate",
+            reason: "g6d:seed",
+          },
+        });
         hist = [...hist, first.message];
         setMessages([...hist]);
         setTraces((t) => [first.trace, ...t].slice(0, 12));
       }
 
-      for (let i = 0; i < steps; i++) {
-        const pred = await callChat(hist, { mode: "predict-user" });
-        hist = [...hist, pred.message];
-        setMessages([...hist]);
-        setTraces((t) => [pred.trace, ...t].slice(0, 12));
+      for (const step of plan.steps) {
+        const chainMeta = {
+          planId: plan.id,
+          stepIndex: step.index,
+          role: step.role,
+          claim: step.claim,
+          resolve: step.resolve,
+          reason: step.reason,
+        };
 
-        const bot = await callChat(hist, { userText: pred.message.text });
-        hist = [...hist, bot.message];
-        setMessages([...hist]);
-        setTraces((t) => [bot.trace, ...t].slice(0, 12));
-        await new Promise((r) => setTimeout(r, 220));
+        if (step.role === "user" && step.resolve === "corpus" && step.claim) {
+          const pred = await callChat(hist, {
+            mode: "emit-claim",
+            claim: step.claim,
+            role: "user",
+            lang: plan.lang,
+            chain: chainMeta,
+          });
+          hist = [...hist, pred.message];
+          setMessages([...hist]);
+          setTraces((t) => [pred.trace, ...t].slice(0, 12));
+          continue;
+        }
+
+        if (step.role === "bot" && step.resolve === "generate") {
+          const lastUser = [...hist].reverse().find((m) => m.role === "user");
+          if (!lastUser) throw new Error("chain bot step without user");
+          const bot = await callChat(hist, {
+            userText: lastUser.text,
+            chain: chainMeta,
+          });
+          hist = [...hist, bot.message];
+          setMessages([...hist]);
+          setTraces((t) => [bot.trace, ...t].slice(0, 12));
+          await new Promise((r) => setTimeout(r, 220));
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "連鎖に失敗しました");
@@ -247,6 +310,7 @@ export function NotALMApp() {
   function reset() {
     setMessages([]);
     setTraces([]);
+    setChainPlan(null);
     setError(null);
   }
 
@@ -473,6 +537,16 @@ export function NotALMApp() {
               <p className="mt-1 text-xs text-[var(--nalm-ink-mute)]">
                 user↔bot ペアを局所クラスタリングし、指数加重平均した多言語クエリ。
               </p>
+              {chainPlan && (
+                <div className="mt-2 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-soft)]">
+                  <p className="text-[var(--nalm-accent)]">
+                    chain-plan · {formatChainPlan(chainPlan)}
+                  </p>
+                  <p className="text-[var(--nalm-ink-mute)]">
+                    {chainPlan.reasons.join(" · ")}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
@@ -543,6 +617,16 @@ export function NotALMApp() {
                             {tr.operationPlan.reasons.join(" · ")}
                           </p>
                         )}
+                      </div>
+                    )}
+                    {tr.chain && (
+                      <div className="mb-2 space-y-0.5 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
+                        <p className="text-[var(--nalm-accent)]">
+                          chain[{tr.chain.stepIndex}] · {tr.chain.role}/
+                          {tr.chain.resolve}
+                          {tr.chain.claim ? ` · ${tr.chain.claim}` : ""}
+                        </p>
+                        <p>{tr.chain.reason}</p>
                       </div>
                     )}
                     {(tr.priorGrounding ||

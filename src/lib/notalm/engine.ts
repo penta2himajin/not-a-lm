@@ -12,6 +12,10 @@ import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
 import { isRerankerReady, rerankScores } from "./rerank";
 import {
+  buildChainDemoPlan,
+  findChunkByClaim,
+} from "./chain-plan";
+import {
   buildTurnGrounding,
   classifyAnaphora,
   continuityFromPrior,
@@ -58,6 +62,14 @@ import type {
   PlanCandidate,
   TraceStep,
 } from "./types";
+
+/** G6d audit blob attached to a turn executed from a ChainPlan. */
+export type ChainTraceMeta = NonNullable<TraceStep["chain"]>;
+
+type PredictOpts = {
+  generate?: boolean;
+  chain?: ChainTraceMeta;
+};
 
 /** Final number of hits shown in the trace */
 const TOP_K = 5;
@@ -380,7 +392,7 @@ export class ChunkKVEngine {
     history: ChatMessage[],
     latestUser: string | undefined,
     preferSpeaker: "user" | "bot",
-    opts: { generate?: boolean } = {},
+    opts: PredictOpts = {},
   ): Promise<{ message: ChatMessage; trace: TraceStep }> {
     if (this.index.length === 0) {
       await this.ensureHash();
@@ -480,6 +492,7 @@ export class ChunkKVEngine {
           anaphora,
           priorGrounding: priorGroundingEarly,
           turnGrounding,
+          chain: opts.chain,
           generated: true,
           operation: "clarify",
           operationPlan: clarifyPlan,
@@ -814,6 +827,7 @@ export class ChunkKVEngine {
           : undefined,
         priorGrounding,
         turnGrounding,
+        chain: opts.chain,
         generated,
         operation,
         operationPlan,
@@ -862,13 +876,79 @@ export class ChunkKVEngine {
   async reply(
     history: ChatMessage[],
     userText: string,
-    opts: { generate?: boolean } = {},
+    opts: PredictOpts = {},
   ) {
     return this.predictNext(history, userText, "bot", opts);
   }
 
-  async predictUser(history: ChatMessage[]) {
-    return this.predictNext(history, undefined, "user");
+  async predictUser(history: ChatMessage[], opts: PredictOpts = {}) {
+    return this.predictNext(history, undefined, "user", opts);
+  }
+
+  /** G6d: build the declarative chain demo recipe (no side effects). */
+  buildChainPlan(lang: Lang, pairCount: number, userClaimOffset = 0) {
+    return buildChainDemoPlan({ lang, pairCount, userClaimOffset });
+  }
+
+  /**
+   * G6d: emit a message by claim from the corpus (copy-only).
+   * Used for planned user turns (and optional corpus bot turns).
+   */
+  async emitClaim(opts: {
+    claim: string;
+    lang: Lang;
+    role: "user" | "bot";
+    chain?: ChainTraceMeta;
+  }): Promise<{ message: ChatMessage; trace: TraceStep }> {
+    const t0 = performance.now();
+    if (this.index.length === 0) await this.ensureHash();
+    const chunk = findChunkByClaim(opts.claim, opts.lang, opts.role);
+    if (!chunk) {
+      throw new Error(
+        `chain claim not found: ${opts.claim}/${opts.lang}/${opts.role}`,
+      );
+    }
+    const full =
+      this.index.find((c) => c.id === chunk.id) ?? (chunk as ChunkRecord);
+    const turnGrounding = buildTurnGrounding({
+      chunk: full,
+      operation: "as-is",
+    });
+    const hit: MatchHit = {
+      chunk: {
+        id: chunk.id,
+        key: chunk.key,
+        natKey: chunk.natKey,
+        value: chunk.value,
+        speaker: chunk.speaker,
+        lang: chunk.lang,
+        claim: chunk.claim,
+        tags: chunk.tags,
+      },
+      score: 1,
+    };
+    return {
+      message: {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        role: chunk.speaker,
+        text: chunk.value,
+        sourceChunkId: chunk.id,
+        score: 1,
+        grounding: turnGrounding,
+      },
+      trace: {
+        queryLang: opts.lang,
+        turnGrounding,
+        chain: opts.chain,
+        generated: false,
+        operation: "as-is",
+        queryText: `chain-emit:${opts.claim}`,
+        querySummary: `chain-emit:${opts.claim}`,
+        hits: [hit],
+        chosen: hit,
+        latencyMs: Math.round(performance.now() - t0),
+      },
+    };
   }
 }
 

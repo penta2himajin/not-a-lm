@@ -19,6 +19,7 @@
     "eval:g6a": "node --experimental-strip-types scripts/eval-g6a.mjs",
     "eval:g6b": "node --experimental-strip-types scripts/eval-g6b.mjs",
     "eval:g6c": "node --experimental-strip-types scripts/eval-g6c.mjs",
+    "eval:g6d": "node --experimental-strip-types scripts/eval-g6d.mjs",
     "eval:dual-index": "node --experimental-strip-types scripts/eval-dual-index.mjs",
     "eval:dual-index:engine": "node scripts/eval-dual-index-engine.mjs",
     "eval:fusion-g4": "node --experimental-strip-types scripts/eval-fusion-g4.mjs",
