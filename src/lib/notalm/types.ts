@@ -10,6 +10,8 @@ export type SpanRecord = {
   text: string;
   /** G4a planner hints (closed tag vocabulary) */
   tags?: string[];
+  /** G4c: declarative NLI hypothesis for per-span scoring (premise = query) */
+  nliHypothesis?: string;
 };
 
 export type SpanRef = {

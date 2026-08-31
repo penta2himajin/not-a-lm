@@ -8,6 +8,7 @@
  */
 
 import type { ChunkRecord, ComposePlan, Lang, SpanRecord } from "./types";
+import { isNliReady, nliClassify, normalizeForNli } from "./nli.ts";
 import { cosine, embedMany } from "./embed.ts";
 import { indexTextForSpan } from "./span-index.ts";
 
@@ -52,7 +53,28 @@ export type ComposeContext = {
   focusKeySpanText?: string;
   /** G4b: span id → query cosine (engine/fusion precomputes) */
   spanRankings?: { spanId: string; score: number }[];
+  /** G4c: span id → NLI entailment vs span.nliHypothesis */
+  spanNliRankings?: { spanId: string; entail: number; label: string }[];
 };
+
+/** Min entailment for G4c per-span NLI focus / negate refine */
+export const G4C_ENTAIL_MIN = 0.5;
+
+/** Rank spans that declare nliHypothesis via NLI(premise=query, hypothesis). */
+export async function rankSpansByNli(
+  query: string,
+  spans: SpanRecord[],
+): Promise<{ spanId: string; entail: number; label: string }[]> {
+  if (!isNliReady() || !spans.length || !query.trim()) return [];
+  const premise = normalizeForNli(query);
+  const out: { spanId: string; entail: number; label: string }[] = [];
+  for (const span of spans) {
+    if (!span.nliHypothesis) continue;
+    const nli = await nliClassify(premise, span.nliHypothesis);
+    out.push({ spanId: span.id, entail: nli.entail, label: nli.label });
+  }
+  return out.sort((a, b) => b.entail - a.entail);
+}
 
 /** Rank author spans by dense embedding vs query (index-time tag prefixes). */
 export async function rankSpansForCompose(
@@ -111,6 +133,21 @@ export function planComposeG4a(
   if (ctx.prefix === "negate-correct" && chunk.stance === "deny") {
     const correction = spansByTags(spans, CORRECTION_TAGS);
     if (correction.length) kept = correction;
+  }
+
+  // Rule 1d — G4c: per-span NLI refines correction set (spans with nliHypothesis)
+  if (
+    ctx.prefix === "negate-correct" &&
+    chunk.stance === "deny" &&
+    ctx.spanNliRankings?.length
+  ) {
+    const entailed = new Set(
+      ctx.spanNliRankings
+        .filter((r) => r.entail >= G4C_ENTAIL_MIN)
+        .map((r) => r.spanId),
+    );
+    const refined = kept.filter((s) => entailed.has(s.id));
+    if (refined.length > 0) kept = refined;
   }
 
   // Rule 1b — dual-index retrieval pointed at an author span
@@ -185,6 +222,35 @@ export function planComposeG4a(
       const winners = ranked
         .filter((r) => r.score >= top - G4B_MARGIN)
         .map((r) => r.span);
+      if (winners.length > 0 && winners.length < spans.length) {
+        const summary = spans.filter((s) => s.tags?.includes("summary"));
+        kept = [...new Set([...winners, ...summary])].sort(
+          (a, b) =>
+            spans.findIndex((s) => s.id === a.id) -
+            spans.findIndex((s) => s.id === b.id),
+        );
+      }
+    }
+  }
+
+  // Rule 2c — G4c: NLI focus when tags + G4b did not narrow (spans with nliHypothesis)
+  if (
+    ctx.spanNliRankings?.length &&
+    kept.length === spans.length &&
+    ctx.prefix !== "negate-correct" &&
+    !ctx.focusSpanId &&
+    !ctx.focusKeySpanText
+  ) {
+    const byId = new Map(spans.map((s) => [s.id, s]));
+    const ranked = ctx.spanNliRankings.filter(
+      (r) => r.entail >= G4C_ENTAIL_MIN && byId.has(r.spanId),
+    );
+    if (ranked.length >= 1) {
+      const top = ranked[0].entail;
+      const winners = ranked
+        .filter((r) => r.entail >= top - 0.08)
+        .map((r) => byId.get(r.spanId)!)
+        .filter((s) => !s.tags?.includes("filler") && !s.tags?.includes("ack"));
       if (winners.length > 0 && winners.length < spans.length) {
         const summary = spans.filter((s) => s.tags?.includes("summary"));
         kept = [...new Set([...winners, ...summary])].sort(
@@ -300,6 +366,9 @@ export async function composePartBody(
       segmentQuery,
       chunk.spans,
     );
+  }
+  if (!fullCtx.spanNliRankings?.length) {
+    fullCtx.spanNliRankings = await rankSpansByNli(segmentQuery, chunk.spans);
   }
   const plan = planComposeG4a(segmentQuery, chunk, fullCtx);
   if (!plan || !composeChangesReply(plan, chunk, lang, openers)) {
