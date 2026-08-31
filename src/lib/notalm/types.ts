@@ -31,6 +31,7 @@ export type ComposePlan = {
 /**
  * G5 — one step in a declarative reply recipe.
  * Every output substring must come from corpus copy, closed glue, or a query span.
+ * G6b also allows closed clarify glue and echoed history excerpts.
  */
 export type OpStep =
   | {
@@ -51,6 +52,16 @@ export type OpStep =
       kind: "glue";
       template: "topic";
       topic: string;
+    }
+  | {
+      /** G6b closed clarify glue (opener / separator / closer) */
+      kind: "closed";
+      which: "clarify-open" | "clarify-sep" | "clarify-close";
+    }
+  | {
+      /** G6b: verbatim copy of a history excerpt (never model-generated) */
+      kind: "echo";
+      text: string;
     };
 
 /** G5 — declarative grounded-reply plan (planner output; renderer is pure). */
@@ -154,7 +165,7 @@ export type TurnGrounding = {
   kept?: SpanRef[];
   /** kept span texts, or full value when no compose */
   excerptTexts: string[];
-  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose";
+  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose" | "clarify";
   /** Extra fuse parts (not the primary chunk) */
   parts?: {
     chunkId: string;
@@ -173,6 +184,8 @@ export type TraceStep = {
   priorGrounding?: TurnGrounding;
   /** G6a: grounding attached to this turn's reply (same as message.grounding) */
   turnGrounding?: TurnGrounding;
+  /** G6b: anaphora class detected on the user utterance */
+  anaphora?: "none" | "proximal" | "non-proximal";
   /** Whether the cross-encoder reranker reordered the candidates */
   reranked?: boolean;
   /** Best cross-encoder relevance score for this turn (when reranked) */
@@ -186,7 +199,7 @@ export type TraceStep = {
   /** Grounded generation: whether the reply was composed (vs returned as-is) */
   generated?: boolean;
   /** Grounded generation operation applied */
-  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose";
+  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose" | "clarify";
   /** For fuse: the id of the second chunk combined into the reply */
   fusedWith?: string;
   /** G3 fusion: per-segment chunk mapping (+ G4 plan when narrowed) */
