@@ -10,6 +10,8 @@ export type EmbedBackend = "hash" | "dense";
 export const DENSE_MODEL_ID = "Xenova/paraphrase-multilingual-MiniLM-L12-v2";
 /** Short label for UI/status; the repo id above is verbose. */
 export const DENSE_MODEL_LABEL = "multilingual-MiniLM-L12";
+/** fp32 | q8 | q4 — q8 cuts ONNX from ~470MB to ~118MB; re-validated deterministic on v4.2.0 */
+export const EMBED_DTYPE = process.env.EMBED_DTYPE ?? "q8";
 const HASH_DIM = 384;
 
 function fnv1a(str: string): number {
@@ -126,12 +128,11 @@ export async function loadDense(
     }
 
     report(`${DENSE_MODEL_ID} を取得中…`);
-    // fp32 is required for determinism: the q8 quantized model is non-
-    // deterministic in onnxruntime-node (same text embeds differently across
-    // runs), which destabilizes retrieval scores, the confidence gate, and
-    // fusion. fp32 costs a larger download but keeps results reproducible.
+    // q8 (~118MB) is the default: much smaller than fp32 (~470MB) and
+    // deterministic on @huggingface/transformers 4.2.0 / onnxruntime-node in
+    // our eval (repeat + batch≡single). Override with EMBED_DTYPE=fp32 if needed.
     densePipe = (await pipeline("feature-extraction", DENSE_MODEL_ID, {
-      dtype: "fp32",
+      dtype: EMBED_DTYPE,
       device: "cpu",
       progress_callback: (p: {
         status?: string;

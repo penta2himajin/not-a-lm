@@ -33,3 +33,19 @@
 - 新モデルは cos 分布が bekko と異なる（別話題が 0.3〜0.5 帯）ため、`query-vector.ts` の閾値（`QUERY_PAIR_ANCHOR_MIN`, `QUERY_PAIR_CHAIN_MIN`）を再調整する。
 - granite は本来長文で強い可能性があり、コーパスが長文寄りになった段階で fp32 も含め再評価の余地あり。今回は fp32 の再測定は行っていない。
 - 言語判定は v1 では字種ベースのヒューリスティック（かな→ja / 漢字のみ→zh / ラテン→en）。
+
+## q8 量子化（2026-08 再検証）
+
+PR #7（リランカー q8）に続き、同一モデルの ONNX 量子化を再検証。
+
+| 検査 | fp32 | q8 |
+|---|---|---|
+| 5連続推論の決定性 | 0 fail | **0 fail** |
+| batch≡single（embedMany 経路） | 0 fail | **0 fail** |
+| 言語横断 cos (ja-en / ja-zh / en-zh) | 0.994 / 0.997 / 0.992 | 0.991 / 0.994 / 0.990 |
+| 別話題分離 (who-greet / who-mech) | 0.496 / 0.310 | 0.489 / 0.317 |
+| natKey top-1（15クエリ簡易） | 9/15 | 8/15（zh「你好」→ greet-welcome のみ q8 差分） |
+
+**結論**: q8 は決定的かつ分離幅は fp32 と実質同等。ONNX ~470MB → ~118MB（約 75% 削減）。デフォルト `EMBED_DTYPE=q8`（`EMBED_DTYPE=fp32` で復帰可）。
+
+評価: `npm run eval:embed:q8` / `npm run eval:embed:retrieval`

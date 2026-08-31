@@ -51,7 +51,7 @@
 
 汎用接続詞「ちなみに、」は使わない。単一話題は融合しない。非先頭パートでは、話題前置の後に冗長になる**先頭の肯定・相槌（「あるよ。」「Sure.」「有的。」等・閉じた集合）を除去**する（先頭スパンの削除＝抽出的編集、トークン生成なし）。例：「…については、あるよ。retrieval-only…」→「…については、retrieval-only…」。
 
-> 埋め込みモデルは **fp32**（q8 は onnxruntime-node 上で非決定的で検索・ゲート・融合が不安定化するため）。リランカーは **q8 デフォルト**（[`reranker-model-selection.md`](reranker-model-selection.md)）。NLI は fp32 のまま。
+> 埋め込みは **q8 デフォルト**（[`embedding-model-selection.md`](embedding-model-selection.md)）。リランカーは **q8 デフォルト**（[`reranker-model-selection.md`](reranker-model-selection.md)）。NLI は fp32 のまま。
 
 **限界**：パート選択はリランカー/検索の品質に依存する。特に一部の短語（例：素の「仕組み」）はリランカーが「使い方/ヘルプ」と混同しやすく（システム全体の既知の弱点）、当該パートが help チャンクに誤対応することがある（「動作原理」等の言い回しで解消）。`usedIds` の再利用ペナルティにより同一クエリ反復時に候補窓が変わり結果が揺れることもある。
 
