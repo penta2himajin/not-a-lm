@@ -58,4 +58,4 @@
 - **NLIは質問の言い回しに敏感**：複数フレーズ化で改善したが、一部（特に中国語の一部言い回し）は neutral になり as-is にフォールバックする（as-is 自体は妥当な答えなので破綻はしない）。
 - **retrieval が極性チャンクを surface できないと補正できない**：極性質問がそのチャンクを top に出す必要がある（natKey に前提質問の語を含めると改善）。
 - 主張は「単一の命題」に絞る必要がある（連言は entailment が弱まる）。
-- 次段：**G4 スパン合成**（[`grounded-generation-g4.md`](grounded-generation-g4.md)）、より頑健な前提抽出。
+- 次段：**G5 操作プランナー**（[`grounded-generation-g5.md`](grounded-generation-g5.md)）、より頑健な前提抽出。

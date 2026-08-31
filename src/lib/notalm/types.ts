@@ -28,6 +28,38 @@ export type ComposePlan = {
   keySpanText?: string;
 };
 
+/**
+ * G5 — one step in a declarative reply recipe.
+ * Every output substring must come from corpus copy, closed glue, or a query span.
+ */
+export type OpStep =
+  | {
+      /** Closed polarity opener (G2 legacy when body has no composePlan) */
+      kind: "prefix";
+      which: "negate-correct" | "affirm-confirm";
+    }
+  | {
+      /** Copy chunk value or G4-rendered body */
+      kind: "body";
+      chunkId: string;
+      composePlan?: ComposePlan;
+      /** Fusion non-first parts: strip closed leading filler */
+      stripFiller?: boolean;
+    }
+  | {
+      /** Closed topic connector; `topic` is copied from the query segment */
+      kind: "glue";
+      template: "topic";
+      topic: string;
+    };
+
+/** G5 — declarative grounded-reply plan (planner output; renderer is pure). */
+export type OperationPlan = {
+  steps: OpStep[];
+  /** Human-readable why this plan was chosen (audit / debug) */
+  reasons: string[];
+};
+
 /** One segment→chunk mapping in G3 fusion (with optional G4 compose). */
 export type FusePartTrace = {
   chunkId: string;
@@ -111,6 +143,11 @@ export type TraceStep = {
   fusedCompose?: boolean;
   /** G4 span composition plan (when operation is compose, or polarity+compose) */
   composePlan?: ComposePlan;
+  /**
+   * G5: declarative reply recipe (steps). Legacy `operation` remains the
+   * derived summary label until callers migrate to plan-only.
+   */
+  operationPlan?: OperationPlan;
   /** Dual-index: natKey vs span secondary retrieval */
   retrievalSource?: "natKey" | "span";
   /** Span entry id when retrievalSource is span (author id or auto-{n}) */
