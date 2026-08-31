@@ -49,7 +49,7 @@
 - en "Explain the mechanism and the prior art" →「… the 'next line.' **As for the prior art,** Sure. retrieval-only chatbots…」
 - zh「讲讲原理和已有的类似方法」→「…“下一句台词”。**至于已有的类似方法，**有的。retrieval-only chatbot…」
 
-汎用接続詞「ちなみに、」は使わない。単一話題は融合しない。
+汎用接続詞「ちなみに、」は使わない。単一話題は融合しない。非先頭パートでは、話題前置の後に冗長になる**先頭の肯定・相槌（「あるよ。」「Sure.」「有的。」等・閉じた集合）を除去**する（先頭スパンの削除＝抽出的編集、トークン生成なし）。例：「…については、あるよ。retrieval-only…」→「…については、retrieval-only…」。
 
 > 埋め込みモデルは **fp32**（q8 は onnxruntime-node 上で非決定的で検索・ゲート・融合が不安定化するため）。結果、埋め込み・リランカー・NLI の3モデルが fp32 で初回DLは重い（→ モデル軽量化は別途検討）。
 

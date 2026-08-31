@@ -95,6 +95,26 @@ function topicConnector(lang: Lang, topic: string): string {
   if (lang === "zh") return `至于${topic}，`;
   return ` As for ${topic}, `;
 }
+
+/**
+ * Closed-set leading affirmations/fillers that a standalone reply opens with but
+ * that become redundant once the value is framed by a topic lead-in in fusion
+ * (e.g. "既存の似た手法については、あるよ。…" → "…については、…"). Removal only —
+ * an extractive deletion, no token generation.
+ */
+const STRIP_LEADS: Record<Lang, string[]> = {
+  ja: ["あるよ。", "あるよ", "うん、", "うん。", "はい、", "はい。", "ええ、", "そうだね。"],
+  en: ["Sure. ", "Sure, ", "Sure — ", "Yes. ", "Yes, ", "Yeah. ", "Yeah, ", "Well, "],
+  zh: ["有的。", "有的，", "有。", "是的。", "对，", "嗯，"],
+};
+
+function stripLeadingFiller(value: string, lang: Lang): string {
+  const v = value.trimStart();
+  for (const lead of STRIP_LEADS[lang]) {
+    if (v.startsWith(lead)) return v.slice(lead.length).trimStart();
+  }
+  return v;
+}
 /**
  * Closed-set negation openers per language for grounded generation. The reply is
  * this opener + the chunk's own (copied) value — no token generation.
@@ -326,7 +346,9 @@ export class ChunkKVEngine {
 
     let text = parts[0].value;
     for (let i = 1; i < parts.length; i++) {
-      text += topicConnector(lang, parts[i].seg) + parts[i].value;
+      text +=
+        topicConnector(lang, parts[i].seg) +
+        stripLeadingFiller(parts[i].value, lang);
     }
     return { text, fusedWith: parts.slice(1).map((p) => p.id).join(",") };
   }
