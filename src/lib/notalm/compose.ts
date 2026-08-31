@@ -35,6 +35,8 @@ const TAG_QUERY_HINTS: Record<string, RegExp[]> = {
 export type ComposeContext = {
   /** From G2 NLI when grounded generation detected polarity */
   prefix?: "negate-correct" | "affirm-confirm";
+  /** From dual-index retrieval: prefer this span in compose */
+  focusSpanId?: string;
 };
 
 export function joinSpanTexts(spans: SpanRecord[], lang: Lang): string {
@@ -77,6 +79,19 @@ export function planComposeG4a(
   if (ctx.prefix === "negate-correct" && chunk.stance === "deny") {
     const correction = spansByTags(spans, CORRECTION_TAGS);
     if (correction.length) kept = correction;
+  }
+
+  // Rule 1b — dual-index retrieval pointed at a span
+  if (ctx.focusSpanId) {
+    const focus = spans.find((s) => s.id === ctx.focusSpanId);
+    if (focus) {
+      const summary = spans.filter((s) => s.tags?.includes("summary"));
+      kept = [...new Set([focus, ...summary])].sort(
+        (a, b) =>
+          spans.findIndex((s) => s.id === a.id) -
+          spans.findIndex((s) => s.id === b.id),
+      );
+    }
   }
 
   // Rule 2 — focus: query mentions a tagged topic → keep matching spans (+ summary)

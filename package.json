@@ -13,7 +13,9 @@
     "eval:embed:retrieval": "node --experimental-strip-types scripts/eval-embed-retrieval.mjs",
     "eval:nli:q8": "node scripts/eval-nli-q8.mjs",
     "eval:nli:engine": "node scripts/eval-nli-engine.mjs",
-    "eval:compose": "node --experimental-strip-types scripts/eval-compose.mjs"
+    "eval:compose": "node --experimental-strip-types scripts/eval-compose.mjs",
+    "eval:dual-index": "node --experimental-strip-types scripts/eval-dual-index.mjs",
+    "eval:dual-index:engine": "node scripts/eval-dual-index-engine.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

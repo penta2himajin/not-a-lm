@@ -71,6 +71,8 @@ export type MatchHit = {
   score: number;
   /** Stage-2 cross-encoder relevance in [0,1]; present when reranked */
   rerankScore?: number;
+  /** Dual-index: best span cosine for this chunk (when merged) */
+  spanScore?: number;
 };
 
 export type TraceStep = {
@@ -94,6 +96,12 @@ export type TraceStep = {
   fusedWith?: string;
   /** G4 span composition plan (when operation is compose, or polarity+compose) */
   composePlan?: ComposePlan;
+  /** Dual-index: natKey vs span secondary retrieval */
+  retrievalSource?: "natKey" | "span";
+  /** Span entry id when retrievalSource is span (author id or auto-{n}) */
+  matchedSpanId?: string;
+  matchedSpanKind?: "author" | "key-span";
+  spanScore?: number;
   /** NLI(query, chunk.assertion) top label + score, when grounded generation ran */
   nliLabel?: string;
   nliScore?: number;

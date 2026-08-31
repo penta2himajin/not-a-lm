@@ -16,6 +16,13 @@ import {
   planComposeG4a,
   renderCompose,
 } from "./compose";
+import {
+  buildSpanIndexManifest,
+  KEY_POOL,
+  mergeDualRetrieval,
+  searchSpanIndex,
+  type SpanIndexEntry,
+} from "./span-index";
 import { isNliReady, nliClassify } from "./nli";
 import type {
   ChatMessage,
@@ -149,6 +156,7 @@ function normalizeForNli(q: string): string {
 
 export class ChunkKVEngine {
   private index: IndexedChunk[] = [];
+  private spanIndex: SpanIndexEntry[] = [];
   private backend: EmbedBackend = "hash";
   private usedIds = new Set<string>();
   private initPromise: Promise<void> | null = null;
@@ -186,6 +194,23 @@ export class ChunkKVEngine {
       ...c,
       embedding: vectors[i],
     }));
+    await this.rebuildSpanIndex("hash");
+  }
+
+  private async rebuildSpanIndex(backend: EmbedBackend): Promise<void> {
+    const manifest = buildSpanIndexManifest(CHUNK_CORPUS);
+    if (manifest.length === 0) {
+      this.spanIndex = [];
+      return;
+    }
+    const vectors = await embedMany(
+      manifest.map((m) => m.text),
+      backend,
+    );
+    this.spanIndex = manifest.map((m, i) => ({
+      ...m,
+      embedding: vectors[i],
+    }));
   }
 
   /** Load the multilingual dense model and rebuild the chunk KV index */
@@ -210,6 +235,8 @@ export class ChunkKVEngine {
           ...c,
           embedding: vectors[i],
         }));
+        onProgress?.("スパン索引を埋め込み中…");
+        await this.rebuildSpanIndex("dense");
         this.usedIds.clear();
         onProgress?.("多言語インデックス完了");
       })().finally(() => {
@@ -388,14 +415,45 @@ export class ChunkKVEngine {
       this.backend,
     );
 
-    // Stage 1 (ranking): bi-encoder over natural keys. This alone ranks best on
-    // this corpus; the cross-encoder does not improve ranking, so it is NOT used
-    // to reorder — only to gate (below).
-    let hits = this.search(composed.vector, preferSpeaker, queryLang, TOP_K);
+    // Stage 1 (ranking): bi-encoder over natural keys (+ dual-index span merge).
+    const searchLimit = this.spanIndex.length > 0 ? KEY_POOL : TOP_K;
+    let hits = this.search(
+      composed.vector,
+      preferSpeaker,
+      queryLang,
+      searchLimit,
+    );
     // Fallback: if the corpus has nothing in the detected language, drop the
     // language filter rather than returning nothing.
     if (hits.length === 0) {
-      hits = this.search(composed.vector, preferSpeaker, undefined, TOP_K);
+      hits = this.search(composed.vector, preferSpeaker, undefined, searchLimit);
+    }
+
+    let retrievalSource: "natKey" | "span" = "natKey";
+    let matchedSpanId: string | undefined;
+    let matchedSpanKind: "author" | "key-span" | undefined;
+    let spanScore: number | undefined;
+
+    if (this.spanIndex.length > 0 && preferSpeaker === "bot") {
+      const chunkById = new Map(this.index.map((c) => [c.id, c]));
+      const spanHits = searchSpanIndex(
+        composed.vector,
+        this.spanIndex,
+        chunkById,
+        queryLang,
+      );
+      const dual = mergeDualRetrieval(
+        composed.vector,
+        hits,
+        spanHits,
+        chunkById,
+        this.usedIds,
+      );
+      hits = dual.hits;
+      retrievalSource = dual.retrievalSource;
+      matchedSpanId = dual.matchedSpanId;
+      matchedSpanKind = dual.matchedSpanKind;
+      spanScore = dual.spanScore;
     }
 
     let chosen = hits[0];
@@ -547,6 +605,10 @@ export class ChunkKVEngine {
     ) {
       const plan = planComposeG4a(gateQuery, chosen.chunk, {
         prefix: composePrefix,
+        focusSpanId:
+          retrievalSource === "span" && matchedSpanKind === "author"
+            ? matchedSpanId
+            : undefined,
       });
       if (plan) {
         const openers = {
@@ -590,6 +652,10 @@ export class ChunkKVEngine {
         composePlan,
         nliLabel,
         nliScore,
+        retrievalSource,
+        matchedSpanId,
+        matchedSpanKind,
+        spanScore,
         reranked: gated,
         topRerankScore,
         topCosine,
