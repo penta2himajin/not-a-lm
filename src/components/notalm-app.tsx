@@ -498,6 +498,9 @@ export function NotALMApp() {
                           : ""}
                         {tr.operation === "negate-correct" ? " · corrected" : ""}
                         {tr.operation === "affirm-confirm" ? " · confirmed" : ""}
+                        {tr.operation === "fuse"
+                          ? ` · fused +${tr.fusedWith ?? ""}`
+                          : ""}
                       </span>
                       {tr.lowConfidence ? (
                         <Badge

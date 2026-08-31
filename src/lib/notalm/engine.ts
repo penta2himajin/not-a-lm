@@ -50,6 +50,72 @@ const RESCUE_COS = 0.7;
 /** Min NLI entailment probability to treat a query as presupposing the assertion */
 const NLI_ENTAIL_MIN = 0.5;
 /**
+ * Fusion: if the top two candidates are BOTH strongly relevant (gate score) and
+ * cover different topics, combine them into one reply with a closed connective.
+ * High threshold so fusion only fires for genuinely compound/broad questions.
+ */
+const FUSE_MIN = 0.5;
+/** Split a compound query into segments on conjunction markers. */
+function segmentQuery(text: string, lang: Lang): string[] {
+  const sep =
+    lang === "en"
+      ? /\s+and\s+|,/i
+      : /[、，]|と|や|および|また|和|与|以及|还有/;
+  return text
+    .split(sep)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Trim trailing request phrases/particles so an extracted segment reads as a topic. */
+function cleanSegment(seg: string, lang: Lang): string {
+  let s = seg.trim();
+  if (lang === "ja") {
+    s = s
+      .replace(/(を)?(教えて|おしえて)$/u, "")
+      .replace(/について$/u, "")
+      .replace(/[はをのとや、。．？！\s]+$/u, "");
+  } else if (lang === "zh") {
+    s = s.replace(/(是什么|呢|吗)?[？。！，、\s]*$/u, "");
+  } else {
+    s = s
+      .replace(/^(tell me about|what about|and)\s+/i, "")
+      .replace(/[?.!\s]+$/u, "");
+  }
+  return s.trim();
+}
+
+/**
+ * Fluent topic connector for fusion: frame the second chunk with a topic phrase
+ * EXTRACTED (copied) from the user's query. No token generation — the topic is a
+ * span from the input; only the particle/preposition is closed-set glue.
+ */
+function topicConnector(lang: Lang, topic: string): string {
+  if (lang === "ja") return `${topic}については、`;
+  if (lang === "zh") return `至于${topic}，`;
+  return ` As for ${topic}, `;
+}
+
+/**
+ * Closed-set leading affirmations/fillers that a standalone reply opens with but
+ * that become redundant once the value is framed by a topic lead-in in fusion
+ * (e.g. "既存の似た手法については、あるよ。…" → "…については、…"). Removal only —
+ * an extractive deletion, no token generation.
+ */
+const STRIP_LEADS: Record<Lang, string[]> = {
+  ja: ["あるよ。", "あるよ", "うん、", "うん。", "はい、", "はい。", "ええ、", "そうだね。"],
+  en: ["Sure. ", "Sure, ", "Sure — ", "Yes. ", "Yes, ", "Yeah. ", "Yeah, ", "Well, "],
+  zh: ["有的。", "有的，", "有。", "是的。", "对，", "嗯，"],
+};
+
+function stripLeadingFiller(value: string, lang: Lang): string {
+  const v = value.trimStart();
+  for (const lead of STRIP_LEADS[lang]) {
+    if (v.startsWith(lead)) return v.slice(lead.length).trimStart();
+  }
+  return v;
+}
+/**
  * Closed-set negation openers per language for grounded generation. The reply is
  * this opener + the chunk's own (copied) value — no token generation.
  */
@@ -208,6 +274,85 @@ export class ChunkKVEngine {
     return scores.length ? Math.max(...scores) : 0;
   }
 
+  /** Number of distinct meaningful segments in a (possibly compound) query. */
+  private compoundSegments(query: string, lang: Lang): string[] {
+    return [
+      ...new Set(
+        segmentQuery(query, lang)
+          .map((s) => cleanSegment(s, lang))
+          .filter((s) => s.length >= 2),
+      ),
+    ];
+  }
+
+  /**
+   * Fusion: for a compound query, map each query segment to its best-matching
+   * confident chunk (selected by full-query ranking + cross-encoder gate, then
+   * assigned to a segment by embedding similarity), and combine the distinct
+   * answers in segment order. Each non-first part is framed by its own (copied)
+   * query segment as a fluent topic lead-in. Returns null unless ≥2 distinct
+   * segments map to distinct confident chunks. No token generation.
+   */
+  private async fuseCompound(
+    query: string,
+    queryVec: Float32Array,
+    lang: Lang,
+  ): Promise<{ text: string; fusedWith: string } | null> {
+    const segments = this.compoundSegments(query, lang);
+    if (segments.length < 2) return null;
+
+    // Candidate pool from the full-query bi-encoder ranking (wide, so the right
+    // chunk per segment is present even when a generic chunk tops the ranking).
+    const cands = this.search(queryVec, "bot", lang, 12);
+    if (cands.length < 2) return null;
+
+    // Score every (segment, candidate) pair with the cross-encoder on the
+    // candidate's keyword key. A focused segment scores reliably and
+    // language-robustly (unlike the diluted compound query or bi-encoder
+    // cosine, which can spuriously pair unrelated chunks).
+    const rr: number[][] = [];
+    for (let i = 0; i < segments.length; i++) {
+      rr.push(await rerankScores(segments[i], cands.map((c) => c.chunk.key)));
+    }
+    // Greedy bipartite match on rerank scores: assign each segment to a DISTINCT
+    // candidate, keeping only confident pairs.
+    const pairs: { i: number; j: number; s: number }[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
+    }
+    pairs.sort((a, b) => b.s - a.s);
+    const usedSeg = new Set<number>();
+    const usedCand = new Set<number>();
+    const assign = new Map<number, number>();
+    for (const p of pairs) {
+      if (p.s < FUSE_MIN) break;
+      if (usedSeg.has(p.i) || usedCand.has(p.j)) continue;
+      assign.set(p.i, p.j);
+      usedSeg.add(p.i);
+      usedCand.add(p.j);
+    }
+
+    const parts: { seg: string; id: string; value: string }[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const j = assign.get(i);
+      if (j == null) continue;
+      parts.push({
+        seg: segments[i],
+        id: cands[j].chunk.id,
+        value: cands[j].chunk.value,
+      });
+    }
+    if (parts.length < 2) return null;
+
+    let text = parts[0].value;
+    for (let i = 1; i < parts.length; i++) {
+      text +=
+        topicConnector(lang, parts[i].seg) +
+        stripLeadingFiller(parts[i].value, lang);
+    }
+    return { text, fusedWith: parts.slice(1).map((p) => p.id).join(",") };
+  }
+
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
   private refusalChunk(lang: Lang): ChunkRecord | undefined {
     return (
@@ -315,7 +460,12 @@ export class ChunkKVEngine {
     // (copied, no token generation). Otherwise return the value as-is.
     let replyText = chosen.chunk.value;
     let generated = false;
-    let operation: "as-is" | "negate-correct" | "affirm-confirm" | undefined;
+    let operation:
+      | "as-is"
+      | "negate-correct"
+      | "affirm-confirm"
+      | "fuse"
+      | undefined;
     let nliLabel: string | undefined;
     let nliScore: number | undefined;
     if (
@@ -359,6 +509,32 @@ export class ChunkKVEngine {
       }
     }
 
+    // Stage 3b — fusion (segment-driven): if no polarity op fired and the query
+    // is compound, split it, retrieve the best chunk PER segment, and combine
+    // the distinct answers. Each non-first part is framed by its own segment
+    // (a span copied from the query) as a fluent topic lead-in. Values are
+    // copied, only the particle is glue — no token generation.
+    let fusedWith: string | undefined;
+    if (
+      opts.generate &&
+      preferSpeaker === "bot" &&
+      !lowConfidence &&
+      !generated &&
+      isRerankerReady()
+    ) {
+      const fused = await this.fuseCompound(
+        gateQuery,
+        composed.vector,
+        chosen.chunk.lang,
+      );
+      if (fused) {
+        operation = "fuse";
+        generated = true;
+        replyText = fused.text;
+        fusedWith = fused.fusedWith;
+      }
+    }
+
     const queryText = composed.summary;
 
     return {
@@ -373,6 +549,7 @@ export class ChunkKVEngine {
         queryLang,
         generated,
         operation,
+        fusedWith,
         nliLabel,
         nliScore,
         reranked: gated,
