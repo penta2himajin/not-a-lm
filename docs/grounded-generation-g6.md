@@ -63,7 +63,7 @@ type TurnGrounding = {
 
 | 段階 | 内容 | 状態 |
 |---|---|---|
-| **G6a** | `TurnGrounding` の付与・history 持ち越し・`priorGrounding` トレース（挙動ほぼ同一） | 🔄 |
+| **G6a** | `TurnGrounding` の付与・history 持ち越し・`priorGrounding` トレース（挙動ほぼ同一） | ✅ |
 | **G6b-proximal** | それ／その → 直前 grounding を実効クエリ／focus に注入 | 予定 |
 | **G6b-clarify** | さっきの → 例示 + 閉じた聞き返し（plan + 糊／コーパス） | 予定 |
 | **G6c** | 前ターン claim/span 継続バイアス（`usedIds` と両立） | 予定 |
