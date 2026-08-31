@@ -9,12 +9,18 @@
  * confidence signal (see engine.ts confidence gate).
  *
  * Model: Xenova/bge-reranker-base (multilingual XLM-RoBERTa cross-encoder,
- * Transformers.js / ONNX). We rerank against the chunk KEY (the trigger
- * context), consistent with retrieval.
+ * Transformers.js / ONNX). Default dtype is q8 (~280MB ONNX vs ~1.1GB fp32).
+ * Override with RERANK_MODEL_ID / RERANK_DTYPE. Smaller multilingual
+ * cross-encoders (e.g. mmarco-mMiniLMv2) were evaluated and rejected — see
+ * docs/reranker-model-selection.md.
  */
 
-export const RERANK_MODEL_ID = "Xenova/bge-reranker-base";
-export const RERANK_MODEL_LABEL = "bge-reranker-base";
+export const RERANK_MODEL_ID =
+  process.env.RERANK_MODEL_ID ?? "Xenova/bge-reranker-base";
+export const RERANK_MODEL_LABEL =
+  process.env.RERANK_MODEL_LABEL ?? "bge-reranker-base";
+/** fp32 | q8 | q4 — q8 cuts ONNX from ~1.1GB to ~280MB; re-validated deterministic on v4.2.0 */
+export const RERANK_DTYPE = process.env.RERANK_DTYPE ?? "q8";
 
 type Tokenizer = (
   text: string[],
@@ -77,14 +83,13 @@ export async function loadReranker(
     tokenizer = (await AutoTokenizer.from_pretrained(RERANK_MODEL_ID, {
       progress_callback,
     })) as unknown as Tokenizer;
-    // NOTE: fp32 is required. The q8/int8 quantized ONNX of this model is
-    // numerically unstable in onnxruntime-node — it returns non-deterministic
-    // scores for identical inputs (e.g. 0.07, 0.07, then 0.99) and spurious
-    // high matches. fp32 is deterministic and correctly ranked. (fp16 is
-    // unsupported on CPU here.) Trade-off: larger one-time model download.
+    // q8 (~280MB) is the default: much smaller than fp32 (~1.1GB) and
+    // deterministic on @huggingface/transformers 4.2.0 / onnxruntime-node in
+    // our gate+fusion eval (the older fp32-only note predates this re-check).
+    // Override with RERANK_DTYPE=fp32 if needed.
     model = (await AutoModelForSequenceClassification.from_pretrained(
       RERANK_MODEL_ID,
-      { dtype: "fp32", device: "cpu", progress_callback },
+      { dtype: RERANK_DTYPE, device: "cpu", progress_callback },
     )) as unknown as SeqClsModel;
 
     report(`${RERANK_MODEL_LABEL} ready`);
