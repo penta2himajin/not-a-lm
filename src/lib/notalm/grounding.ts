@@ -231,3 +231,71 @@ export function formatTurnGrounding(g: TurnGrounding): string {
   if (g.parts?.length) bits.push(`+${g.parts.length}`);
   return bits.join("/");
 }
+
+/** Reuse penalty magnitude (must match engine / dual-index). */
+export const REUSE_PENALTY = 0.12;
+
+/** Soft boost for same-claim (different chunk) continuity. */
+export const CONTINUITY_CLAIM_BOOST = 0.06;
+
+/**
+ * G6c — hint derived from prior bot grounding so follow-ups can stick
+ * to the same chunk/claim without fighting usedIds forever.
+ */
+export type ContinuityHint = {
+  chunkId: string;
+  claim?: string;
+  keptSpanIds?: string[];
+};
+
+export function continuityFromPrior(
+  prior?: TurnGrounding,
+): ContinuityHint | undefined {
+  if (!prior?.chunkId) return undefined;
+  return {
+    chunkId: prior.chunkId,
+    claim: prior.claim,
+    keptSpanIds: prior.kept?.map((k) => k.spanId),
+  };
+}
+
+/**
+ * Apply usedIds reuse penalty with G6c continuity relief/boost.
+ * - Same prior chunk: waive reuse penalty (+ mild stick)
+ * - Same claim, other chunk: small boost (still penalize if used)
+ * - Otherwise: standard reuse penalty
+ */
+export function adjustScoreForContinuity(
+  baseScore: number,
+  chunk: { id: string; claim?: string },
+  usedIds: Set<string>,
+  continuity?: ContinuityHint,
+  reusePenalty: number = REUSE_PENALTY,
+): { score: number; notes: string[] } {
+  let score = baseScore;
+  const notes: string[] = [];
+  const used = usedIds.has(chunk.id);
+  const sameChunk = continuity?.chunkId === chunk.id;
+  const sameClaim =
+    Boolean(continuity?.claim) &&
+    Boolean(chunk.claim) &&
+    continuity!.claim === chunk.claim;
+
+  if (used && sameChunk) {
+    notes.push("g6c:reuse-waive");
+    score += CONTINUITY_CLAIM_BOOST * 0.5;
+    notes.push("g6c:chunk-continue");
+  } else if (used) {
+    score -= reusePenalty;
+  }
+
+  if (sameClaim && !sameChunk) {
+    score += CONTINUITY_CLAIM_BOOST;
+    notes.push("g6c:claim-boost");
+  } else if (sameChunk && !used) {
+    score += CONTINUITY_CLAIM_BOOST * 0.5;
+    notes.push("g6c:chunk-stick");
+  }
+
+  return { score, notes };
+}

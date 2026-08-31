@@ -186,6 +186,12 @@ export type TraceStep = {
   turnGrounding?: TurnGrounding;
   /** G6b: anaphora class detected on the user utterance */
   anaphora?: "none" | "proximal" | "non-proximal";
+  /** G6c: continuity hint applied during retrieval / plan scoring */
+  continuity?: {
+    chunkId: string;
+    claim?: string;
+    matchedChosen: boolean;
+  };
   /** Whether the cross-encoder reranker reordered the candidates */
   reranked?: boolean;
   /** Best cross-encoder relevance score for this turn (when reranked) */
