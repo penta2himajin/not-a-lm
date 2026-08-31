@@ -11,10 +11,16 @@ import {
 import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
 import { isRerankerReady, rerankScores } from "./rerank";
+import {
+  composeChangesReply,
+  planComposeG4a,
+  renderCompose,
+} from "./compose";
 import { isNliReady, nliClassify } from "./nli";
 import type {
   ChatMessage,
   ChunkRecord,
+  ComposePlan,
   EngineStatus,
   IndexedChunk,
   Lang,
@@ -245,6 +251,7 @@ export class ChunkKVEngine {
           assertions: chunk.assertions,
           stance: chunk.stance,
           tags: chunk.tags,
+          spans: chunk.spans,
         },
         score,
       });
@@ -453,11 +460,8 @@ export class ChunkKVEngine {
       this.usedIds = new Set([...this.usedIds].slice(-12));
     }
 
-    // Stage 3 (grounded generation, reply-mode + opt-in): if the chosen chunk is
-    // polarizable and the user's question presupposes its assertion (NLI
-    // entailment) while the chunk denies it, the presupposition is false —
-    // compose a correction = closed negation opener + the chunk's own value
-    // (copied, no token generation). Otherwise return the value as-is.
+    // Stage 3 (grounded generation): NLI polarity → optional prefix; G4 composes
+    // spans when present. Without spans, prefix + full value copy (G2 legacy).
     let replyText = chosen.chunk.value;
     let generated = false;
     let operation:
@@ -465,7 +469,10 @@ export class ChunkKVEngine {
       | "negate-correct"
       | "affirm-confirm"
       | "fuse"
+      | "compose"
       | undefined;
+    let composePlan: ComposePlan | undefined;
+    let composePrefix: "negate-correct" | "affirm-confirm" | undefined;
     let nliLabel: string | undefined;
     let nliScore: number | undefined;
     if (
@@ -479,7 +486,6 @@ export class ChunkKVEngine {
     ) {
       try {
         const premise = normalizeForNli(gateQuery);
-        // NLI against each assertion phrasing; take the strongest entailment.
         let bestEntail = -1;
         let bestLabel = "neutral";
         for (const assertion of chosen.chunk.assertions) {
@@ -494,14 +500,9 @@ export class ChunkKVEngine {
         operation = "as-is";
         if (bestEntail >= NLI_ENTAIL_MIN) {
           if (chosen.chunk.stance === "deny") {
-            operation = "negate-correct";
-            generated = true;
-            replyText =
-              NEGATION_OPENER[chosen.chunk.lang] + chosen.chunk.value;
+            composePrefix = "negate-correct";
           } else if (chosen.chunk.stance === "affirm") {
-            operation = "affirm-confirm";
-            generated = true;
-            replyText = AFFIRM_OPENER[chosen.chunk.lang] + chosen.chunk.value;
+            composePrefix = "affirm-confirm";
           }
         }
       } catch {
@@ -519,7 +520,7 @@ export class ChunkKVEngine {
       opts.generate &&
       preferSpeaker === "bot" &&
       !lowConfidence &&
-      !generated &&
+      !composePrefix &&
       isRerankerReady()
     ) {
       const fused = await this.fuseCompound(
@@ -533,6 +534,42 @@ export class ChunkKVEngine {
         replyText = fused.text;
         fusedWith = fused.fusedWith;
       }
+    }
+
+    // Stage 4 — span composition (G4a): KEEP selected spans + optional G2 prefix.
+    // Skipped when fusion already produced the reply (G4 on fused parts: follow-up).
+    if (
+      opts.generate &&
+      preferSpeaker === "bot" &&
+      !lowConfidence &&
+      operation !== "fuse" &&
+      chosen.chunk.spans?.length
+    ) {
+      const plan = planComposeG4a(gateQuery, chosen.chunk, {
+        prefix: composePrefix,
+      });
+      if (plan) {
+        const openers = {
+          negation: NEGATION_OPENER,
+          affirm: AFFIRM_OPENER,
+        };
+        if (composeChangesReply(plan, chosen.chunk, chosen.chunk.lang, openers)) {
+          replyText = renderCompose(plan, chosen.chunk, chosen.chunk.lang, openers);
+          composePlan = plan;
+          operation = "compose";
+          generated = true;
+        }
+      }
+    }
+
+    // G2 legacy path when polarity fired but chunk has no spans (or G4 skipped).
+    if (composePrefix && operation !== "compose" && operation !== "fuse") {
+      generated = true;
+      operation = composePrefix;
+      replyText =
+        composePrefix === "negate-correct"
+          ? NEGATION_OPENER[chosen.chunk.lang] + chosen.chunk.value
+          : AFFIRM_OPENER[chosen.chunk.lang] + chosen.chunk.value;
     }
 
     const queryText = composed.summary;
@@ -550,6 +587,7 @@ export class ChunkKVEngine {
         generated,
         operation,
         fusedWith,
+        composePlan,
         nliLabel,
         nliScore,
         reranked: gated,

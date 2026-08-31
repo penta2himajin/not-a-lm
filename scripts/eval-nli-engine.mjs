@@ -39,8 +39,11 @@ async function main() {
       body: JSON.stringify({ userText: tc.query, generate: true, history: [] }),
     });
     const res = await r.json();
+    const op = res.trace?.operation;
     const pass =
-      res.trace?.operation === "negate-correct" &&
+      (op === "negate-correct" ||
+        (op === "compose" &&
+          res.trace?.composePlan?.prefix === "negate-correct")) &&
       res.message?.sourceChunkId?.startsWith(tc.chunkPrefix);
     if (pass) ok++;
     else
