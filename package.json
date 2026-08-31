@@ -12,7 +12,8 @@
     "eval:embed:q8": "node scripts/eval-embed-q8.mjs",
     "eval:embed:retrieval": "node --experimental-strip-types scripts/eval-embed-retrieval.mjs",
     "eval:nli:q8": "node scripts/eval-nli-q8.mjs",
-    "eval:nli:engine": "node scripts/eval-nli-engine.mjs"
+    "eval:nli:engine": "node scripts/eval-nli-engine.mjs",
+    "eval:compose": "node --experimental-strip-types scripts/eval-compose.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

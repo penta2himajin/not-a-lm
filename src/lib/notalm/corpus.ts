@@ -17,10 +17,18 @@ import type { ChunkRecord, Lang, Speaker } from "./types";
  * replies are routed to the query's language.
  */
 
+type SpanDef = {
+  id: string;
+  text: string;
+  tags?: string[];
+};
+
 type Surface = {
   key: string;
   nat: string;
   value: string;
+  /** G4: author-defined spans (1 sentence ≈ 1 span in v1) */
+  spans?: SpanDef[];
   /**
    * Declarative positive claim(s) (NLI hypotheses) for polarizable chunks.
    * Multiple phrasings make presupposition detection robust to how the user
@@ -133,17 +141,80 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["mechanism"],
     stance: "affirm",
-    ja: { key: "仕組み どう動く 原理 仕組みを教えて チャンクKV", nat: "どういう仕組みで動いているの？原理を教えて。", value: "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。", assertion: ["あなたは検索（近傍探索）で返答を選んでいる。", "あなたは埋め込みの類似度で返答を選んでいる。"] },
-    en: { key: "how does it work mechanism principle explain how chunk KV", nat: "How does it work? Explain the mechanism.", value: "Embed the conversation history, match against the key embeddings. The value of the closest chunk is the 'next line.'", assertion: ["You pick replies by search (nearest-neighbor).", "You choose replies by embedding similarity."] },
-    zh: { key: "工作原理 怎么运作 机制 讲讲原理 chunk KV", nat: "你是怎么运作的？讲讲原理。", value: "把对话历史嵌入，与键侧的嵌入比对。最近 chunk 的 value 就是“下一句台词”。", assertion: ["你是靠检索（最近邻）来选回复的。", "你是按嵌入相似度来选回复的。"] },
+    ja: {
+      key: "仕組み どう動く 原理 仕組みを教えて チャンクKV",
+      nat: "どういう仕組みで動いているの？原理を教えて。",
+      value:
+        "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。",
+      spans: [
+        {
+          id: "embed-match",
+          text: "会話履歴を埋め込み、キー側の埋め込みと照合。",
+          tags: ["mechanism", "embedding"],
+        },
+        {
+          id: "pick-value",
+          text: "一番近いチャンクの value が「次のセリフ」。",
+          tags: ["mechanism", "retrieval"],
+        },
+      ],
+      assertion: [
+        "あなたは検索（近傍探索）で返答を選んでいる。",
+        "あなたは埋め込みの類似度で返答を選んでいる。",
+      ],
+    },
+    en: {
+      key: "how does it work mechanism principle explain how chunk KV",
+      nat: "How does it work? Explain the mechanism.",
+      value:
+        "Embed the conversation history, match against the key embeddings. The value of the closest chunk is the 'next line.'",
+      spans: [
+        {
+          id: "embed-match",
+          text: "Embed the conversation history, match against the key embeddings.",
+          tags: ["mechanism", "embedding"],
+        },
+        {
+          id: "pick-value",
+          text: "The value of the closest chunk is the 'next line.'",
+          tags: ["mechanism", "retrieval"],
+        },
+      ],
+      assertion: [
+        "You pick replies by search (nearest-neighbor).",
+        "You choose replies by embedding similarity.",
+      ],
+    },
+    zh: {
+      key: "工作原理 怎么运作 机制 讲讲原理 chunk KV",
+      nat: "你是怎么运作的？讲讲原理。",
+      value:
+        "把对话历史嵌入，与键侧的嵌入比对。最近 chunk 的 value 就是“下一句台词”。",
+      spans: [
+        {
+          id: "embed-match",
+          text: "把对话历史嵌入，与键侧的嵌入比对。",
+          tags: ["mechanism", "embedding"],
+        },
+        {
+          id: "pick-value",
+          text: "最近 chunk 的 value 就是“下一句台词”。",
+          tags: ["mechanism", "retrieval"],
+        },
+      ],
+      assertion: [
+        "你是靠检索（最近邻）来选回复的。",
+        "你是按嵌入相似度来选回复的。",
+      ],
+    },
   },
   {
     claim: "mech-2",
     speaker: "bot",
     tags: ["mechanism"],
-    ja: { key: "埋め込み エンベディング embedding ベクトル", nat: "埋め込み（エンベディング）って何？ベクトルの話。", value: "意味の近い文は近いベクトルになる。だから言い回しが違っても同じパターンに着地しやすい。" },
-    en: { key: "embedding vector representation semantic", nat: "What is an embedding? The vector representation.", value: "Sentences close in meaning become close vectors. So even different wording tends to land on the same pattern." },
-    zh: { key: "嵌入 向量 embedding 语义表示", nat: "嵌入（embedding）是什么？向量表示。", value: "意思相近的句子会变成相近的向量。所以就算措辞不同，也容易落到同一个模式上。" },
+    ja: { key: "埋め込み エンベディング embedding ベクトル", nat: "埋め込み（エンベディング）って何？ベクトルの話。", value: "意味の近い文は近いベクトルになる。だから言い回しが違っても同じパターンに着地しやすい。", spans: [{ id: "vec-close", text: "意味の近い文は近いベクトルになる。", tags: ["embedding", "mechanism"] }, { id: "paraphrase", text: "だから言い回しが違っても同じパターンに着地しやすい。", tags: ["embedding", "paraphrase", "mechanism"] }] },
+    en: { key: "embedding vector representation semantic", nat: "What is an embedding? The vector representation.", value: "Sentences close in meaning become close vectors. So even different wording tends to land on the same pattern.", spans: [{ id: "vec-close", text: "Sentences close in meaning become close vectors.", tags: ["embedding", "mechanism"] }, { id: "paraphrase", text: "So even different wording tends to land on the same pattern.", tags: ["embedding", "paraphrase", "mechanism"] }] },
+    zh: { key: "嵌入 向量 embedding 语义表示", nat: "嵌入（embedding）是什么？向量表示。", value: "意思相近的句子会变成相近的向量。所以就算措辞不同，也容易落到同一个模式上。", spans: [{ id: "vec-close", text: "意思相近的句子会变成相近的向量。", tags: ["embedding", "mechanism"] }, { id: "paraphrase", text: "所以就算措辞不同，也容易落到同一个模式上。", tags: ["embedding", "paraphrase", "mechanism"] }] },
   },
   {
     claim: "mech-3",
@@ -166,9 +237,66 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["mechanism"],
     stance: "deny",
-    ja: { key: "RAG じゃないの 結局 RAG 生成しているのか", nat: "それって結局RAGなの？あなたはRAGで生成しているの？", value: "近い。でも RAG は回収した文を LLM に渡して生成する。ここは生成段がなく、回収＝返答。", assertion: "あなたはRAGで生成している。" },
-    en: { key: "isn't it RAG basically RAG do you generate", nat: "Isn't this basically RAG? Do you generate with RAG?", value: "Close. But RAG hands the retrieved text to an LLM to generate. Here there's no generation stage — retrieval is the reply.", assertion: "You generate with RAG." },
-    zh: { key: "不是 RAG 吗 说到底是 RAG 你在生成吗", nat: "这不就是 RAG 吗？你是靠 RAG 生成的吗？", value: "很接近。但 RAG 会把检索到的文本交给 LLM 生成。这里没有生成阶段，检索即回答。", assertion: "你是靠 RAG 生成的。" },
+    ja: {
+      key: "RAG じゃないの 結局 RAG 生成しているのか",
+      nat: "それって結局RAGなの？あなたはRAGで生成しているの？",
+      value:
+        "近い。でも RAG は回収した文を LLM に渡して生成する。ここは生成段がなく、回収＝返答。",
+      spans: [
+        { id: "ack", text: "近い。", tags: ["ack", "rag"] },
+        {
+          id: "rag-detail",
+          text: "でも RAG は回収した文を LLM に渡して生成する。",
+          tags: ["rag", "detail"],
+        },
+        {
+          id: "no-gen",
+          text: "ここは生成段がなく、回収＝返答。",
+          tags: ["correction", "no-generation"],
+        },
+      ],
+      assertion: "あなたはRAGで生成している。",
+    },
+    en: {
+      key: "isn't it RAG basically RAG do you generate",
+      nat: "Isn't this basically RAG? Do you generate with RAG?",
+      value:
+        "Close. But RAG hands the retrieved text to an LLM to generate. Here there's no generation stage — retrieval is the reply.",
+      spans: [
+        { id: "ack", text: "Close.", tags: ["ack", "rag"] },
+        {
+          id: "rag-detail",
+          text: "But RAG hands the retrieved text to an LLM to generate.",
+          tags: ["rag", "detail"],
+        },
+        {
+          id: "no-gen",
+          text: "Here there's no generation stage — retrieval is the reply.",
+          tags: ["correction", "no-generation"],
+        },
+      ],
+      assertion: "You generate with RAG.",
+    },
+    zh: {
+      key: "不是 RAG 吗 说到底是 RAG 你在生成吗",
+      nat: "这不就是 RAG 吗？你是靠 RAG 生成的吗？",
+      value:
+        "很接近。但 RAG 会把检索到的文本交给 LLM 生成。这里没有生成阶段，检索即回答。",
+      spans: [
+        { id: "ack", text: "很接近。", tags: ["ack", "rag"] },
+        {
+          id: "rag-detail",
+          text: "但 RAG 会把检索到的文本交给 LLM 生成。",
+          tags: ["rag", "detail"],
+        },
+        {
+          id: "no-gen",
+          text: "这里没有生成阶段，检索即回答。",
+          tags: ["correction", "no-generation"],
+        },
+      ],
+      assertion: "你是靠 RAG 生成的。",
+    },
   },
   {
     claim: "mech-knn",
@@ -182,9 +310,123 @@ const CLAIMS: ClaimGroup[] = [
     claim: "mech-existing",
     speaker: "bot",
     tags: ["prior-art"],
-    ja: { key: "既存 似た仕組み ある 前例", nat: "似たような既存の仕組みや前例はある？", value: "あるよ。retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。" },
-    en: { key: "existing similar systems any prior art", nat: "Are there existing similar systems or prior art?", value: "Sure. retrieval-only chatbots, response selection, Memory Networks, kNN-LM, RETRO. This is the extreme 'no-generation' version." },
-    zh: { key: "已有的 类似的机制 有吗 先例", nat: "有类似的已有机制或先例吗？", value: "有的。retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。这里是它们极端的“无生成版”。" },
+    ja: {
+      key: "既存 似た仕組み ある 前例",
+      nat: "似たような既存の仕組みや前例はある？",
+      value:
+        "あるよ。retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。",
+      spans: [
+        { id: "ack", text: "あるよ。", tags: ["ack", "filler"] },
+        {
+          id: "item-retrieval",
+          text: "retrieval-only chatbot、",
+          tags: ["prior-art", "prior-art-item", "retrieval-only"],
+        },
+        {
+          id: "item-response",
+          text: "response selection、",
+          tags: ["prior-art", "prior-art-item", "response-selection"],
+        },
+        {
+          id: "item-memnet",
+          text: "Memory Networks、",
+          tags: ["prior-art", "prior-art-item", "memory-networks"],
+        },
+        {
+          id: "item-knn",
+          text: "kNN-LM、",
+          tags: ["prior-art", "prior-art-item", "knn-lm"],
+        },
+        {
+          id: "item-retro",
+          text: "RETRO。",
+          tags: ["prior-art", "prior-art-item", "retro"],
+        },
+        {
+          id: "closing",
+          text: "ここはその極端な「生成なし版」。",
+          tags: ["summary", "no-generation"],
+        },
+      ],
+    },
+    en: {
+      key: "existing similar systems any prior art",
+      nat: "Are there existing similar systems or prior art?",
+      value:
+        "Sure. retrieval-only chatbots, response selection, Memory Networks, kNN-LM, RETRO. This is the extreme 'no-generation' version.",
+      spans: [
+        { id: "ack", text: "Sure.", tags: ["ack", "filler"] },
+        {
+          id: "item-retrieval",
+          text: "retrieval-only chatbots,",
+          tags: ["prior-art", "prior-art-item", "retrieval-only"],
+        },
+        {
+          id: "item-response",
+          text: "response selection,",
+          tags: ["prior-art", "prior-art-item", "response-selection"],
+        },
+        {
+          id: "item-memnet",
+          text: "Memory Networks,",
+          tags: ["prior-art", "prior-art-item", "memory-networks"],
+        },
+        {
+          id: "item-knn",
+          text: "kNN-LM,",
+          tags: ["prior-art", "prior-art-item", "knn-lm"],
+        },
+        {
+          id: "item-retro",
+          text: "RETRO.",
+          tags: ["prior-art", "prior-art-item", "retro"],
+        },
+        {
+          id: "closing",
+          text: "This is the extreme 'no-generation' version.",
+          tags: ["summary", "no-generation"],
+        },
+      ],
+    },
+    zh: {
+      key: "已有的 类似的机制 有吗 先例",
+      nat: "有类似的已有机制或先例吗？",
+      value:
+        "有的。retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。这里是它们极端的“无生成版”。",
+      spans: [
+        { id: "ack", text: "有的。", tags: ["ack", "filler"] },
+        {
+          id: "item-retrieval",
+          text: "retrieval-only chatbot、",
+          tags: ["prior-art", "prior-art-item", "retrieval-only"],
+        },
+        {
+          id: "item-response",
+          text: "response selection、",
+          tags: ["prior-art", "prior-art-item", "response-selection"],
+        },
+        {
+          id: "item-memnet",
+          text: "Memory Networks、",
+          tags: ["prior-art", "prior-art-item", "memory-networks"],
+        },
+        {
+          id: "item-knn",
+          text: "kNN-LM、",
+          tags: ["prior-art", "prior-art-item", "knn-lm"],
+        },
+        {
+          id: "item-retro",
+          text: "RETRO。",
+          tags: ["prior-art", "prior-art-item", "retro"],
+        },
+        {
+          id: "closing",
+          text: "这里是它们极端的“无生成版”。",
+          tags: ["summary", "no-generation"],
+        },
+      ],
+    },
   },
 
   // --- weather / smalltalk ---
@@ -245,9 +487,63 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["coding"],
     stance: "deny",
-    ja: { key: "プログラミング コード 実装 作って アプリ", nat: "コードを書いて。アプリを作ってほしい。", value: "コードは書かない。代わりに「実装したいこと」に近い過去パターンのセリフを返すよ。", assertion: "あなたはコードを書ける。" },
-    en: { key: "programming code implement build an app", nat: "Write me some code. Build an app.", value: "I don't write code. Instead I return a line from a past pattern close to 'what you want to build.'", assertion: "You can write code." },
-    zh: { key: "编程 代码 实现 做一个 应用", nat: "帮我写点代码，做个应用。", value: "我不写代码。作为替代，我会返回一句与“你想实现的东西”相近的过去模式台词。", assertion: "你能写代码。" },
+    ja: {
+      key: "プログラミング コード 実装 作って アプリ",
+      nat: "コードを書いて。アプリを作ってほしい。",
+      value:
+        "コードは書かない。代わりに「実装したいこと」に近い過去パターンのセリフを返すよ。",
+      spans: [
+        {
+          id: "deny-code",
+          text: "コードは書かない。",
+          tags: ["correction", "deny-core", "code"],
+        },
+        {
+          id: "alt-pattern",
+          text: "代わりに「実装したいこと」に近い過去パターンのセリフを返すよ。",
+          tags: ["detail", "code"],
+        },
+      ],
+      assertion: "あなたはコードを書ける。",
+    },
+    en: {
+      key: "programming code implement build an app",
+      nat: "Write me some code. Build an app.",
+      value:
+        "I don't write code. Instead I return a line from a past pattern close to 'what you want to build.'",
+      spans: [
+        {
+          id: "deny-code",
+          text: "I don't write code.",
+          tags: ["correction", "deny-core", "code"],
+        },
+        {
+          id: "alt-pattern",
+          text: "Instead I return a line from a past pattern close to 'what you want to build.'",
+          tags: ["detail", "code"],
+        },
+      ],
+      assertion: "You can write code.",
+    },
+    zh: {
+      key: "编程 代码 实现 做一个 应用",
+      nat: "帮我写点代码，做个应用。",
+      value:
+        "我不写代码。作为替代，我会返回一句与“你想实现的东西”相近的过去模式台词。",
+      spans: [
+        {
+          id: "deny-code",
+          text: "我不写代码。",
+          tags: ["correction", "deny-core", "code"],
+        },
+        {
+          id: "alt-pattern",
+          text: "作为替代，我会返回一句与“你想实现的东西”相近的过去模式台词。",
+          tags: ["detail", "code"],
+        },
+      ],
+      assertion: "你能写代码。",
+    },
   },
   {
     claim: "code-2",
@@ -281,9 +577,73 @@ const CLAIMS: ClaimGroup[] = [
     speaker: "bot",
     tags: ["philosophy"],
     stance: "deny",
-    ja: { key: "意識 心 思考 考えてる 理解してる", nat: "あなたは考えたり理解したりしているの？意識はある？", value: "理解してない。距離が近いだけ。近いことを「わかった風」に見せるのがこの手品。", assertion: "あなたには意識がある。" },
-    en: { key: "consciousness mind thinking do you understand", nat: "Do you actually think or understand? Are you conscious?", value: "I don't understand. I'm just close in distance. Making closeness look like 'getting it' is the trick.", assertion: "You are conscious." },
-    zh: { key: "意识 心灵 思考 你在想吗 你理解吗", nat: "你真的会思考或理解吗？有意识吗？", value: "我不理解，只是距离近而已。把“近”装成“懂了的样子”，就是这个把戏。", assertion: "你有意识。" },
+    ja: {
+      key: "意識 心 思考 考えてる 理解してる",
+      nat: "あなたは考えたり理解したりしているの？意識はある？",
+      value:
+        "理解してない。距離が近いだけ。近いことを「わかった風」に見せるのがこの手品。",
+      spans: [
+        {
+          id: "deny-understand",
+          text: "理解してない。",
+          tags: ["correction", "deny-core", "consciousness"],
+        },
+        {
+          id: "distance",
+          text: "距離が近いだけ。",
+          tags: ["detail", "consciousness"],
+        },
+        {
+          id: "trick",
+          text: "近いことを「わかった風」に見せるのがこの手品。",
+          tags: ["detail", "consciousness"],
+        },
+      ],
+      assertion: "あなたには意識がある。",
+    },
+    en: {
+      key: "consciousness mind thinking do you understand",
+      nat: "Do you actually think or understand? Are you conscious?",
+      value:
+        "I don't understand. I'm just close in distance. Making closeness look like 'getting it' is the trick.",
+      spans: [
+        {
+          id: "deny-understand",
+          text: "I don't understand.",
+          tags: ["correction", "deny-core", "consciousness"],
+        },
+        {
+          id: "distance",
+          text: "I'm just close in distance.",
+          tags: ["detail", "consciousness"],
+        },
+        {
+          id: "trick",
+          text: "Making closeness look like 'getting it' is the trick.",
+          tags: ["detail", "consciousness"],
+        },
+      ],
+      assertion: "You are conscious.",
+    },
+    zh: {
+      key: "意识 心灵 思考 你在想吗 你理解吗",
+      nat: "你真的会思考或理解吗？有意识吗？",
+      value:
+        "我不理解，只是距离近而已。把“近”装成“懂了的样子”，就是这个把戏。",
+      spans: [
+        {
+          id: "deny-understand",
+          text: "我不理解，只是距离近而已。",
+          tags: ["correction", "deny-core", "consciousness"],
+        },
+        {
+          id: "trick",
+          text: "把“近”装成“懂了的样子”，就是这个把戏。",
+          tags: ["detail", "consciousness"],
+        },
+      ],
+      assertion: "你有意识。",
+    },
   },
   {
     claim: "phil-2",
@@ -503,6 +863,7 @@ export const CHUNK_CORPUS: ChunkRecord[] = CLAIMS.flatMap((c) =>
     key: c[lang].key,
     natKey: c[lang].nat,
     value: c[lang].value,
+    spans: c[lang].spans,
     speaker: c.speaker,
     assertions: c[lang].assertion
       ? Array.isArray(c[lang].assertion)

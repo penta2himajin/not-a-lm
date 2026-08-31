@@ -3,14 +3,40 @@ export type Speaker = "user" | "bot";
 /** Supported corpus / query languages (v1: ja, en, zh-Hans) */
 export type Lang = "ja" | "en" | "zh";
 
+export type SpanRecord = {
+  /** Stable id within the parent chunk (e.g. "no-gen", "item-knn") */
+  id: string;
+  /** Copied verbatim into composed replies — no generation */
+  text: string;
+  /** G4a planner hints (closed tag vocabulary) */
+  tags?: string[];
+};
+
+export type SpanRef = {
+  chunkId: string;
+  spanId: string;
+};
+
+/** Auditable span-composition plan (G4). */
+export type ComposePlan = {
+  /** Optional closed prefix from G2 polarity (negation/affirmation opener) */
+  prefix?: "negate-correct" | "affirm-confirm";
+  kept: SpanRef[];
+};
+
 export type ChunkRecord = {
   id: string;
   /** Keyword-bag key: used only as the cross-encoder confidence-gate input */
   key: string;
   /** Natural-sentence key: used for bi-encoder ranking (better topic separation) */
   natKey: string;
-  /** Value: next utterance predicted for this pattern */
+  /** Value: next utterance predicted for this pattern (joined spans for display) */
   value: string;
+  /**
+   * Author-defined spans for G4 composition. When present, `value` should equal
+   * the joined span texts (see joinSpanTexts in compose.ts).
+   */
+  spans?: SpanRecord[];
   /** Who speaks the value */
   speaker: Speaker;
   /** Language of key/value; used to route replies to the query's language */
@@ -63,9 +89,11 @@ export type TraceStep = {
   /** Grounded generation: whether the reply was composed (vs returned as-is) */
   generated?: boolean;
   /** Grounded generation operation applied */
-  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse";
+  operation?: "as-is" | "negate-correct" | "affirm-confirm" | "fuse" | "compose";
   /** For fuse: the id of the second chunk combined into the reply */
   fusedWith?: string;
+  /** G4 span composition plan (when operation is compose, or polarity+compose) */
+  composePlan?: ComposePlan;
   /** NLI(query, chunk.assertion) top label + score, when grounded generation ran */
   nliLabel?: string;
   nliScore?: number;
