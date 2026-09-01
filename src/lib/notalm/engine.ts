@@ -126,7 +126,8 @@ function segmentQuery(text: string, lang: Lang): string[] {
   const sep =
     lang === "en"
       ? /\s+and\s+|,/i
-      : /[、，]|と|や|および|また|和|与|以及|还有/;
+      : // ja: bare と is a conjunction, but とは/という/として/… are not.
+        /[、，]|と(?!は|いう|して|でも|なり)|や|および|また|和|与|以及|还有/;
   return text
     .split(sep)
     .map((s) => s.trim())
