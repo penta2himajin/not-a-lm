@@ -304,6 +304,11 @@ export function mergeDualRetrieval(
       claimAdjust -= 0.1;
       spanContribution = 0;
     }
+    // 「何ができる」is capability/help — not smalltalk hobby banter.
+    if (wantsHelp && /^hobby-/.test(chunk.claim ?? "")) {
+      claimAdjust -= 0.12;
+      spanContribution = 0;
+    }
 
     const bestSpanHit =
       authorHit && (!autoHit || authorHit.score >= autoHit.score)
