@@ -99,6 +99,7 @@ const NLI_CASES = [
 
 function runCase(tc, chunk, spanNliRankings) {
   const plan = planComposeG4a(tc.query, chunk, {
+    defaultMode: "partial",
     spanNliRankings,
     spanRankings: [],
   });

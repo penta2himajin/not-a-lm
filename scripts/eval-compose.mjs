@@ -235,6 +235,7 @@ const CASES = [
     query: "次のセリフはどう決まる？",
     claim: "mech-1",
     lang: "ja",
+    defaultMode: "partial",
     expectSpanIds: ["pick-value"],
     expectIncludes: "次のセリフ",
     expectExcludes: "埋め込み",
@@ -244,6 +245,7 @@ const CASES = [
     query: "How is the next line chosen?",
     claim: "mech-1",
     lang: "en",
+    defaultMode: "partial",
     expectSpanIds: ["pick-value"],
     expectIncludes: "next line",
     expectExcludes: "Embed the conversation",
@@ -253,6 +255,7 @@ const CASES = [
     query: "下一句台词是怎么选出来的？",
     claim: "mech-1",
     lang: "zh",
+    defaultMode: "partial",
     expectSpanIds: ["pick-value"],
     expectIncludes: "下一句",
     expectExcludes: "嵌入",
@@ -367,6 +370,7 @@ async function main() {
     const spanRankings = await rankSpansForCompose(tc.query, chunk.spans);
     const plan = planComposeG4a(tc.query, chunk, {
       prefix: tc.prefix,
+      defaultMode: tc.defaultMode ?? "full",
       spanRankings,
     });
     if (!plan) {

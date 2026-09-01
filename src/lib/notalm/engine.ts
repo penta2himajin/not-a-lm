@@ -390,6 +390,9 @@ export class ChunkKVEngine {
     }
     if (parts.length < 2) return null;
 
+    // Over-split: multiple segments matched one chunk → single path (full KEEP).
+    if (new Set(parts.map((p) => p.chunk.id)).size < 2) return null;
+
     const planned = await planFuseParts(parts, lang);
     if (!planned) return null;
     return { plan: planned.plan, parts, nliLabel: planned.nliLabel, nliScore: planned.nliScore };
@@ -818,16 +821,9 @@ export class ChunkKVEngine {
         query: gateQuery,
         chunk: chosen.chunk,
         lang: chosen.chunk.lang,
-        focusSpanId:
-          (sameChunkProximal ? proximalFocus?.spanId : undefined) ??
-          (retrievalSource === "span" && matchedSpanKind === "author"
-            ? matchedSpanId
-            : undefined),
-        focusKeySpanText:
-          (sameChunkProximal ? proximalFocus?.excerpt : undefined) ??
-          (retrievalSource === "span" && matchedSpanKind === "key-span"
-            ? matchedSpanText
-            : undefined),
+        // Compose focus: proximal same-chunk ref only (not span-retrieval side effect).
+        focusSpanId: sameChunkProximal ? proximalFocus?.spanId : undefined,
+        focusKeySpanText: sameChunkProximal ? proximalFocus?.excerpt : undefined,
         polarity,
       });
       timingMs.single = markMs(tSingle);
