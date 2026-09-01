@@ -9,6 +9,7 @@
     "lint": "eslint",
     "eval:reranker": "node --experimental-strip-types scripts/eval-reranker.mjs",
     "eval:reranker:engine": "node --experimental-strip-types scripts/eval-reranker-engine.mjs",
+    "eval:ce-reduction": "node --experimental-strip-types scripts/eval-ce-reduction.mjs",
     "eval:embed:q8": "node scripts/eval-embed-q8.mjs",
     "eval:embed:retrieval": "node --experimental-strip-types scripts/eval-embed-retrieval.mjs",
     "eval:nli:q8": "node scripts/eval-nli-q8.mjs",

@@ -207,6 +207,10 @@ export type TraceStep = {
   reranked?: boolean;
   /** Best cross-encoder relevance score for this turn (when reranked) */
   topRerankScore?: number;
+  /** Cross-encoder ONNX forwards this turn (after per-turn cache dedupe) */
+  ceForwards?: number;
+  /** Gate confidence taken from fuse part scores (compound fuse-first path) */
+  gateFromFuse?: boolean;
   /** Raw bi-encoder cosine of the ranking top-1 (nearest corpus element) */
   topCosine?: number;
   /** True when a low reranker score was overridden by a very-high top cosine */

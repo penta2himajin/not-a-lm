@@ -145,3 +145,45 @@ export async function rerankScores(
   }
   return scores;
 }
+
+function ceCacheKey(query: string, candidateKey: string): string {
+  return `${query}\x00${candidateKey}`;
+}
+
+/** Per-turn CE scorer: dedupes (query, key) pairs and counts ONNX forwards. */
+export type CeScorer = {
+  score: (query: string, candidateKeys: string[]) => Promise<number[]>;
+  forwardCount: number;
+};
+
+export function createCeScorer(): CeScorer {
+  const cache = new Map<string, number>();
+  const scorer: CeScorer = {
+    forwardCount: 0,
+    async score(query: string, candidateKeys: string[]) {
+      if (candidateKeys.length === 0) return [];
+      const out = new Array<number>(candidateKeys.length);
+      const missing: { idx: number; key: string }[] = [];
+      for (let i = 0; i < candidateKeys.length; i++) {
+        const ck = ceCacheKey(query, candidateKeys[i]);
+        const hit = cache.get(ck);
+        if (hit !== undefined) out[i] = hit;
+        else missing.push({ idx: i, key: candidateKeys[i] });
+      }
+      if (missing.length > 0) {
+        const fresh = await rerankScores(
+          query,
+          missing.map((m) => m.key),
+        );
+        scorer.forwardCount += fresh.length;
+        missing.forEach((m, j) => {
+          const ck = ceCacheKey(query, m.key);
+          cache.set(ck, fresh[j]);
+          out[m.idx] = fresh[j];
+        });
+      }
+      return out;
+    },
+  };
+  return scorer;
+}
