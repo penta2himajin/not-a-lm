@@ -10,7 +10,11 @@ import {
 } from "./embed";
 import { detectLang, detectLangFromHistory } from "./lang";
 import { composeQueryVector } from "./query-vector";
-import { isRerankerReady, rerankScores } from "./rerank";
+import {
+  createCeScorer,
+  isRerankerReady,
+  type CeScorer,
+} from "./rerank";
 import {
   buildChainDemoPlan,
   findChunkByClaim,
@@ -96,6 +100,16 @@ const GATE_MIN_SCORE = 0.03;
  * high enough to sit above the OOC "overlap band".
  */
 const RESCUE_COS = 0.7;
+/**
+ * Compound + generate: run fuse before the gate when bi-encoder top-1 cosine is
+ * at least this high. Successful fuse (≥2 parts @ FUSE_MIN) skips gate CE.
+ */
+const COMPOUND_FUSE_FIRST_MIN_COS = 0.62;
+/**
+ * Do not run compound fuse CE when top cosine is below this (OOC compound saves
+ * S×KEY_POOL forwards; gate still runs).
+ */
+const FUSE_COMPOUND_MIN_COS = 0.62;
 /**
  * Fusion: if the top two candidates are BOTH strongly relevant (gate score) and
  * cover different topics, combine them into one reply with a closed connective.
@@ -286,6 +300,7 @@ export class ChunkKVEngine {
   private async gateConfidence(
     query: string,
     keyHits: MatchHit[],
+    ce: CeScorer,
     chosen?: MatchHit,
   ): Promise<number> {
     const top = keyHits.slice(0, GATE_CANDIDATES);
@@ -296,7 +311,7 @@ export class ChunkKVEngine {
     ) {
       candidates.push(chosen);
     }
-    const scores = await rerankScores(
+    const scores = await ce.score(
       query,
       candidates.map((h) => h.chunk.key),
     );
@@ -328,6 +343,7 @@ export class ChunkKVEngine {
     query: string,
     queryVec: Float32Array,
     lang: Lang,
+    ce: CeScorer,
     continuity?: ContinuityHint,
   ): Promise<{
     plan: OperationPlan;
@@ -338,12 +354,12 @@ export class ChunkKVEngine {
     const segments = this.compoundSegments(query, lang);
     if (segments.length < 2) return null;
 
-    const cands = this.search(queryVec, "bot", lang, 12, continuity);
+    const cands = this.search(queryVec, "bot", lang, KEY_POOL, continuity);
     if (cands.length < 2) return null;
 
     const rr: number[][] = [];
     for (let i = 0; i < segments.length; i++) {
-      rr.push(await rerankScores(segments[i], cands.map((c) => c.chunk.key)));
+      rr.push(await ce.score(segments[i], cands.map((c) => c.chunk.key)));
     }
     const pairs: { i: number; j: number; s: number }[] = [];
     for (let i = 0; i < segments.length; i++) {
@@ -577,7 +593,12 @@ export class ChunkKVEngine {
     // G6b: use planningUser (proximal-injected) when present.
     const gateQuery =
       planningUser || composed.anchorText || rawUser || "";
+    const compoundSegs =
+      preferSpeaker === "bot"
+        ? this.compoundSegments(gateQuery, queryLang)
+        : [];
     let gated = false;
+    let gateFromFuse = false;
     let topRerankScore: number | undefined;
     let lowConfidence = false;
     let rescued = false;
@@ -586,15 +607,46 @@ export class ChunkKVEngine {
       matchedSpanKind === "author" &&
       (spanScore ?? 0) >= SPAN_AUTHOR_MIN_COS;
 
+    const ce = createCeScorer();
+    let precomputedFuse: Awaited<
+      ReturnType<ChunkKVEngine["fuseCompound"]>
+    > = null;
+    const tryFuseFirst =
+      opts.generate &&
+      preferSpeaker === "bot" &&
+      compoundSegs.length >= 2 &&
+      topCosine >= COMPOUND_FUSE_FIRST_MIN_COS;
+
+    if (isRerankerReady() && tryFuseFirst) {
+      try {
+        precomputedFuse = await this.fuseCompound(
+          gateQuery,
+          composed.vector,
+          queryLang,
+          ce,
+          continuity,
+        );
+      } catch {
+        precomputedFuse = null;
+      }
+    }
+
     if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
       try {
-        // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
-        topRerankScore = await this.gateConfidence(
-          gateQuery,
-          keyHitsForGate,
-          chosen,
-        );
-        gated = true;
+        if (precomputedFuse && precomputedFuse.parts.length >= 2) {
+          topRerankScore = Math.max(...precomputedFuse.parts.map((p) => p.score));
+          gated = true;
+          gateFromFuse = true;
+        } else {
+          // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
+          topRerankScore = await this.gateConfidence(
+            gateQuery,
+            keyHitsForGate,
+            ce,
+            chosen,
+          );
+          gated = true;
+        }
       } catch {
         /* gate unavailable: fall through without refusing */
       }
@@ -676,13 +728,20 @@ export class ChunkKVEngine {
         nliScore?: number;
       } | null = null;
 
-      if (isRerankerReady()) {
-        const fused = await this.fuseCompound(
-          gateQuery,
-          composed.vector,
-          chosen.chunk.lang,
-          continuity,
-        );
+      if (
+        isRerankerReady() &&
+        compoundSegs.length >= 2 &&
+        topCosine >= FUSE_COMPOUND_MIN_COS
+      ) {
+        const fused = tryFuseFirst
+          ? precomputedFuse
+          : await this.fuseCompound(
+              gateQuery,
+              composed.vector,
+              chosen.chunk.lang,
+              ce,
+              continuity,
+            );
         if (fused) {
           const meanRel =
             fused.parts.reduce((a, p) => a + p.score, 0) / fused.parts.length;
@@ -842,7 +901,9 @@ export class ChunkKVEngine {
         matchedSpanKind,
         spanScore,
         reranked: gated,
+        gateFromFuse: gateFromFuse || undefined,
         topRerankScore,
+        ceForwards: ce.forwardCount > 0 ? ce.forwardCount : undefined,
         topCosine,
         rescued,
         lowConfidence,

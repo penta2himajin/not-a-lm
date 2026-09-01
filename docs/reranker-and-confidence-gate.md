@@ -28,7 +28,19 @@
 ### 重要な実装上の落とし穴（実機で判明）
 
 - **量子化**: リランカーは **q8 デフォルト**（~280MB ONNX、挙動は fp32 と同等 — [`reranker-model-selection.md`](reranker-model-selection.md)）。`RERANK_DTYPE=fp32` で ~1.1GB に戻せる。fp16 は CPU 非対応でロード失敗。
-- **バッチ＋パディングも不可**: 複数候補を1バッチで採点すると、パディングが相互にスコアを歪め、バッチ構成次第で同一ペアのスコアが変わる。→ **1ペアずつ（バッチサイズ1）で採点**して決定的にする。候補数は `RERANK_CANDIDATES=10` に抑え、逐次フォワードのレイテンシを許容範囲に保つ。
+- **バッチ＋パディング**: q8 では pad バッチは unsafe（[`reranker-batching.md`](reranker-batching.md) 参照、別 PR）。本番は逐次のまま。
+
+## RTT: CE 呼び出し回数の削減
+
+素朴なバッチ化では q8 で伸びないため、**フォワード回数そのもの**を減らす（`trace.ceForwards` で計測）。
+
+| 経路 | 以前 | 以後 |
+|------|------|------|
+| 単純クエリ | gate 3–4 | 同左 |
+| 複合 fuse 成功（top cosine ≥ 0.62） | gate 3–4 + fuse 2×12 = **27–28** | fuse のみ **24**（gate スキップ、`gateFromFuse`） |
+| 弱い複合（cosine &lt; 0.62） | gate + fuse | **gate のみ**（fuse CE 省略） |
+
+実装: `createCeScorer()`（ターン内 `(query,key)` キャッシュ）、`COMPOUND_FUSE_FIRST_MIN_COS` / `FUSE_COMPOUND_MIN_COS`（いずれも 0.62）。回帰: `npm run eval:ce-reduction`。
 
 ## 信頼度ゲート（graceful refusal）
 
