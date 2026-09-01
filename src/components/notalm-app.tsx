@@ -65,7 +65,6 @@ export function NotALMApp() {
   const [chunkCount, setChunkCount] = useState(0);
   const [rerankerReady, setRerankerReady] = useState(false);
   const [nliReady, setNliReady] = useState(false);
-  const [grounded, setGrounded] = useState(false);
   const [chainPlan, setChainPlan] = useState<ChainPlan | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -177,7 +176,8 @@ export function NotALMApp() {
         history,
         userText: opts.userText,
         mode: opts.mode ?? "reply",
-        generate: grounded,
+        // Contract: bot replies always run grounded planning.
+        generate: true,
         pairCount: opts.pairCount,
         claim: opts.claim,
         role: opts.role,
@@ -397,19 +397,14 @@ export function NotALMApp() {
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant={grounded ? "default" : "outline"}
+                  variant="default"
                   size="sm"
-                  onClick={() => setGrounded((g) => !g)}
-                  disabled={!nliReady}
-                  title="接地生成: NLIで前提を判定し、必要なら否定オープナー＋既存の値で補正（トークン生成なし）"
-                  className={cn(
-                    "gap-1",
-                    grounded &&
-                      "bg-[var(--nalm-accent)] text-[var(--nalm-ink)] hover:bg-[var(--nalm-accent-hot)]",
-                  )}
+                  disabled
+                  title="契約: bot 返答は常に接地生成（コピー＋閉じた糊）。トグルは廃止。"
+                  className="gap-1 bg-[var(--nalm-accent)] text-[var(--nalm-ink)] opacity-90"
                 >
                   <Sparkles className="size-3.5" />
-                  接地生成{grounded ? " ON" : " OFF"}
+                  接地 常時
                 </Button>
                 <Button
                   variant="outline"
@@ -614,6 +609,89 @@ export function NotALMApp() {
                     <p className="mb-2 font-mono text-[11px] text-[var(--nalm-ink-mute)]">
                       {tr.querySummary || tr.queryText}
                     </p>
+                    {tr.timingMs && (
+                      <p className="mb-2 font-mono text-[10px] text-[var(--nalm-ink-mute)]">
+                        timing ·
+                        {tr.timingMs.context != null
+                          ? ` ctx ${tr.timingMs.context}`
+                          : ""}
+                        {tr.timingMs.queryEmbed != null
+                          ? ` embed ${tr.timingMs.queryEmbed}`
+                          : ""}
+                        {tr.timingMs.retrieve != null
+                          ? ` ret ${tr.timingMs.retrieve}`
+                          : ""}
+                        {tr.timingMs.gate != null
+                          ? ` gate ${tr.timingMs.gate}`
+                          : ""}
+                        {tr.timingMs.polarity != null
+                          ? ` nli ${tr.timingMs.polarity}`
+                          : ""}
+                        {tr.timingMs.fuse != null
+                          ? ` fuse ${tr.timingMs.fuse}`
+                          : ""}
+                        {tr.timingMs.single != null
+                          ? ` single ${tr.timingMs.single}`
+                          : ""}
+                        {tr.timingMs.selectRender != null
+                          ? ` sel ${tr.timingMs.selectRender}`
+                          : ""}
+                        {tr.timingMs.total != null
+                          ? ` Σ ${tr.timingMs.total}`
+                          : ""}
+                        ms
+                      </p>
+                    )}
+                    {tr.debug && (
+                      <details className="mb-2 rounded-lg border border-[var(--nalm-line)] bg-black/[0.03] p-2">
+                        <summary className="cursor-pointer font-mono text-[10px] text-[var(--nalm-ink-soft)]">
+                          debug · {tr.debug.anaphora}
+                          {tr.debug.continuityApplied ? " · cont" : ""}
+                          {tr.debug.winnerPlanId
+                            ? ` · win=${tr.debug.winnerPlanId}`
+                            : ""}
+                          {tr.debug.notes.length
+                            ? ` · ${tr.debug.notes.slice(0, 2).join(",")}`
+                            : ""}
+                        </summary>
+                        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-[var(--nalm-ink-mute)]">
+                          {JSON.stringify(tr.debug, null, 2)}
+                        </pre>
+                        <button
+                          type="button"
+                          className="mt-1 font-mono text-[10px] text-[var(--nalm-accent)] underline"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(
+                              JSON.stringify(
+                                {
+                                  reply: messages.find(
+                                    (m) =>
+                                      m.sourceChunkId === tr.chosen.chunk.id &&
+                                      m.role === "bot",
+                                  )?.text,
+                                  chosen: tr.chosen.chunk.id,
+                                  operation: tr.operation,
+                                  timingMs: tr.timingMs,
+                                  debug: tr.debug,
+                                  topRerankScore: tr.topRerankScore,
+                                  topCosine: tr.topCosine,
+                                  lowConfidence: tr.lowConfidence,
+                                  hits: tr.hits.slice(0, 5).map((h) => ({
+                                    id: h.chunk.id,
+                                    score: h.score,
+                                    rerank: h.rerankScore,
+                                  })),
+                                },
+                                null,
+                                2,
+                              ),
+                            );
+                          }}
+                        >
+                          copy debug JSON
+                        </button>
+                      </details>
+                    )}
                     {tr.operationPlan && tr.operationPlan.steps.length > 0 && (
                       <div className="mb-2 space-y-1 rounded-lg bg-black/[0.03] px-2 py-1.5 font-mono text-[10px] text-[var(--nalm-ink-soft)]">
                         <p className="text-[var(--nalm-accent)]">

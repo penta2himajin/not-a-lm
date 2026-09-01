@@ -71,7 +71,11 @@ export function classifyAnaphora(query: string, lang: Lang): AnaphoraClass {
     ) {
       return "non-proximal";
     }
+    // Short follow-ups that point at the last bot utterance.
     if (/(?:それ|その|これ|この|上記)/.test(q)) return "proximal";
+    if (/^(?:何が|なにが|どういうこと|詳しく)(?:[？?。!！]|$)/.test(q)) {
+      return "proximal";
+    }
     return "none";
   }
 
@@ -109,10 +113,36 @@ export function injectProximal(
     };
   }
   return {
+    // Legacy helper: concatenates excerpt into the query string.
+    // Engine no longer uses this for retrieval (focus-ref only); kept for
+    // unit tests / callers that still want the old expansion.
     effectiveQuery: `${excerpt} ${query}`.trim(),
     excerpt,
     reasons: [
       "g6b:proximal",
+      `g6b:ref=${prior.claim ?? prior.chunkId}`,
+    ],
+  };
+}
+
+/** Focus hint from prior grounding without polluting the retrieval query. */
+export function proximalFocusRef(prior?: TurnGrounding): {
+  spanId?: string;
+  excerpt?: string;
+  chunkId?: string;
+  claim?: string;
+  reasons: string[];
+} | null {
+  if (!prior?.chunkId) return null;
+  const excerpt = (prior.excerptTexts[0] ?? "").trim();
+  const spanId = prior.kept?.[0]?.spanId;
+  return {
+    chunkId: prior.chunkId,
+    claim: prior.claim,
+    spanId,
+    excerpt: excerpt || undefined,
+    reasons: [
+      "g6b:proximal-focus",
       `g6b:ref=${prior.claim ?? prior.chunkId}`,
     ],
   };

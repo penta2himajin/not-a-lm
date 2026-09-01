@@ -108,7 +108,8 @@ export async function POST(req: Request) {
     if (body.resetSession) engine.resetMemory();
 
     const result = await engine.reply(history, userText, {
-      generate: body.generate === true,
+      // Contract: bot path always grounds; flag kept for older clients.
+      generate: body.generate !== false,
       chain: body.chain,
     });
     return NextResponse.json({

@@ -5,6 +5,7 @@
 import {
   classifyAnaphora,
   injectProximal,
+  proximalFocusRef,
   planClarifyRecent,
   buildTurnGrounding,
 } from "../src/lib/notalm/grounding.ts";
@@ -41,6 +42,11 @@ check(
   classifyAnaphora("さっきのそれは？", "ja") === "non-proximal",
 );
 check("ja none", classifyAnaphora("仕組みを教えて", "ja") === "none");
+check("ja proximal 何が", classifyAnaphora("何が", "ja") === "proximal");
+check(
+  "ja proximal どういうこと",
+  classifyAnaphora("どういうこと？", "ja") === "proximal",
+);
 check(
   "en proximal that one",
   classifyAnaphora("Tell me about that one", "en") === "proximal",
@@ -76,6 +82,15 @@ check(
       inj.effectiveQuery.includes("それは生成してるの？"),
   );
   check("inject reasons", inj.reasons.some((r) => r.startsWith("g6b:proximal")));
+
+  const focus = proximalFocusRef(prior);
+  check(
+    "focus-ref no query concat",
+    focus != null &&
+      focus.excerpt === prior.excerptTexts[0] &&
+      focus.chunkId === c.id &&
+      focus.reasons.some((r) => r === "g6b:proximal-focus"),
+  );
 }
 
 // clarify plan + render

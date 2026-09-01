@@ -29,6 +29,13 @@ G5 までで **1 ターン**の grounded reply（宣言的 `OperationPlan` → r
 | **G6c** | 継続バイアス ↔ `usedIds` | ✅ |
 | **G6d** | 連鎖の計画化（`ChainPlan`） | ✅ |
 
+### unify-workflow 更新（追加モデルなし）
+
+- Proximal: excerpt を検索クエリへ連結しない（`proximalFocusRef` → compose focus のみ）
+- G6c: `anaphora === "proximal"` のときだけ continuity
+- 短い追従「何が」「どういうこと」も proximal（規則）
+- bot 本線は常に接地計画（UI の generate トグル廃止）
+
 ## G6d: 連鎖プラン
 
 オープンループの `predict-user` → `reply` を、**宣言的な多ターンレシピ**に置き換える。
@@ -58,10 +65,16 @@ chain-plan → seed reply(chain-start)
 
 ```
 history(+ grounding)
-  → classify anaphora → clarify | proximal inject
-  → retrieve (+ G6c) → gate → G5 → render
+  → classify anaphora → clarify | proximal focus-ref (no query concat)
+  → retrieve (+ G6c if proximal) → gate → G5 → render
   → grounding + optional trace.chain
 ```
+
+## G6b / G6c（unify-workflow 更新）
+
+- **Proximal**: 直前 excerpt を検索クエリへ連結しない。`proximalFocusRef` で compose の focus にだけ渡す。
+- **Continuity (G6c)**: `anaphora === "proximal"` のときだけ効かせる（話題転換での張り付き防止）。
+- 短い追従「何が」「どういうこと」等も proximal 扱い（規則）。
 
 ## 評価
 

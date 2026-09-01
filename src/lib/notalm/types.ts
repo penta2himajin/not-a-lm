@@ -264,6 +264,52 @@ export type TraceStep = {
   hits: MatchHit[];
   chosen: MatchHit;
   latencyMs: number;
+  /** Per-stage wall times (ms) for RTT / debug */
+  timingMs?: {
+    context?: number;
+    queryEmbed?: number;
+    retrieve?: number;
+    gate?: number;
+    polarity?: number;
+    fuse?: number;
+    single?: number;
+    selectRender?: number;
+    total?: number;
+  };
+  /**
+   * Structured debug blob for multi-turn / plan diagnosis.
+   * Safe to show in UI; pasteable when reporting issues.
+   */
+  debug?: TraceDebug;
+};
+
+/** Engine decision dump — keep JSON-serializable and stable keys. */
+export type TraceDebug = {
+  rawUser: string;
+  planningUser: string;
+  gateQuery: string;
+  preferSpeaker: Speaker;
+  useGrounded: boolean;
+  anaphora: "none" | "proximal" | "non-proximal";
+  compoundSegments: string[];
+  proximalFocus?: {
+    chunkId?: string;
+    claim?: string;
+    spanId?: string;
+    excerptPreview?: string;
+  };
+  continuityApplied: boolean;
+  continuity?: { chunkId: string; claim?: string };
+  spanGateBypass?: boolean;
+  gateTop?: { id: string; claim?: string; rerank?: number }[];
+  planCandidates?: {
+    id: string;
+    score: number;
+    relevance?: number;
+    reasons: string[];
+  }[];
+  winnerPlanId?: string;
+  notes: string[];
 };
 
 export type ChatMessage = {

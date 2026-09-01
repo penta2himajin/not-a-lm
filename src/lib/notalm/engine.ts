@@ -19,7 +19,7 @@ import {
   buildTurnGrounding,
   classifyAnaphora,
   continuityFromPrior,
-  injectProximal,
+  proximalFocusRef,
   lastBotGrounding,
   planClarifyRecent,
   recentBotGroundings,
@@ -39,6 +39,7 @@ import {
   planSingleChunk,
   primaryComposePlan,
   renderOperationPlan,
+  scorePlanCandidate,
   selectBestPlan,
 } from "./plan";
 import {
@@ -60,8 +61,22 @@ import type {
   MatchHit,
   OperationPlan,
   PlanCandidate,
+  TraceDebug,
   TraceStep,
 } from "./types";
+
+function markMs(t0: number): number {
+  return Math.round(performance.now() - t0);
+}
+
+function logTurnDebug(payload: Record<string, unknown>): void {
+  // Always emit one JSON line so cloud logs + user reports stay aligned.
+  try {
+    console.info("[notalm:turn]", JSON.stringify(payload));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** G6d audit blob attached to a turn executed from a ChainPlan. */
 export type ChainTraceMeta = NonNullable<TraceStep["chain"]>;
@@ -399,6 +414,10 @@ export class ChunkKVEngine {
     }
 
     const t0 = performance.now();
+    let tMark = t0;
+    const timingMs: NonNullable<TraceStep["timingMs"]> = {};
+    const debugNotes: string[] = [];
+
     const queryLang = latestUser?.trim()
       ? detectLang(latestUser)
       : detectLangFromHistory(history);
@@ -412,38 +431,87 @@ export class ChunkKVEngine {
     // G6b: 「さっきの」with only one prior bot turn → treat as proximal.
     if (anaphora === "non-proximal" && recentGroundings.length <= 1) {
       anaphora = recentGroundings.length === 1 ? "proximal" : "none";
+      debugNotes.push(
+        anaphora === "proximal"
+          ? "anaphora:non-proximal→proximal(single-prior)"
+          : "anaphora:non-proximal→none(no-prior)",
+      );
     }
 
-    // G6c: stick to prior chunk/claim despite usedIds (bot replies only).
+    // G6c: continuity only for proximal follow-ups (topic shift must not stick).
     const continuity: ContinuityHint | undefined =
-      preferSpeaker === "bot"
+      preferSpeaker === "bot" && anaphora === "proximal"
         ? continuityFromPrior(priorGroundingEarly)
         : undefined;
-
-    // G6b-proximal: expand planning/retrieval anchor with prior excerpt copy.
-    let planningUser = rawUser;
-    const g6bReasons: string[] = [];
-    if (
-      anaphora === "proximal" &&
-      priorGroundingEarly &&
-      opts.generate &&
-      preferSpeaker === "bot"
-    ) {
-      const inj = injectProximal(rawUser, priorGroundingEarly);
-      planningUser = inj.effectiveQuery;
-      g6bReasons.push(...inj.reasons);
+    if (preferSpeaker === "bot" && anaphora !== "proximal" && priorGroundingEarly) {
+      debugNotes.push("g6c:skipped(non-proximal)");
     }
+
+    // G6b-proximal: focus refs for compose — do NOT concatenate into the
+    // retrieval/gate query (that caused topic-lock on "それって RAG…").
+    const g6bReasons: string[] = [];
+    const proximalFocus =
+      anaphora === "proximal" && preferSpeaker === "bot"
+        ? proximalFocusRef(priorGroundingEarly)
+        : null;
+    if (proximalFocus) g6bReasons.push(...proximalFocus.reasons);
+
+    // Always use the raw user text for retrieval + gate (contract: single path,
+    // no query pollution). History bias stays in composeQueryVector.
+    const planningUser = rawUser;
+    timingMs.context = markMs(tMark);
+    tMark = performance.now();
 
     const composed = await composeQueryVector(
       history,
       planningUser || latestUser,
       this.backend,
     );
+    timingMs.queryEmbed = markMs(tMark);
+    tMark = performance.now();
+
+    // Bot replies always run grounded planning (contract). `generate: false` is
+    // ignored on the main path; kept on the wire for older clients only.
+    const useGrounded = preferSpeaker === "bot";
+    if (preferSpeaker === "bot" && opts.generate === false) {
+      debugNotes.push("generate:false-ignored(contract-always-ground)");
+    }
+
+    const compoundSegsEarly = this.compoundSegments(
+      planningUser || rawUser,
+      queryLang,
+    );
+
+    const buildDebugBase = (extra: Partial<TraceDebug> = {}): TraceDebug => {
+      const notes = [...debugNotes, ...(extra.notes ?? [])];
+      return {
+        rawUser,
+        planningUser,
+        gateQuery: planningUser || composed.anchorText || rawUser || "",
+        preferSpeaker,
+        useGrounded,
+        anaphora,
+        compoundSegments: compoundSegsEarly,
+        proximalFocus: proximalFocus
+          ? {
+              chunkId: proximalFocus.chunkId,
+              claim: proximalFocus.claim,
+              spanId: proximalFocus.spanId,
+              excerptPreview: proximalFocus.excerpt?.slice(0, 80),
+            }
+          : undefined,
+        continuityApplied: Boolean(continuity),
+        continuity: continuity
+          ? { chunkId: continuity.chunkId, claim: continuity.claim }
+          : undefined,
+        ...extra,
+        notes,
+      };
+    };
 
     // G6b-clarify: short-circuit before retrieve/gate (avoid OOC refuse on さっきの).
     if (
-      opts.generate &&
-      preferSpeaker === "bot" &&
+      useGrounded &&
       anaphora === "non-proximal" &&
       recentGroundings.length >= 2
     ) {
@@ -478,6 +546,19 @@ export class ChunkKVEngine {
           g.excerptTexts.slice(0, 1),
         ),
       });
+      timingMs.total = markMs(t0);
+      const debug = buildDebugBase({
+        notes: ["path:clarify-short-circuit"],
+        winnerPlanId: "clarify",
+      });
+      logTurnDebug({
+        path: "clarify",
+        lang: queryLang,
+        anaphora,
+        latencyMs: timingMs.total,
+        timingMs,
+        chosen: anchorChunk.id,
+      });
       return {
         message: {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -500,12 +581,15 @@ export class ChunkKVEngine {
           querySummary: composed.summary,
           hits: [hit],
           chosen: hit,
-          latencyMs: Math.round(performance.now() - t0),
+          latencyMs: timingMs.total ?? markMs(t0),
+          timingMs,
+          debug,
         },
       };
     }
 
     // Stage 1 (ranking): bi-encoder over natural keys (+ dual-index span merge).
+    tMark = performance.now();
     const searchLimit = this.spanIndex.length > 0 ? KEY_POOL : TOP_K;
     let hits = this.search(
       composed.vector,
@@ -559,6 +643,8 @@ export class ChunkKVEngine {
       matchedSpanText = dual.matchedSpanText;
       spanScore = dual.spanScore;
     }
+    timingMs.retrieve = markMs(tMark);
+    tMark = performance.now();
 
     let chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
@@ -597,8 +683,17 @@ export class ChunkKVEngine {
         gated = true;
       } catch {
         /* gate unavailable: fall through without refusing */
+        debugNotes.push("gate:error-skipped");
       }
     }
+    timingMs.gate = markMs(tMark);
+    tMark = performance.now();
+
+    const gateTop = keyHitsForGate.slice(0, GATE_CANDIDATES).map((h) => ({
+      id: h.chunk.id,
+      claim: h.chunk.claim,
+      rerank: h.rerankScore,
+    }));
 
     // Confidence gate (reply-mode only): if the best keyword-key score is below
     // threshold, nothing in the corpus is a close match — refuse gracefully with
@@ -660,12 +755,16 @@ export class ChunkKVEngine {
     let fusedWith: string | undefined;
     let fuseParts: FusePartTrace[] | undefined;
     let fusedCompose: boolean | undefined;
+    let planCandidateDebug: TraceDebug["planCandidates"];
+    let winnerPlanId: string | undefined;
 
-    if (opts.generate && preferSpeaker === "bot" && !lowConfidence) {
+    if (useGrounded && !lowConfidence) {
       const chunkById = new Map(this.index.map((c) => [c.id, c]));
       const getChunk = (id: string) => chunkById.get(id);
 
+      const tPol = performance.now();
       const polarity = await peekPolarity(gateQuery, chosen.chunk);
+      timingMs.polarity = markMs(tPol);
       nliLabel = polarity.nliLabel;
       nliScore = polarity.nliScore;
 
@@ -677,12 +776,14 @@ export class ChunkKVEngine {
       } | null = null;
 
       if (isRerankerReady()) {
+        const tFuse = performance.now();
         const fused = await this.fuseCompound(
           gateQuery,
           composed.vector,
           chosen.chunk.lang,
           continuity,
         );
+        timingMs.fuse = markMs(tFuse);
         if (fused) {
           const meanRel =
             fused.parts.reduce((a, p) => a + p.score, 0) / fused.parts.length;
@@ -699,36 +800,40 @@ export class ChunkKVEngine {
             nliLabel: fused.nliLabel,
             nliScore: fused.nliScore,
           };
+        } else {
+          debugNotes.push("fuse:null");
         }
       }
 
-      const proximalFocus =
-        anaphora === "proximal" &&
-        priorGroundingEarly &&
-        priorGroundingEarly.chunkId === chosen.chunk.id
-          ? priorGroundingEarly.kept?.[0]
-          : undefined;
+      const sameChunkProximal =
+        Boolean(proximalFocus) &&
+        Boolean(priorGroundingEarly) &&
+        priorGroundingEarly!.chunkId === chosen.chunk.id;
+      if (proximalFocus && !sameChunkProximal) {
+        debugNotes.push("proximal-focus:skipped(different-chunk)");
+      }
 
+      const tSingle = performance.now();
       const single = await planSingleChunk({
         query: gateQuery,
         chunk: chosen.chunk,
         lang: chosen.chunk.lang,
         focusSpanId:
-          proximalFocus?.spanId ??
+          (sameChunkProximal ? proximalFocus?.spanId : undefined) ??
           (retrievalSource === "span" && matchedSpanKind === "author"
             ? matchedSpanId
             : undefined),
         focusKeySpanText:
-          anaphora === "proximal" && priorGroundingEarly?.excerptTexts[0]
-            ? priorGroundingEarly.excerptTexts[0]
-            : retrievalSource === "span" && matchedSpanKind === "key-span"
-              ? matchedSpanText
-              : undefined,
+          (sameChunkProximal ? proximalFocus?.excerpt : undefined) ??
+          (retrievalSource === "span" && matchedSpanKind === "key-span"
+            ? matchedSpanText
+            : undefined),
         polarity,
       });
+      timingMs.single = markMs(tSingle);
       if (single) {
         let singleRel = topRerankScore ?? Math.max(0, chosen.score);
-        // G6c: prefer continuing the prior claim when ranking plans.
+        // G6c: prefer continuing the prior claim when ranking plans (proximal only).
         if (
           continuity?.claim &&
           chosen.chunk.claim === continuity.claim
@@ -749,8 +854,16 @@ export class ChunkKVEngine {
         });
       }
 
+      const tSel = performance.now();
+      planCandidateDebug = candidates.map((c) => ({
+        id: c.id,
+        score: scorePlanCandidate(c),
+        relevance: c.signals.relevance,
+        reasons: c.plan.reasons.slice(0, 8),
+      }));
       const selection = selectBestPlan(candidates);
       if (selection) {
+        winnerPlanId = selection.winner.id;
         operationPlan = selection.winner.plan;
         if (g6bReasons.length) {
           operationPlan = {
@@ -780,9 +893,14 @@ export class ChunkKVEngine {
           GROUNDED_OPENERS,
         );
         replyText = rendered;
-        // Legacy: generated only when the reply was modified (not plain as-is).
-        if (operation !== "as-is") generated = true;
+        // Contract: always planned. Mark generated unless steps are pure full body.
+        generated = operation !== "as-is";
       }
+      timingMs.selectRender = markMs(tSel);
+    } else if (lowConfidence) {
+      debugNotes.push("plan:skipped(lowConfidence)");
+    } else if (!useGrounded) {
+      debugNotes.push("plan:skipped(!useGrounded)");
     }
 
     const queryText = composed.summary;
@@ -801,6 +919,34 @@ export class ChunkKVEngine {
       composePlan,
       fuseParts,
       getChunk: (id) => chunkByIdForGround.get(id),
+    });
+
+    timingMs.total = markMs(t0);
+    const debug = buildDebugBase({
+      spanGateBypass,
+      gateTop,
+      planCandidates: planCandidateDebug,
+      winnerPlanId,
+    });
+    logTurnDebug({
+      path: lowConfidence ? "refuse" : operation ?? "raw",
+      lang: queryLang,
+      anaphora,
+      continuityApplied: Boolean(continuity),
+      chosen: chosen.chunk.id,
+      claim: chosen.chunk.claim,
+      op: operation,
+      winnerPlanId,
+      topRerank: topRerankScore,
+      topCosine,
+      lowConfidence,
+      rescued,
+      latencyMs: timingMs.total,
+      timingMs,
+      notes: debug.notes,
+      proximalFocus: debug.proximalFocus,
+      compoundSegments: debug.compoundSegments,
+      planCandidates: planCandidateDebug,
     });
 
     return {
@@ -868,7 +1014,9 @@ export class ChunkKVEngine {
         })),
         hits,
         chosen,
-        latencyMs: Math.round(performance.now() - t0),
+        latencyMs: timingMs.total ?? markMs(t0),
+        timingMs,
+        debug,
       },
     };
   }

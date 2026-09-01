@@ -340,7 +340,16 @@ export async function planSingleChunk(
     };
   }
 
-  return null;
+  // Contract: always emit a plan (full KEEP). No privileged unplanned dump.
+  reasons.push("full-keep");
+  return {
+    plan: {
+      steps: [{ kind: "body", chunkId: chunk.id }],
+      reasons,
+    },
+    nliLabel,
+    nliScore,
+  };
 }
 
 /**
