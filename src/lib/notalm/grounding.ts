@@ -27,6 +27,19 @@ export type OperationLabel =
 
 export type AnaphoraClass = "none" | "proximal" | "non-proximal";
 
+/** Short follow-ups that ask for more detail on the immediately prior bot turn. */
+export function isElaborationProximal(query: string, lang: Lang): boolean {
+  const q = query.trim();
+  if (!q) return false;
+  if (lang === "ja") {
+    return /^(?:何が|なにが|詳しく|どういうこと)(?:[？?。!！]|$)/u.test(q);
+  }
+  if (lang === "zh") {
+    return /^(?:什么|怎么说|详细(?:一点|些)?)(?:[？?。!！]|$)/u.test(q);
+  }
+  return /^(?:what|how so|more detail|elaborate)(?:[?.!]|$)/i.test(q);
+}
+
 /** Closed clarify opener (no generation). */
 export const CLARIFY_OPEN: Record<Lang, string> = {
   ja: "どれのことですか。たとえば最近だと、",

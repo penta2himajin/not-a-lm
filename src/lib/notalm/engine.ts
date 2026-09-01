@@ -19,6 +19,7 @@ import {
   buildTurnGrounding,
   classifyAnaphora,
   continuityFromPrior,
+  isElaborationProximal,
   proximalFocusRef,
   lastBotGrounding,
   planClarifyRecent,
@@ -310,6 +311,7 @@ export class ChunkKVEngine {
     keyHits: MatchHit[],
     chosen: MatchHit,
     lang: Lang,
+    opts: { allowReroute?: boolean } = {},
   ): Promise<{ topScore: number; chosen: MatchHit; rerouted: boolean }> {
     const candidates: MatchHit[] = keyHits.slice(0, GATE_CANDIDATES).map((h) => ({
       ...h,
@@ -357,7 +359,9 @@ export class ChunkKVEngine {
     const chosenIdx = candidates.findIndex((c) => c.chunk.id === chosen.chunk.id);
     const chosenScore = chosenIdx >= 0 ? (scores[chosenIdx] ?? 0) : 0;
     let rerouted = false;
+    const allowReroute = opts.allowReroute !== false;
     if (
+      allowReroute &&
       bestScore >= GATE_MIN_SCORE &&
       bestIdx !== chosenIdx &&
       bestScore >= chosenScore + GATE_REROUTE_MARGIN
@@ -703,6 +707,28 @@ export class ChunkKVEngine {
     let chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
 
+    // G6b-elaboration: 「何が」「詳しく」etc. continue the prior bot turn — keyword
+    // gate/reroute cannot interpret elliptical follow-ups and will drift (e.g. greet).
+    let elaborationPin = false;
+    if (
+      preferSpeaker === "bot" &&
+      anaphora === "proximal" &&
+      isElaborationProximal(rawUser, queryLang) &&
+      priorGroundingEarly
+    ) {
+      const priorRow = this.index.find(
+        (c) => c.id === priorGroundingEarly.chunkId,
+      );
+      if (priorRow) {
+        chosen = {
+          chunk: this.indexedChunkRecord(priorRow),
+          score: Math.max(chosen.score, 1),
+        };
+        elaborationPin = true;
+        debugNotes.push(`proximal:elaboration-pin=${priorRow.claim}`);
+      }
+    }
+
     // Raw bi-encoder cosine of the ranking top-1 (no reuse penalty) — the
     // "how close is the nearest corpus element" signal, used only to rescue
     // reranker false-refusals below.
@@ -727,7 +753,7 @@ export class ChunkKVEngine {
       matchedSpanKind === "author" &&
       (spanScore ?? 0) >= SPAN_AUTHOR_MIN_COS;
 
-    if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
+    if (isRerankerReady() && gateQuery && preferSpeaker === "bot" && !elaborationPin) {
       try {
         // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
         const gate = await this.gateConfidence(
@@ -735,6 +761,7 @@ export class ChunkKVEngine {
           keyHitsForGate,
           chosen,
           queryLang,
+          { allowReroute: anaphora !== "proximal" },
         );
         topRerankScore = gate.topScore;
         chosen = gate.chosen;
@@ -870,23 +897,40 @@ export class ChunkKVEngine {
       }
 
       const sameChunkProximal =
+        !elaborationPin &&
         Boolean(proximalFocus) &&
         Boolean(priorGroundingEarly) &&
         priorGroundingEarly!.chunkId === chosen.chunk.id;
-      if (proximalFocus && !sameChunkProximal) {
+      if (proximalFocus && !sameChunkProximal && !elaborationPin) {
         debugNotes.push("proximal-focus:skipped(different-chunk)");
       }
 
       const tSingle = performance.now();
-      const single = await planSingleChunk({
-        query: gateQuery,
-        chunk: chosen.chunk,
-        lang: chosen.chunk.lang,
-        // Compose focus: proximal same-chunk ref only (not span-retrieval side effect).
-        focusSpanId: sameChunkProximal ? proximalFocus?.spanId : undefined,
-        focusKeySpanText: sameChunkProximal ? proximalFocus?.excerpt : undefined,
-        polarity,
-      });
+      const single = elaborationPin
+        ? {
+            plan: {
+              steps: [
+                {
+                  kind: "body" as const,
+                  chunkId: chosen.chunk.id,
+                },
+              ],
+              reasons: ["elaboration:full-keep", ...g6bReasons],
+            },
+            nliLabel: polarity.nliLabel,
+            nliScore: polarity.nliScore,
+          }
+        : await planSingleChunk({
+            query: gateQuery,
+            chunk: chosen.chunk,
+            lang: chosen.chunk.lang,
+            // Elaboration follow-ups handled above; reference proximal may pass focus.
+            focusSpanId: sameChunkProximal ? proximalFocus?.spanId : undefined,
+            focusKeySpanText: sameChunkProximal
+              ? proximalFocus?.excerpt
+              : undefined,
+            polarity,
+          });
       timingMs.single = markMs(tSingle);
       if (single) {
         let singleRel = topRerankScore ?? Math.max(0, chosen.score);

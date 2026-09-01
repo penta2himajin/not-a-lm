@@ -5,6 +5,7 @@
 import {
   classifyAnaphora,
   injectProximal,
+  isElaborationProximal,
   proximalFocusRef,
   planClarifyRecent,
   buildTurnGrounding,
@@ -43,6 +44,14 @@ check(
 );
 check("ja none", classifyAnaphora("仕組みを教えて", "ja") === "none");
 check("ja proximal 何が", classifyAnaphora("何が", "ja") === "proximal");
+check(
+  "ja elaboration 何が",
+  isElaborationProximal("何が", "ja") === true,
+);
+check(
+  "ja elaboration not それ",
+  isElaborationProximal("それって RAG じゃない", "ja") === false,
+);
 check(
   "ja proximal どういうこと",
   classifyAnaphora("どういうこと？", "ja") === "proximal",
