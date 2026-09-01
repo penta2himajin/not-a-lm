@@ -66,7 +66,7 @@ export function NotALMApp() {
   const [rerankerReady, setRerankerReady] = useState(false);
   const [nliReady, setNliReady] = useState(false);
   const [chainPlan, setChainPlan] = useState<ChainPlan | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const refreshStatus = useCallback(async () => {
     const res = await fetch("/api/status");
@@ -154,7 +154,9 @@ export function NotALMApp() {
   }, [refreshStatus]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
   async function callChat(
@@ -316,7 +318,7 @@ export function NotALMApp() {
   }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden">
+    <div className="relative flex h-dvh max-h-dvh flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-mesh" aria-hidden />
       <div
         className="pointer-events-none absolute -top-32 right-0 h-96 w-96 rounded-full bg-[radial-gradient(circle,var(--nalm-glow)_0%,transparent_70%)] opacity-70 blur-2xl"
@@ -327,8 +329,8 @@ export function NotALMApp() {
         aria-hidden
       />
 
-      <div className="relative mx-auto flex min-h-dvh max-w-6xl flex-col px-4 py-6 md:px-6 md:py-8">
-        <header className="mb-6 animate-in-fade md:mb-8">
+      <div className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 py-4 md:px-6 md:py-6">
+        <header className="mb-4 shrink-0 animate-in-fade md:mb-5">
           <p className="font-mono text-[11px] tracking-[0.22em] text-[var(--nalm-ink-mute)] uppercase">
             multilingual · chunk-kv · no generation
           </p>
@@ -388,9 +390,9 @@ export function NotALMApp() {
           </div>
         </header>
 
-        <div className="grid flex-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="flex min-h-[52vh] flex-col rounded-2xl border border-[var(--nalm-line)] bg-[var(--nalm-panel)]/80 shadow-[0_20px_60px_-40px_rgba(20,40,30,0.45)] backdrop-blur-md">
-            <div className="flex items-center justify-between gap-2 border-b border-[var(--nalm-line)] px-4 py-3">
+        <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1.2fr)_minmax(0,0.8fr)] gap-4 lg:grid-cols-[1.2fr_0.8fr] lg:grid-rows-1 lg:items-stretch">
+          <section className="flex min-h-0 flex-col rounded-2xl border border-[var(--nalm-line)] bg-[var(--nalm-panel)]/80 shadow-[0_20px_60px_-40px_rgba(20,40,30,0.45)] backdrop-blur-md lg:min-h-0">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--nalm-line)] px-4 py-3">
               <div className="flex items-center gap-2 text-sm text-[var(--nalm-ink-soft)]">
                 <Zap className="size-4 text-[var(--nalm-accent)]" />
                 会話面
@@ -429,7 +431,10 @@ export function NotALMApp() {
               </div>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            <div
+              ref={chatScrollRef}
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
+            >
               {!ready && (
                 <div className="flex items-center gap-2 text-sm text-[var(--nalm-ink-mute)]">
                   <Loader2 className="size-4 animate-spin" />
@@ -489,10 +494,9 @@ export function NotALMApp() {
                   近傍探索中…
                 </div>
               )}
-              <div ref={bottomRef} />
             </div>
 
-            <div className="border-t border-[var(--nalm-line)] p-3">
+            <div className="shrink-0 border-t border-[var(--nalm-line)] p-3">
               {error && (
                 <p className="mb-2 text-xs text-red-700" role="alert">
                   {error}
@@ -508,15 +512,16 @@ export function NotALMApp() {
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="何か話しかけて（生成はしません）"
+                  placeholder="何か話しかけて（Ctrl+Enter で送信）"
                   rows={2}
                   disabled={!ready || busy}
                   className="min-h-[52px] resize-none bg-white/70"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void send(input);
-                    }
+                    if (e.key !== "Enter") return;
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    if (!e.ctrlKey && !e.metaKey) return;
+                    e.preventDefault();
+                    void send(input);
                   }}
                 />
                 <Button
@@ -530,8 +535,8 @@ export function NotALMApp() {
             </div>
           </section>
 
-          <aside className="flex min-h-[40vh] flex-col rounded-2xl border border-[var(--nalm-line)] bg-[var(--nalm-panel)]/70 backdrop-blur-md">
-            <div className="border-b border-[var(--nalm-line)] px-4 py-3">
+          <aside className="flex min-h-0 flex-col rounded-2xl border border-[var(--nalm-line)] bg-[var(--nalm-panel)]/70 backdrop-blur-md lg:min-h-0">
+            <div className="shrink-0 border-b border-[var(--nalm-line)] px-4 py-3">
               <div className="flex items-center gap-2 text-sm text-[var(--nalm-ink-soft)]">
                 <Sparkles className="size-4 text-[var(--nalm-accent)]" />
                 チャンクKVトレース
@@ -551,7 +556,7 @@ export function NotALMApp() {
               )}
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
               {traces.length === 0 ? (
                 <p className="text-sm text-[var(--nalm-ink-mute)]">
                   まだトレースなし。会話すると類似度ランキングが流れる。
@@ -814,7 +819,7 @@ export function NotALMApp() {
               )}
             </div>
 
-            <div className="border-t border-[var(--nalm-line)] p-4 text-xs leading-relaxed text-[var(--nalm-ink-mute)]">
+            <div className="shrink-0 border-t border-[var(--nalm-line)] p-4 text-xs leading-relaxed text-[var(--nalm-ink-mute)]">
               埋め込みは{" "}
               <a
                 className="underline decoration-[var(--nalm-accent)] underline-offset-2 hover:text-[var(--nalm-ink)]"
@@ -829,7 +834,7 @@ export function NotALMApp() {
           </aside>
         </div>
 
-        <footer className="mt-6 flex flex-col gap-1 text-[11px] text-[var(--nalm-ink-mute)] md:flex-row md:items-center md:justify-between">
+        <footer className="mt-3 hidden shrink-0 flex-col gap-1 text-[11px] text-[var(--nalm-ink-mute)] md:mt-4 md:flex md:flex-row md:items-center md:justify-between">
           <span>
             親戚: retrieval-only chatbot / response selection / kNN-LM / RETRO /
             Memory Networks
