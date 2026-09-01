@@ -48,6 +48,7 @@ import {
   mergeDualRetrieval,
   searchSpanIndex,
   SPAN_AUTHOR_MIN_COS,
+  topicRescueClaims,
   type SpanIndexEntry,
 } from "./span-index";
 import type {
@@ -102,6 +103,8 @@ const GATE_CANDIDATES = 3;
  * from out-of-corpus (~0) far better than natural keys do.
  */
 const GATE_MIN_SCORE = 0.03;
+/** CE reroute: swap chosen when a gate candidate wins by at least this margin. */
+const GATE_REROUTE_MARGIN = 0.25;
 /**
  * Cosine "rescue" against reranker false-refusals: if the gate would refuse but
  * the ranking top-1's raw bi-encoder cosine is at least this high, the nearest
@@ -290,37 +293,85 @@ export class ChunkKVEngine {
     return scored.slice(0, limit);
   }
 
+  private indexedChunkRecord(
+    row: ChunkRecord & { embedding: Float32Array },
+  ): ChunkRecord {
+    const { embedding: _e, ...chunk } = row;
+    return chunk;
+  }
+
   /**
-   * Stage 2 (gate only): score the top bi-encoder candidates' KEYWORD keys with
-   * the cross-encoder and return the max as a confidence signal. Ranking is not
-   * changed — the bi-encoder over natural keys already ranks best (the reranker
-   * does not improve ranking on this corpus); the cross-encoder is used only to
-   * decide whether anything is a close enough match. Also annotates each scored
-   * hit with its rerankScore for the trace.
+   * Stage 2 (gate): score keyword keys with the cross-encoder. Optionally
+   * reroute `chosen` when a topic-rescue candidate (e.g. help-1 on「何ができる」)
+   * clearly beats the bi-encoder top-1 on CE.
    */
   private async gateConfidence(
     query: string,
     keyHits: MatchHit[],
-    chosen?: MatchHit,
-  ): Promise<number> {
-    const top = keyHits.slice(0, GATE_CANDIDATES);
-    const candidates = [...top];
-    if (
-      chosen &&
-      !candidates.some((h) => h.chunk.id === chosen.chunk.id)
-    ) {
-      candidates.push(chosen);
+    chosen: MatchHit,
+    lang: Lang,
+  ): Promise<{ topScore: number; chosen: MatchHit; rerouted: boolean }> {
+    const candidates: MatchHit[] = keyHits.slice(0, GATE_CANDIDATES).map((h) => ({
+      ...h,
+    }));
+    const seen = new Set(candidates.map((h) => h.chunk.id));
+
+    const addCandidate = (hit: MatchHit) => {
+      if (seen.has(hit.chunk.id)) return;
+      candidates.push(hit);
+      seen.add(hit.chunk.id);
+    };
+
+    addCandidate({ ...chosen });
+
+    for (const claim of topicRescueClaims(query)) {
+      const row = this.index.find(
+        (c) => c.claim === claim && c.lang === lang && c.speaker === "bot",
+      );
+      if (!row) continue;
+      addCandidate({
+        chunk: this.indexedChunkRecord(row),
+        score: 0,
+      });
     }
+
     const scores = await rerankScores(
       query,
       candidates.map((h) => h.chunk.key),
     );
-    candidates.forEach((h, i) => (h.rerankScore = scores[i]));
-    top.forEach((h) => {
+    let bestIdx = 0;
+    let bestScore = scores[0] ?? 0;
+    candidates.forEach((h, i) => {
+      h.rerankScore = scores[i];
+      if ((scores[i] ?? 0) > bestScore) {
+        bestScore = scores[i] ?? 0;
+        bestIdx = i;
+      }
+    });
+
+    keyHits.slice(0, GATE_CANDIDATES).forEach((h) => {
       const idx = candidates.findIndex((c) => c.chunk.id === h.chunk.id);
       if (idx >= 0) h.rerankScore = scores[idx];
     });
-    return scores.length ? Math.max(...scores) : 0;
+
+    const chosenIdx = candidates.findIndex((c) => c.chunk.id === chosen.chunk.id);
+    const chosenScore = chosenIdx >= 0 ? (scores[chosenIdx] ?? 0) : 0;
+    let rerouted = false;
+    if (
+      bestScore >= GATE_MIN_SCORE &&
+      bestIdx !== chosenIdx &&
+      bestScore >= chosenScore + GATE_REROUTE_MARGIN
+    ) {
+      chosen = {
+        ...candidates[bestIdx],
+        score: candidates[bestIdx].score || chosen.score,
+      };
+      rerouted = true;
+    } else if (chosenIdx >= 0) {
+      chosen = { ...chosen, rerankScore: chosenScore };
+    }
+
+    return { topScore: bestScore, chosen, rerouted };
   }
 
   /** Number of distinct meaningful segments in a (possibly compound) query. */
@@ -670,7 +721,8 @@ export class ChunkKVEngine {
     let topRerankScore: number | undefined;
     let lowConfidence = false;
     let rescued = false;
-    const spanGateBypass =
+    let gateRerouted = false;
+    let spanGateBypass =
       retrievalSource === "span" &&
       matchedSpanKind === "author" &&
       (spanScore ?? 0) >= SPAN_AUTHOR_MIN_COS;
@@ -678,11 +730,20 @@ export class ChunkKVEngine {
     if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
       try {
         // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
-        topRerankScore = await this.gateConfidence(
+        const gate = await this.gateConfidence(
           gateQuery,
           keyHitsForGate,
           chosen,
+          queryLang,
         );
+        topRerankScore = gate.topScore;
+        chosen = gate.chosen;
+        gateRerouted = gate.rerouted;
+        if (gateRerouted) {
+          debugNotes.push(`gate:reroute=${chosen.chunk.claim}`);
+          spanGateBypass = false;
+          retrievalSource = "natKey";
+        }
         gated = true;
       } catch {
         /* gate unavailable: fall through without refusing */

@@ -112,6 +112,24 @@ export function queryWantsEmbeddingConcept(query: string): boolean {
   );
 }
 
+/** True when the user asks about capabilities / how to use the demo. */
+export function queryWantsHelp(query: string): boolean {
+  const q = query.trim();
+  if (!q) return false;
+  return /使い方|ヘルプ|how to use|help|怎么用|何ができる|能做什么|what can you do/i.test(
+    q,
+  );
+}
+
+/**
+ * Claims to inject into the CE gate pool when the query clearly targets a topic
+ * but bi-encoder nat-key ranking under-ranks the best keyword-key match.
+ */
+export function topicRescueClaims(query: string): string[] {
+  if (queryWantsHelp(query)) return ["help-1", "help-2"];
+  return [];
+}
+
 export function buildSpanIndexManifest(
   chunks: ChunkRecord[],
 ): Omit<SpanIndexEntry, "embedding">[] {
@@ -214,6 +232,7 @@ export function mergeDualRetrieval(
 
   const wantsPipeline = queryWantsMechanismPipeline(queryText);
   const wantsConcept = queryWantsEmbeddingConcept(queryText);
+  const wantsHelp = queryWantsHelp(queryText);
 
   type Ranked = {
     chunk: ChunkRecord;
@@ -278,6 +297,13 @@ export function mergeDualRetrieval(
     if (wantsPipeline && chunk.claim === "mech-2") claimAdjust -= 0.12;
     if (wantsConcept && chunk.claim === "mech-2") claimAdjust += 0.1;
     if (wantsConcept && chunk.claim === "mech-1") claimAdjust -= 0.08;
+    if (wantsHelp && (chunk.claim === "help-1" || chunk.claim === "help-2")) {
+      claimAdjust += 0.12;
+    }
+    if (wantsHelp && /^code-/.test(chunk.claim)) {
+      claimAdjust -= 0.1;
+      spanContribution = 0;
+    }
 
     const bestSpanHit =
       authorHit && (!autoHit || authorHit.score >= autoHit.score)
@@ -308,7 +334,7 @@ export function mergeDualRetrieval(
   }
 
   const keyWinnerId = keyOnlyTop?.chunk.id;
-  const spanDriven =
+  let spanDriven =
     winner.spanHit != null &&
     winner.spanScore >= SPAN_AUTHOR_MIN_COS &&
     winner.finalScore > keyTopScore + 0.01 &&
@@ -318,6 +344,9 @@ export function mergeDualRetrieval(
         SPAN_AUTHOR_MIN_COS + 0.05 ||
       (winner.spanHit?.entry.kind === "key-span" &&
         winner.spanScore >= SPAN_AUTHOR_RESCUE));
+  if (wantsHelp && /^code-/.test(winner.chunk.claim)) {
+    spanDriven = false;
+  }
 
   const chosen: MatchHit = {
     chunk: winner.chunk,
