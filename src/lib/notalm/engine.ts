@@ -44,6 +44,10 @@ import {
   selectBestPlan,
 } from "./plan";
 import {
+  previewCompoundSegments,
+  segmentCandidates,
+} from "./segment";
+import {
   buildSpanIndexManifest,
   KEY_POOL,
   mergeDualRetrieval,
@@ -121,36 +125,6 @@ const RESCUE_COS = 0.7;
  * High threshold so fusion only fires for genuinely compound/broad questions.
  */
 const FUSE_MIN = 0.5;
-/** Split a compound query into segments on conjunction markers. */
-function segmentQuery(text: string, lang: Lang): string[] {
-  const sep =
-    lang === "en"
-      ? /\s+and\s+|,/i
-      : // ja: bare と is a conjunction, but とは/という/として/… are not.
-        /[、，]|と(?!は|いう|して|でも|なり)|や|および|また|和|与|以及|还有/;
-  return text
-    .split(sep)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-/** Trim trailing request phrases/particles so an extracted segment reads as a topic. */
-function cleanSegment(seg: string, lang: Lang): string {
-  let s = seg.trim();
-  if (lang === "ja") {
-    s = s
-      .replace(/(を)?(教えて|おしえて)$/u, "")
-      .replace(/について$/u, "")
-      .replace(/[はをのとや、。．？！\s]+$/u, "");
-  } else if (lang === "zh") {
-    s = s.replace(/(是什么|呢|吗)?[？。！，、\s]*$/u, "");
-  } else {
-    s = s
-      .replace(/^(tell me about|what about|and)\s+/i, "")
-      .replace(/[?.!\s]+$/u, "");
-  }
-  return s.trim();
-}
 
 /**
  * Fluent topic connector / stripLeadingFiller / polarity openers live in plan.ts
@@ -379,38 +353,20 @@ export class ChunkKVEngine {
     return { topScore: bestScore, chosen, rerouted };
   }
 
-  /** Number of distinct meaningful segments in a (possibly compound) query. */
+  /** Distinct segments chosen for fusion (sync preview; rescored in fuseCompound). */
   private compoundSegments(query: string, lang: Lang): string[] {
-    return [
-      ...new Set(
-        segmentQuery(query, lang)
-          .map((s) => cleanSegment(s, lang))
-          .filter((s) => s.length >= 2),
-      ),
-    ];
+    return previewCompoundSegments(query, lang);
   }
 
-  /**
-   * Fusion matching: segment → distinct chunks. Returns OperationPlan via
-   * planFuseParts (G5), or null if fusion should not fire.
-   * Also returns per-part rerank scores for G5d plan scoring.
-   */
-  private async fuseCompound(
-    query: string,
-    queryVec: Float32Array,
-    lang: Lang,
-    continuity?: ContinuityHint,
+  /** Bipartite segment→chunk matching for one partition candidate. */
+  private async fuseMatchPartition(
+    segments: string[],
+    cands: MatchHit[],
   ): Promise<{
-    plan: OperationPlan;
     parts: { seg: string; chunk: ChunkRecord; score: number }[];
-    nliLabel?: string;
-    nliScore?: number;
+    totalScore: number;
   } | null> {
-    const segments = this.compoundSegments(query, lang);
-    if (segments.length < 2) return null;
-
-    const cands = this.search(queryVec, "bot", lang, 12, continuity);
-    if (cands.length < 2) return null;
+    if (segments.length < 2 || cands.length < 2) return null;
 
     const rr: number[][] = [];
     for (let i = 0; i < segments.length; i++) {
@@ -445,13 +401,65 @@ export class ChunkKVEngine {
       });
     }
     if (parts.length < 2) return null;
-
-    // Over-split: multiple segments matched one chunk → single path (full KEEP).
     if (new Set(parts.map((p) => p.chunk.id)).size < 2) return null;
 
-    const planned = await planFuseParts(parts, lang);
+    const totalScore = parts.reduce((sum, p) => sum + p.score, 0);
+    return { parts, totalScore };
+  }
+
+  /**
+   * Fusion matching: segment → distinct chunks. Returns OperationPlan via
+   * planFuseParts (G5), or null if fusion should not fire.
+   * Also returns per-part rerank scores for G5d plan scoring.
+   */
+  private async fuseCompound(
+    query: string,
+    queryVec: Float32Array,
+    lang: Lang,
+    continuity?: ContinuityHint,
+  ): Promise<{
+    plan: OperationPlan;
+    parts: { seg: string; chunk: ChunkRecord; score: number }[];
+    segments: string[];
+    nliLabel?: string;
+    nliScore?: number;
+  } | null> {
+    const cands = this.search(queryVec, "bot", lang, 12, continuity);
+    if (cands.length < 2) return null;
+
+    const partitions = segmentCandidates(query, lang);
+    let bestMatch: {
+      parts: { seg: string; chunk: ChunkRecord; score: number }[];
+      totalScore: number;
+    } | null = null;
+    let bestSegments: string[] = [];
+
+    for (const segments of partitions) {
+      if (segments.length < 2) continue;
+      const matched = await this.fuseMatchPartition(segments, cands);
+      if (!matched) continue;
+      if (
+        !bestMatch ||
+        matched.totalScore > bestMatch.totalScore ||
+        (matched.totalScore === bestMatch.totalScore &&
+          segments.length < bestSegments.length)
+      ) {
+        bestMatch = matched;
+        bestSegments = segments;
+      }
+    }
+
+    if (!bestMatch) return null;
+
+    const planned = await planFuseParts(bestMatch.parts, lang);
     if (!planned) return null;
-    return { plan: planned.plan, parts, nliLabel: planned.nliLabel, nliScore: planned.nliScore };
+    return {
+      plan: planned.plan,
+      parts: bestMatch.parts,
+      segments: bestSegments,
+      nliLabel: planned.nliLabel,
+      nliScore: planned.nliScore,
+    };
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -540,6 +548,7 @@ export class ChunkKVEngine {
       planningUser || rawUser,
       queryLang,
     );
+    let compoundSegsResolved = compoundSegsEarly;
 
     const buildDebugBase = (extra: Partial<TraceDebug> = {}): TraceDebug => {
       const notes = [...debugNotes, ...(extra.notes ?? [])];
@@ -550,7 +559,7 @@ export class ChunkKVEngine {
         preferSpeaker,
         useGrounded,
         anaphora,
-        compoundSegments: compoundSegsEarly,
+        compoundSegments: compoundSegsResolved,
         proximalFocus: proximalFocus
           ? {
               chunkId: proximalFocus.chunkId,
@@ -863,6 +872,7 @@ export class ChunkKVEngine {
       const candidates: PlanCandidate[] = [];
       let fusedMeta: {
         parts: { seg: string; chunk: ChunkRecord; score: number }[];
+        segments: string[];
         nliLabel?: string;
         nliScore?: number;
       } | null = null;
@@ -889,9 +899,11 @@ export class ChunkKVEngine {
           });
           fusedMeta = {
             parts: fused.parts,
+            segments: fused.segments,
             nliLabel: fused.nliLabel,
             nliScore: fused.nliScore,
           };
+          compoundSegsResolved = fused.segments;
         } else {
           debugNotes.push("fuse:null");
         }

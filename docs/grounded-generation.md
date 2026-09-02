@@ -39,10 +39,12 @@
 
 ## 融合（fusion, v3）
 
-1. クエリを接続詞（ja「と」「、」/ en `and`,`,` / zh「和」「与」「以及」等）で**セグメント分割**（`compoundSegments`）。2つ未満なら融合しない。
-2. フルクエリの bi-encoder ランキング（広窓 top-12）を候補プールにする。
+1. クエリを**分割候補**（全文 / 文境界 / 明示的並列接続詞）で列挙し、各候補について cross-encoder 二部マッチングの合計スコアが最大の分割を採用（`segmentCandidates` → `fuseMatchPartition`）。2つ未満の seg、または distinct chunk が取れなければ融合しない。
+2. フルクエリの bi-encoder ランキング（広窓 top-12）を候補プールにする（分解は rerank 段のみ — semantic dilution 回避）。
 3. **各(セグメント × 候補)を cross-encoder で採点**（焦点の絞れたセグメントをクエリにするのでスコアが言語頑健。薄まった複合クエリや bi-encoder cosine は誤対応しやすい）。`FUSE_MIN=0.5` 以上のペアで**貪欲な二部マッチング**（各セグメントを異なるチャンクへ）。
 4. マッチした2つ以上をクエリ順に並べ、各非先頭パートを**入力から抽出した当該セグメント**で「{話題}については、／As for {topic}, ／至于{topic}，」と流暢に前置（助詞/前置詞のみ閉じた糊）。トレースに `fusedWith`。**G4.1**: 各パートに spans があるとき G4a compose で部分 KEEP（`trace.fuseParts` / `fusedCompose` — [`grounded-generation-g4.md`](grounded-generation-g4.md)）。
+
+**分割（v3.1）**: ja の裸 `や` は接続詞 split から除外（`どうやって` 過分割防止）。複数疑問は `？` / `?` / `。` で文境界 split を候補に含める。実装: `src/lib/notalm/segment.ts`。
 
 例（3言語とも流暢に接続）：
 - ja「動作原理と既存の似た手法は？」→「…「次のセリフ」。**既存の似た手法については、**あるよ。retrieval-only chatbot…」
