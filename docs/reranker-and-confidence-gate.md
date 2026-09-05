@@ -28,7 +28,7 @@
 ### 重要な実装上の落とし穴（実機で判明）
 
 - **量子化**: リランカーは **q8 デフォルト**（~280MB ONNX、挙動は fp32 と同等 — [`reranker-model-selection.md`](reranker-model-selection.md)）。`RERANK_DTYPE=fp32` で ~1.1GB に戻せる。fp16 は CPU 非対応でロード失敗。
-- **バッチ＋パディングも不可**: 複数候補を1バッチで採点すると、パディングが相互にスコアを歪め、バッチ構成次第で同一ペアのスコアが変わる。→ **1ペアずつ（バッチサイズ1）で採点**して決定的にする。候補数は `RERANK_CANDIDATES=10` に抑え、逐次フォワードのレイテンシを許容範囲に保つ。
+- **バッチ＋パディング**: Transformers.js / ONNX では **dtype 依存**。fp32 は pad-to-longest + attention_mask で単独と一致するが、**現行デフォルト q8 はパッドだけで点が動く**ため逐次のまま。詳細は [`reranker-batching.md`](reranker-batching.md)。`RERANK_BATCH=1` + `RERANK_DTYPE=fp32` で実験可。CPU では fp32 バッチが q8 逐次より遅いため、RTT 目的の既定にはしない。
 
 ## 信頼度ゲート（graceful refusal）
 
