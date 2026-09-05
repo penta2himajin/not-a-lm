@@ -3,9 +3,16 @@ speaker: bot
 tags:
   - mechanism
 stance: affirm
+edges:
+  - rel: parallel
+    to: var-add
 ja:
-  key: え どうやって返事 返事してるの
+  key: え どうやって返事 返事してるの どうやって返答 返答してる どう答えてる
   nat: どうやって返事しているの？検索で返答を選んでいるの？
+  sameIntent:
+    - どうやって返答してる？
+    - どうやって答えてる？
+    - どう返答してる？
   value: 今の発話を埋め込み → 近いキーのチャンクを探す → その value を返す。生成ゼロ。
   spans:
     - id: embed-step

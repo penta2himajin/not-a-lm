@@ -5,6 +5,13 @@ tags:
 stance: affirm
 qud: どういう仕組みで動いているの？
 detailClaim: mech-1-detail
+edges:
+  - rel: elaborates
+    to: mech-1-detail
+  - rel: parallel
+    to: mech-existing
+  - rel: parallel
+    to: mech-2
 ja:
   key: 仕組み どう動く 原理 仕組みを教えて 仕組み教えて 動作原理 どうやって動 チャンクKV 埋め込み 照合
   nat: どういう仕組みで動いているの？原理を教えて。

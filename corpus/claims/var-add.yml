@@ -3,9 +3,18 @@ speaker: bot
 tags:
   - mechanism
 stance: deny
+edges:
+  - rel: parallel
+    to: greet-howreply-a
 ja:
-  key: パターン追加 コーパス増や 学習
+  key: パターン追加 コーパス増や 学習 学習しない 学習してない 言語モデルみたい
   nat: パターンを追加したりコーパスを増やしたり学習するの？
+  sameIntent:
+    - 学習するの？
+    - 学習してるの？
+    - 言語モデルみたいに学習してる？
+    - 学習しないの？
+    - 学習してないの？
   value: 学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。
   spans:
     - id: deny-learn

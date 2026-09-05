@@ -3,13 +3,16 @@ speaker: bot
 tags:
   - help
 qud: 何ができるの？
+edges:
+  - rel: parallel
+    to: help-1
+  - rel: contrasts
+    to: limit-1
 ja:
   key: 何ができる 例文 サンプル 何話せば できること
   nat: 例文やサンプルは？何を話せばいい？
   sameIntent:
     - 何ができるの？
-    - 使い方は？
-    - どう使えばいい？
     - ヘルプ
     - 例を見せて
   value: "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」"

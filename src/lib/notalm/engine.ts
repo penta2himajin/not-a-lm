@@ -1,4 +1,13 @@
-import { CHUNK_CORPUS } from "./corpus";
+import { CHUNK_CORPUS, CORPUS_CLAIMS } from "./corpus";
+import {
+  buildClaimEdgeIndex,
+  elaboratesSatellite,
+  fusePairBonus,
+  orderPartsByNuclearity,
+  relationBetween,
+  retrievalEdgeBonus,
+  type ClaimEdgeIndex,
+} from "./topic-edges";
 import {
   DENSE_MODEL_ID,
   cosine,
@@ -135,6 +144,7 @@ export class ChunkKVEngine {
   private spanIndex: SpanIndexEntry[] = [];
   private backend: EmbedBackend = "hash";
   private usedIds = new Set<string>();
+  private edgeIndex: ClaimEdgeIndex = buildClaimEdgeIndex(CORPUS_CLAIMS);
   private initPromise: Promise<void> | null = null;
 
   get status(): EngineStatus {
@@ -242,11 +252,17 @@ export class ChunkKVEngine {
       // Hard filter: reply in the same language as the query
       if (lang && chunk.lang !== lang) continue;
       const raw = cosine(queryVec, chunk.embedding);
-      const { score } = adjustScoreForContinuity(
+      const adjusted = adjustScoreForContinuity(
         raw,
         chunk,
         this.usedIds,
         continuity,
+      );
+      let score = adjusted.score;
+      score += retrievalEdgeBonus(
+        this.edgeIndex,
+        continuity?.claim,
+        chunk.claim,
       );
       scored.push({
         chunk: {
@@ -358,6 +374,133 @@ export class ChunkKVEngine {
     return previewCompoundSegments(query, lang);
   }
 
+
+  /**
+   * S3: when bipartite fuse misses, try an edge-anchored pair from the
+   * current single winner + a static-edge neighbor for the other segment.
+   */
+  private async fuseEdgeAnchoredFallback(
+    query: string,
+    anchor: ChunkRecord,
+    lang: Lang,
+  ): Promise<{
+    plan: OperationPlan;
+    parts: { seg: string; chunk: ChunkRecord; score: number }[];
+    segments: string[];
+    nliLabel?: string;
+    nliScore?: number;
+  } | null> {
+    const claim = anchor.claim?.trim();
+    if (!claim) return null;
+    const segments = this.compoundSegments(query, lang);
+    if (segments.length < 2) return null;
+    const neighborClaims = new Set<string>();
+    for (const edge of this.edgeIndex.byClaim.get(claim) ?? []) {
+      const other = edge.from === claim ? edge.to : edge.from;
+      if (other) neighborClaims.add(other);
+    }
+    if (neighborClaims.size === 0) return null;
+
+    const neighborRows = [...neighborClaims]
+      .map((id) =>
+        this.index.find(
+          (c) => c.claim === id && c.lang === lang && c.speaker === "bot",
+        ),
+      )
+      .filter((r): r is IndexedChunk => Boolean(r))
+      .map((r) => this.indexedChunkRecord(r));
+    if (neighborRows.length === 0) return null;
+
+    const floor = FUSE_MIN - 0.12;
+    const keys = [anchor.key, ...neighborRows.map((n) => n.key)];
+    const scores0 = await rerankScores(segments[0], keys);
+    const scores1 = await rerankScores(segments[1], keys);
+    type Cand = { parts: { seg: string; chunk: ChunkRecord; score: number }[]; sum: number };
+    const cands: Cand[] = [];
+    // anchor→seg0, neighbor→seg1
+    for (let j = 0; j < neighborRows.length; j++) {
+      const a0 = scores0[0] ?? 0;
+      const n1 = scores1[j + 1] ?? 0;
+      if (a0 >= floor && n1 >= floor) {
+        cands.push({
+          sum: a0 + n1,
+          parts: [
+            { seg: segments[0], chunk: anchor, score: a0 },
+            { seg: segments[1], chunk: neighborRows[j], score: n1 },
+          ],
+        });
+      }
+    }
+    // neighbor→seg0, anchor→seg1 (order may flip for nuclearity later)
+    for (let j = 0; j < neighborRows.length; j++) {
+      const n0 = scores0[j + 1] ?? 0;
+      const a1 = scores1[0] ?? 0;
+      if (n0 >= floor && a1 >= floor) {
+        cands.push({
+          sum: n0 + a1,
+          parts: [
+            { seg: segments[0], chunk: neighborRows[j], score: n0 },
+            { seg: segments[1], chunk: anchor, score: a1 },
+          ],
+        });
+      }
+    }
+    cands.sort((a, b) => b.sum - a.sum);
+    for (const cand of cands) {
+      const ordered = orderPartsByNuclearity(cand.parts, this.edgeIndex);
+      const planned = await planFuseParts(ordered.parts, lang);
+      if (!planned) continue;
+      planned.plan.reasons = [
+        `s3:edge-anchored-fallback:${ordered.parts.map((p) => p.chunk.claim).join("↔")}`,
+        ...ordered.notes,
+        ...planned.plan.reasons,
+      ];
+      return {
+        plan: planned.plan,
+        parts: ordered.parts,
+        segments,
+        nliLabel: planned.nliLabel,
+        nliScore: planned.nliScore,
+      };
+    }
+    return null;
+  }
+
+  /**
+   * S3: expand fuse candidate pool with static-edge neighbors of top hits.
+   * Soft recall only — CE still decides the assignment.
+   */
+  private enrichFuseCandidatesWithEdges(
+    cands: MatchHit[],
+    lang: Lang,
+  ): MatchHit[] {
+    const have = new Set(
+      cands.map((c) => c.chunk.claim).filter((x): x is string => Boolean(x)),
+    );
+    const out = cands.slice();
+    for (const hit of cands.slice(0, 6)) {
+      const claim = hit.chunk.claim?.trim();
+      if (!claim) continue;
+      for (const edge of this.edgeIndex.byClaim.get(claim) ?? []) {
+        const other = edge.from === claim ? edge.to : edge.from;
+        if (!other || have.has(other)) continue;
+        const row = this.index.find(
+          (c) =>
+            c.claim === other &&
+            c.lang === lang &&
+            c.speaker === "bot",
+        );
+        if (!row) continue;
+        have.add(other);
+        out.push({
+          chunk: this.indexedChunkRecord(row),
+          score: hit.score * 0.85,
+        });
+      }
+    }
+    return out;
+  }
+
   /** Bipartite segment→chunk matching for one partition candidate. */
   private async fuseMatchPartition(
     segments: string[],
@@ -372,7 +515,63 @@ export class ChunkKVEngine {
     for (let i = 0; i < segments.length; i++) {
       rr.push(await rerankScores(segments[i], cands.map((c) => c.chunk.key)));
     }
+    // Soft dampen off-topic social/help claims on identity/mechanism segments.
+    const helpSeg = (seg: string) =>
+      /使い方|ヘルプ|例|できること|サンプル|help|how to use|what can you/i.test(
+        seg,
+      );
+    const greetSeg = (seg: string) =>
+      /こんにちは|やあ|hello|hi|おはよう|挨拶/i.test(seg);
+    for (let i = 0; i < segments.length; i++) {
+      for (let j = 0; j < cands.length; j++) {
+        const tags = cands[j].chunk.tags ?? [];
+        const claim = cands[j].chunk.claim ?? "";
+        if (
+          !helpSeg(segments[i]) &&
+          (tags.includes("help") || claim.startsWith("help-"))
+        ) {
+          rr[i][j] *= 0.45;
+        }
+        if (
+          !greetSeg(segments[i]) &&
+          (tags.includes("greeting") ||
+            claim.startsWith("greet-") ||
+            claim.startsWith("var-hello"))
+        ) {
+          rr[i][j] *= 0.4;
+        }
+      }
+    }
     const pairs: { i: number; j: number; s: number }[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
+    }
+    // S3: soft bonus when a candidate claim is statically edged to another
+    // candidate that scores well on a different segment (prefer authored pairs).
+    for (let i = 0; i < segments.length; i++) {
+      for (let j = 0; j < cands.length; j++) {
+        const cj = cands[j].chunk.claim;
+        if (!cj) continue;
+        let bestLink = 0;
+        for (let i2 = 0; i2 < segments.length; i2++) {
+          if (i2 === i) continue;
+          for (let j2 = 0; j2 < cands.length; j2++) {
+            if (j2 === j) continue;
+            const bonus = fusePairBonus(
+              this.edgeIndex,
+              cj,
+              cands[j2].chunk.claim,
+            );
+            if (bonus > 0 && rr[i2][j2] >= FUSE_MIN) {
+              bestLink = Math.max(bestLink, bonus);
+            }
+          }
+        }
+        if (bestLink > 0) rr[i][j] += bestLink;
+      }
+    }
+    // rebuild pairs with boosted scores
+    pairs.length = 0;
     for (let i = 0; i < segments.length; i++) {
       for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
     }
@@ -424,7 +623,10 @@ export class ChunkKVEngine {
     nliLabel?: string;
     nliScore?: number;
   } | null> {
-    const cands = this.search(queryVec, "bot", lang, 12, continuity);
+    const cands = this.enrichFuseCandidatesWithEdges(
+      this.search(queryVec, "bot", lang, 12, continuity),
+      lang,
+    );
     if (cands.length < 2) return null;
 
     const partitions = segmentCandidates(query, lang);
@@ -451,11 +653,15 @@ export class ChunkKVEngine {
 
     if (!bestMatch) return null;
 
-    const planned = await planFuseParts(bestMatch.parts, lang);
+    const ordered = orderPartsByNuclearity(bestMatch.parts, this.edgeIndex);
+    const planned = await planFuseParts(ordered.parts, lang);
     if (!planned) return null;
+    if (ordered.notes.length) {
+      planned.plan.reasons = [...ordered.notes, ...planned.plan.reasons];
+    }
     return {
       plan: planned.plan,
-      parts: bestMatch.parts,
+      parts: ordered.parts,
       segments: bestSegments,
       nliLabel: planned.nliLabel,
       nliScore: planned.nliScore,
@@ -555,6 +761,9 @@ export class ChunkKVEngine {
       const intentional: string[] = [];
       if (proximalFocus?.claim) intentional.push(`focus-claim:${proximalFocus.claim}`);
       if (continuity?.claim) intentional.push(`continuity-claim:${continuity.claim}`);
+      for (const n of notes) {
+        if (n.startsWith("s3:")) intentional.push(n);
+      }
       const attentional: string[] = [`anaphora:${anaphora}`];
       if (proximalFocus) attentional.push("proximal-focus-ref");
       if (continuity) attentional.push("continuity-applied");
@@ -753,9 +962,11 @@ export class ChunkKVEngine {
         (c) => c.id === priorGroundingEarly.chunkId,
       );
       if (priorRow) {
-        // S2: prefer authored detailClaim (copy-only) when present.
+        // S2/S3: prefer authored detailClaim, else elaborates satellite (copy-only).
         let pinRow = priorRow;
-        const detailId = priorRow.detailClaim?.trim();
+        const detailId =
+          priorRow.detailClaim?.trim() ||
+          elaboratesSatellite(this.edgeIndex, priorRow.claim);
         if (detailId) {
           const detailRow = this.index.find(
             (c) =>
@@ -941,15 +1152,53 @@ export class ChunkKVEngine {
               nliEntail: fused.nliScore,
             }),
           });
-          fusedMeta = {
-            parts: fused.parts,
-            segments: fused.segments,
-            nliLabel: fused.nliLabel,
-            nliScore: fused.nliScore,
-          };
+          const edgeNotes: string[] = [];
+            if (fused.parts.length >= 2) {
+              const ca = fused.parts[0].chunk.claim;
+              const cb = fused.parts[1].chunk.claim;
+              const rel = relationBetween(this.edgeIndex, ca, cb);
+              if (rel) edgeNotes.push(`s3:static-edge:${rel}:${ca}↔${cb}`);
+            }
+            for (const n of edgeNotes) debugNotes.push(n);
+            fusedMeta = {
+              parts: fused.parts,
+              segments: fused.segments,
+              nliLabel: fused.nliLabel,
+              nliScore: fused.nliScore,
+            };
           compoundSegsResolved = fused.segments;
         } else {
           debugNotes.push("fuse:null");
+          const anchored = await this.fuseEdgeAnchoredFallback(
+            gateQuery,
+            chosen.chunk,
+            chosen.chunk.lang,
+          );
+          if (anchored) {
+            const meanRel =
+              anchored.parts.reduce((a, p) => a + p.score, 0) /
+              anchored.parts.length;
+            candidates.push({
+              id: "fuse",
+              plan: anchored.plan,
+              signals: planSignals(anchored.plan, {
+                relevance: meanRel,
+                nliEntail: anchored.nliScore,
+              }),
+            });
+            const ca = anchored.parts[0]?.chunk.claim;
+            const cb = anchored.parts[1]?.chunk.claim;
+            const rel = relationBetween(this.edgeIndex, ca, cb);
+            if (rel) debugNotes.push(`s3:static-edge:${rel}:${ca}↔${cb}`);
+            debugNotes.push("s3:edge-anchored-fallback");
+            fusedMeta = {
+              parts: anchored.parts,
+              segments: anchored.segments,
+              nliLabel: anchored.nliLabel,
+              nliScore: anchored.nliScore,
+            };
+            compoundSegsResolved = anchored.segments;
+          }
         }
       }
 

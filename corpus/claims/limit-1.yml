@@ -2,6 +2,9 @@ claim: limit-1
 speaker: bot
 tags:
   - limit
+edges:
+  - rel: contrasts
+    to: help-2
 ja:
   key: 知らない わからない 答えられない 無理
   nat: 知らないこと、わからないことには答えられる？

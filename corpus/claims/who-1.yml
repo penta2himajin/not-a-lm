@@ -3,9 +3,18 @@ speaker: bot
 tags:
   - identity
 stance: deny
+edges:
+  - rel: contrasts
+    to: greet-howreply-a
+  - rel: parallel
+    to: var-add
 ja:
-  key: あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ
+  key: あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ じゃない LLMじゃない
   nat: あなたは誰？あなたは言語モデル（LLM）なの？
+  sameIntent:
+    - 言語モデルじゃないの？
+    - LLMじゃないの？
+    - お前言語モデルだろ
   value: NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。
   spans:
     - id: name

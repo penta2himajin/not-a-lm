@@ -64,6 +64,7 @@ function chunkFromSurface(
     tags: claim.tags ?? [],
     qud: claim.qud,
     detailClaim: claim.detailClaim,
+    edges: claim.edges,
   };
 }
 
