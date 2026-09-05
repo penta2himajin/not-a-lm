@@ -63,6 +63,10 @@
 
 段階ごとの具体ルーブリックは、その段階の研究レビュー後に凍結し、本 SoT の該当節へ追記する。
 
+**自然さベースライン（pre-S2 固定）:**  
+[`fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json)  
+比較: `npm run eval:naturalness-vs-baseline`（手順は [`naturalness-llm-judge.md`](naturalness-llm-judge.md)）。
+
 ---
 
 ## 3. 各段階の共通手順（必須）

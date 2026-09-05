@@ -46,6 +46,29 @@ Fixture: [`fixtures/naturalness-judge/cases.json`](../fixtures/naturalness-judge
 4. 既定で **A/B を入れ替えた 2 パス**を取り、多数決で位置バイアスを緩和。
 5. `429` / JSON パース失敗時は無料フォールバックモデルへ順にリトライ。
 
+## ベースライン（pre-S2）
+
+コーパス改善（S2）前後比較用に、現行ライブ応答を凍結した。
+
+| 項目 | 値 |
+|------|-----|
+| ID | `naturalness-baseline-pre-s2` |
+| ファイル | [`fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json) |
+| 取得日 | 2026-09-05 |
+| Judge | `nvidia/nemotron-3-super-120b-a12b:free` |
+
+比較プロトコル（S2 [E]）:
+
+1. 同じ `user` / `history` で現行 API から再取得。
+2. pairwise **A = 新ライブ**, **B = 凍結 `liveReply`**。
+3. 期待: A 勝ちまたは tie（劣化なし）。改善は A 勝ち件数で測る。
+4. あわせて fixture judge / 硬い比較器も再実行可。
+
+```bash
+npm run eval:naturalness-vs-baseline
+npm run eval:naturalness-vs-baseline -- --out=/opt/cursor/artifacts/naturalness_vs_baseline_s2.json
+```
+
 ## 非目標
 
 - 接地・事実正誤の採点（別系統）。
