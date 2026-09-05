@@ -218,7 +218,7 @@
 
 ## 5. エージェント／作業者への指示
 
-1. 作業開始時に本 SoT と [`grounding-contract.md`](grounding-contract.md) を読む。  
+1. 作業開始時に本 SoT と [`grounding-contract.md`](grounding-contract.md)（接地契約）を読む。  
 2. 現在段階の状態が「未着手／R／D／I／E」のどれかを確認し、**前ゲートを飛ばさない**。  
 3. [R] では Web／論文で当該段階の **新しい研究も短い時間で当たる**。古典だけに固定しない。結果は `docs/research-reports/` に残す。  
 4. [D] の凍結内容を SoT 該節に書き込んでから実装する。  
