@@ -17,6 +17,11 @@ export type AuthorSurface = {
   key?: string;
   nat: string;
   value: string;
+  /**
+   * S2: closed paraphrase entries for the same QUD (no model rewrite).
+   * Indexed by appending onto natKey / key bags.
+   */
+  sameIntent?: string[];
   /** Optional: auto-split from value when omitted */
   spans?: AuthorSpan[];
   assertion?: string | string[];
@@ -27,6 +32,16 @@ export type AuthorClaim = {
   speaker: "user" | "bot";
   tags?: string[];
   stance?: "affirm" | "deny";
+  /**
+   * S2: representative question under discussion (QUD) for this claim.
+   * Documentation + audit; may match a primary nat.
+   */
+  qud?: string;
+  /**
+   * S2: claim id to copy on proximal elaboration follow-ups
+   * (詳しく / more detail / 详细). Must exist in the corpus.
+   */
+  detailClaim?: string;
   /** At least one language required; missing langs are not indexed */
   ja?: AuthorSurface;
   en?: AuthorSurface;
@@ -145,6 +160,20 @@ export function langsOfClaim(claim: AuthorClaim): Lang[] {
   return out;
 }
 
+function cleanSameIntent(list: string[] | undefined): string[] | undefined {
+  if (!list?.length) return undefined;
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of list) {
+    const s = raw?.trim();
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+    if (out.length >= 24) break;
+  }
+  return out.length ? out : undefined;
+}
+
 export function finalizeClaim(claim: AuthorClaim): AuthorClaim {
   const out: AuthorClaim = {
     claim: claim.claim,
@@ -152,8 +181,24 @@ export function finalizeClaim(claim: AuthorClaim): AuthorClaim {
     tags: claim.tags?.length ? claim.tags : ["untagged"],
     stance: claim.stance,
   };
-  if (claim.ja) out.ja = finalizeSurface(claim.ja, "ja");
-  if (claim.en) out.en = finalizeSurface(claim.en, "en");
-  if (claim.zh) out.zh = finalizeSurface(claim.zh, "zh");
+  const qud = claim.qud?.trim();
+  if (qud) out.qud = qud;
+  const detail = claim.detailClaim?.trim();
+  if (detail) out.detailClaim = detail;
+  if (claim.ja) {
+    out.ja = finalizeSurface(claim.ja, "ja");
+    const si = cleanSameIntent(claim.ja.sameIntent);
+    if (si) out.ja.sameIntent = si;
+  }
+  if (claim.en) {
+    out.en = finalizeSurface(claim.en, "en");
+    const si = cleanSameIntent(claim.en.sameIntent);
+    if (si) out.en.sameIntent = si;
+  }
+  if (claim.zh) {
+    out.zh = finalizeSurface(claim.zh, "zh");
+    const si = cleanSameIntent(claim.zh.sameIntent);
+    if (si) out.zh.sameIntent = si;
+  }
   return out;
 }

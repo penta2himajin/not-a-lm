@@ -753,12 +753,33 @@ export class ChunkKVEngine {
         (c) => c.id === priorGroundingEarly.chunkId,
       );
       if (priorRow) {
+        // S2: prefer authored detailClaim (copy-only) when present.
+        let pinRow = priorRow;
+        const detailId = priorRow.detailClaim?.trim();
+        if (detailId) {
+          const detailRow = this.index.find(
+            (c) =>
+              c.claim === detailId &&
+              c.lang === priorRow.lang &&
+              c.speaker === "bot",
+          );
+          if (detailRow) {
+            pinRow = detailRow;
+            debugNotes.push(
+              `proximal:elaboration-detail=${priorRow.claim}→${detailId}`,
+            );
+          } else {
+            debugNotes.push(
+              `proximal:elaboration-detail-missing=${detailId}`,
+            );
+          }
+        }
         chosen = {
-          chunk: this.indexedChunkRecord(priorRow),
+          chunk: this.indexedChunkRecord(pinRow),
           score: Math.max(chosen.score, 1),
         };
         elaborationPin = true;
-        debugNotes.push(`proximal:elaboration-pin=${priorRow.claim}`);
+        debugNotes.push(`proximal:elaboration-pin=${pinRow.claim}`);
       }
     }
 

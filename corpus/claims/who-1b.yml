@@ -2,9 +2,16 @@ claim: who-1b
 speaker: bot
 tags:
   - identity
+qud: 君は誰？
 ja:
   key: お前誰？ お前は誰 君だれ あんた誰
   nat: お前は誰だ？名前は？
+  sameIntent:
+    - 君は誰？
+    - あなたは誰ですか？
+    - 名前は何？
+    - 誰？
+    - 自己紹介して
   value: 名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。
   spans:
     - id: name

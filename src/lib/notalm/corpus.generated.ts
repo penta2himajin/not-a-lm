@@ -1412,8 +1412,8 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
       "help"
     ],
     "ja": {
-      "key": "使い方 ヘルプ 何ができる どう使えば",
-      "nat": "使い方を教えて。何ができるの？どう使えばいい？",
+      "key": "使い方 ヘルプ どう使えば 操作方法",
+      "nat": "使い方を教えて。どう使えばいい？",
       "value": "普通に話しかけて。右側に「どのキーが勝ったか」が見える。連鎖ボタンで自動予測もできる。",
       "spans": [
         {
@@ -1479,7 +1479,7 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     },
     "zh": {
       "key": "怎么用 帮助 能做什么 如何使用",
-      "nat": "怎么用？你能做什么？",
+      "nat": "怎么用？",
       "value": "正常跟我说话就行。右边能看到“哪个键胜出”。连锁按钮还能自动预测。",
       "spans": [
         {
@@ -1517,9 +1517,17 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "tags": [
       "help"
     ],
+    "qud": "何ができるの？",
     "ja": {
-      "key": "例文 サンプル 何話せば",
+      "key": "何ができる 例文 サンプル 何話せば できること",
       "nat": "例文やサンプルは？何を話せばいい？",
+      "sameIntent": [
+        "何ができるの？",
+        "使い方は？",
+        "どう使えばいい？",
+        "ヘルプ",
+        "例を見せて"
+      ],
       "value": "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
       "spans": [
         {
@@ -1543,7 +1551,7 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "en": {
       "key": "examples samples what should I say",
       "nat": "Any examples or samples? What should I say?",
-      "value": "Try: 'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'",
+      "value": "Try: 'Who are you?', 'Explain the principle?', 'How's the weather?', 'Run a chain demo.'",
       "spans": [
         {
           "id": "try",
@@ -1555,7 +1563,7 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
         },
         {
           "id": "examples",
-          "text": "'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'",
+          "text": "'Who are you?', 'Explain the principle?', 'How's the weather?', 'Run a chain demo.'",
           "tags": [
             "help",
             "detail"
@@ -2020,15 +2028,141 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     }
   },
   {
+    "claim": "mech-1-detail",
+    "speaker": "bot",
+    "tags": [
+      "mechanism",
+      "elaboration"
+    ],
+    "qud": "仕組みをもう少し詳しく言うと？",
+    "ja": {
+      "key": "詳しく もう少し詳しく 深掘り 詳細に もう一段",
+      "nat": "もっと詳しく。もう一段だけ分解して。",
+      "value": "もう一段だけ分解する。履歴をベクトル化し、コーパス側のキー埋め込みと近いものを探す。勝ったチャンクの value をそのまま返す。次トークンの生成はしない。",
+      "spans": [
+        {
+          "id": "step-embed",
+          "text": "もう一段だけ分解する。履歴をベクトル化し、コーパス側のキー埋め込みと近いものを探す。",
+          "tags": [
+            "mechanism",
+            "embedding"
+          ]
+        },
+        {
+          "id": "step-copy",
+          "text": "勝ったチャンクの value をそのまま返す。",
+          "tags": [
+            "mechanism",
+            "retrieval"
+          ]
+        },
+        {
+          "id": "no-gen",
+          "text": "次トークンの生成はしない。",
+          "tags": [
+            "mechanism",
+            "constraint"
+          ]
+        }
+      ],
+      "sameIntent": [
+        "詳しくお願い",
+        "もう少し詳しく",
+        "もう一段分解して"
+      ]
+    },
+    "en": {
+      "key": "more detail elaborate break it down",
+      "nat": "Explain the mechanism in a bit more detail. Break it down.",
+      "value": "One more level down. Vectorize the history, find the nearest key embedding in the corpus, and return that chunk's value as-is. No next-token generation.",
+      "spans": [
+        {
+          "id": "step-embed",
+          "text": "One more level down. Vectorize the history, find the nearest key embedding in the corpus,",
+          "tags": [
+            "mechanism",
+            "embedding"
+          ]
+        },
+        {
+          "id": "step-copy",
+          "text": "and return that chunk's value as-is.",
+          "tags": [
+            "mechanism",
+            "retrieval"
+          ]
+        },
+        {
+          "id": "no-gen",
+          "text": "No next-token generation.",
+          "tags": [
+            "mechanism",
+            "constraint"
+          ]
+        }
+      ],
+      "sameIntent": [
+        "more detail",
+        "elaborate",
+        "break it down"
+      ]
+    },
+    "zh": {
+      "key": "详细一点 展开说 再拆开",
+      "nat": "把机制再讲细一点。拆开说明。",
+      "value": "再拆一层。把历史向量化，在语料键嵌入里找最近的，原样返回该 chunk 的 value。不做下一 token 生成。",
+      "spans": [
+        {
+          "id": "step-embed",
+          "text": "再拆一层。把历史向量化，在语料键嵌入里找最近的，",
+          "tags": [
+            "mechanism",
+            "embedding"
+          ]
+        },
+        {
+          "id": "step-copy",
+          "text": "原样返回该 chunk 的 value。",
+          "tags": [
+            "mechanism",
+            "retrieval"
+          ]
+        },
+        {
+          "id": "no-gen",
+          "text": "不做下一 token 生成。",
+          "tags": [
+            "mechanism",
+            "constraint"
+          ]
+        }
+      ],
+      "sameIntent": [
+        "详细一点",
+        "展开说"
+      ]
+    }
+  },
+  {
     "claim": "mech-1",
     "speaker": "bot",
     "tags": [
       "mechanism"
     ],
     "stance": "affirm",
+    "qud": "どういう仕組みで動いているの？",
+    "detailClaim": "mech-1-detail",
     "ja": {
-      "key": "仕組み どう動く 原理 仕組みを教えて チャンクKV",
+      "key": "仕組み どう動く 原理 仕組みを教えて 仕組み教えて 動作原理 どうやって動 チャンクKV 埋め込み 照合",
       "nat": "どういう仕組みで動いているの？原理を教えて。",
+      "sameIntent": [
+        "仕組みを教えて",
+        "仕組み教えて",
+        "どうやって動くの？",
+        "原理は？",
+        "どう返答してる？",
+        "動作原理は？"
+      ],
       "value": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。",
       "spans": [
         {
@@ -4241,9 +4375,17 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "tags": [
       "identity"
     ],
+    "qud": "君は誰？",
     "ja": {
       "key": "お前誰？ お前は誰 君だれ あんた誰",
       "nat": "お前は誰だ？名前は？",
+      "sameIntent": [
+        "君は誰？",
+        "あなたは誰ですか？",
+        "名前は何？",
+        "誰？",
+        "自己紹介して"
+      ],
       "value": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
       "spans": [
         {

@@ -2,9 +2,16 @@ claim: help-2
 speaker: bot
 tags:
   - help
+qud: 何ができるの？
 ja:
-  key: 例文 サンプル 何話せば
+  key: 何ができる 例文 サンプル 何話せば できること
   nat: 例文やサンプルは？何を話せばいい？
+  sameIntent:
+    - 何ができるの？
+    - 使い方は？
+    - どう使えばいい？
+    - ヘルプ
+    - 例を見せて
   value: "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」"
   spans:
     - id: try
@@ -20,7 +27,7 @@ ja:
 en:
   key: examples samples what should I say
   nat: Any examples or samples? What should I say?
-  value: "Try: 'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'"
+  value: "Try: 'Who are you?', 'Explain the principle?', 'How's the weather?', 'Run a chain demo.'"
   spans:
     - id: try
       text: "Try:"
@@ -28,7 +35,7 @@ en:
         - help
         - summary
     - id: examples
-      text: "'Who are you?', 'How does it work?', 'How's the weather?', 'Run a chain demo.'"
+      text: "'Who are you?', 'Explain the principle?', 'How's the weather?', 'Run a chain demo.'"
       tags:
         - help
         - detail

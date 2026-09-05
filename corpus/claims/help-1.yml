@@ -3,8 +3,8 @@ speaker: bot
 tags:
   - help
 ja:
-  key: 使い方 ヘルプ 何ができる どう使えば
-  nat: 使い方を教えて。何ができるの？どう使えばいい？
+  key: 使い方 ヘルプ どう使えば 操作方法
+  nat: 使い方を教えて。どう使えばいい？
   value: 普通に話しかけて。右側に「どのキーが勝ったか」が見える。連鎖ボタンで自動予測もできる。
   spans:
     - id: talk
@@ -48,7 +48,7 @@ en:
       nliHypothesis: The user is asking about the chain button.
 zh:
   key: 怎么用 帮助 能做什么 如何使用
-  nat: 怎么用？你能做什么？
+  nat: 怎么用？
   value: 正常跟我说话就行。右边能看到“哪个键胜出”。连锁按钮还能自动预测。
   spans:
     - id: talk

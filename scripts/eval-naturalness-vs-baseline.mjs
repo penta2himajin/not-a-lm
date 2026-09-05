@@ -44,12 +44,34 @@ async function chat(userText, history = [], resetSession = true) {
   return data;
 }
 
-function toHistory(turns) {
-  return (turns ?? []).map((t, i) => ({
-    id: `h${i}`,
-    role: t.role === "bot" ? "bot" : "user",
-    text: t.text,
-  }));
+/** Replay prior turns so bot grounding is attached (needed for proximal pin). */
+async function liveHistory(turns) {
+  if (!turns?.length) return [];
+  const hist = [];
+  for (const t of turns) {
+    if (t.role === "user") {
+      hist.push({ id: `h${hist.length}`, role: "user", text: t.text });
+    } else if (t.role === "bot") {
+      // Prefer re-asking the previous user turn to get live grounding.
+      const prevUser = [...hist].reverse().find((m) => m.role === "user");
+      if (prevUser) {
+        const seed = await chat(
+          prevUser.text,
+          hist.slice(0, -1),
+          hist.length <= 1,
+        );
+        hist.push({
+          id: seed.message?.id ?? `h${hist.length}`,
+          role: "bot",
+          text: seed.message?.text ?? t.text,
+          grounding: seed.message?.grounding,
+        });
+      } else {
+        hist.push({ id: `h${hist.length}`, role: "bot", text: t.text });
+      }
+    }
+  }
+  return hist;
 }
 
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
@@ -73,8 +95,7 @@ for (const c of baseline.cases) {
     continue;
   }
   process.stdout.write(`[${c.id}] fetching live… `);
-  const hist = toHistory(c.history);
-  // If follow-up, seed history with baseline prior bot text when provided.
+  const hist = await liveHistory(c.history);
   const res = await chat(c.user, hist, hist.length === 0);
   const live = res.message?.text ?? "";
   const meta = {

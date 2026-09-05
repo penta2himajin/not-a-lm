@@ -23,17 +23,34 @@ function assertionsOf(surface: AuthorSurface): string[] | undefined {
     : [surface.assertion];
 }
 
+/** Fold closed sameIntent paraphrases into the ranking / gate keys (S2). */
+export function thickenNatKey(nat: string, sameIntent?: string[]): string {
+  if (!sameIntent?.length) return nat;
+  const parts = [nat];
+  const seen = new Set([nat.trim()]);
+  for (const p of sameIntent) {
+    const t = p.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    parts.push(t);
+  }
+  return parts.join(" ");
+}
+
 function chunkFromSurface(
   claim: AuthorClaim,
   lang: Lang,
   surface: AuthorSurface,
 ): ChunkRecord {
+  // sameIntent expands ranking keys only — never the CE gate keyword bag
+  // (thickening `key` collapsed fuse bipartite matching in S2 pilots).
+  const natKey = thickenNatKey(surface.nat, surface.sameIntent);
   return {
     id: `${claim.claim}-${lang}`,
     claim: claim.claim,
     lang,
     key: surface.key ?? surface.nat,
-    natKey: surface.nat,
+    natKey,
     value: surface.value,
     spans: surface.spans?.map((s) => ({
       id: s.id,
@@ -45,6 +62,8 @@ function chunkFromSurface(
     assertions: assertionsOf(surface),
     stance: claim.stance,
     tags: claim.tags ?? [],
+    qud: claim.qud,
+    detailClaim: claim.detailClaim,
   };
 }
 
