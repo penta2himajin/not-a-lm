@@ -102,7 +102,7 @@
 |------|------|----------------|------|
 | **S1** | 三層の設計固定（言語／意図／注意） | Grosz & Sidner | **完了**（[R][D][I][W]） |
 | **S2** | claim = QUD、閉じたパラフレーズ | QUD | **完了**（[R][D][I][E][W]） |
-| **S3** | 静的辺語彙と核／衛星 | RST | **進行中**（[R][D][I]） |
+| **S3** | 静的辺語彙と核／衛星 | RST | **完了**（[R][D][I][E][W]） |
 | **S4** | 対話向け関係と浅い DAG | SDRT / STAC | 未着手 |
 | **S5** | 話題構造と修辞構造の分離・硬化 | 話題分割 × 修辞（UMLF 等） | 未着手 |
 
@@ -212,7 +212,7 @@
 
 **目的:** claim 間に少数の情報辺を著者定義し、融合の full/partial と核／衛星を対応づける。
 
-**状態:** 進行中（2026-09-05）  
+**状態:** **完了**（2026-09-05）  
 **[R] 成果:** [`research-reports/topic-graph-s3-rst-edges.md`](research-reports/topic-graph-s3-rst-edges.md)
 
 #### [D] 凍結：辺ラベル
@@ -258,9 +258,9 @@ edges:
 
 #### [E] / 完了条件
 
-- [ ] 辺付きパイロットコーパスと、融合・対比系ケースの eval（`eval:topic-edges`）
-- [ ] 自然さ judge で「話題のつなぎ」項目を追加済み
-- [ ] `eval:naturalness-vs-baseline`（pre-S3・22件）で劣化なし
+- [x] 辺付きパイロットコーパスと、融合・対比系ケースの eval（`eval:topic-edges` 12/12、`eval:g6b` 20/20、`eval:fusion-g4` unit 3/3）
+- [x] 自然さ judge で「話題のつなぎ」項目を追加済み（coherence 下位）
+- [x] `eval:naturalness-vs-baseline`（pre-S3・22件）: improved 0 / tied 21 / regressed 1（残差は複合問い `mech-not-lm-how` の fuse/gate 揺らぎ。help-howto の help-2 奪取は sameIntent 整理で解消）
 
 ---
 
@@ -331,3 +331,4 @@ edges:
 | 2026-09-05 | **S2 完了:** QUD/sameIntent/detailClaim パイロット、pre-S2 baseline 比 improved 1 / tied 4 / regressed 0 |
 | 2026-09-05 | 自然さベースラインを **22件（pre-S3）** に拡充。S3 以降の既定比較セットに切替 |
 | 2026-09-05 | **S3 着手:** RST 最小辺・nuclearity 凍結、静的辺パイロット実装 |
+| 2026-09-05 | **S3 完了:** RST 静的辺・nuclearity↔full/partial・fuse/retrieval 配線・pre-S3 自然さ回帰 |

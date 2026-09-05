@@ -1023,9 +1023,20 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
       "mechanism"
     ],
     "stance": "affirm",
+    "edges": [
+      {
+        "rel": "parallel",
+        "to": "var-add"
+      }
+    ],
     "ja": {
-      "key": "え どうやって返事 返事してるの",
+      "key": "え どうやって返事 返事してるの どうやって返答 返答してる どう答えてる",
       "nat": "どうやって返事しているの？検索で返答を選んでいるの？",
+      "sameIntent": [
+        "どうやって返答してる？",
+        "どうやって答えてる？",
+        "どう返答してる？"
+      ],
       "value": "今の発話を埋め込み → 近いキーのチャンクを探す → その value を返す。生成ゼロ。",
       "spans": [
         {
@@ -1539,8 +1550,6 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
       "nat": "例文やサンプルは？何を話せばいい？",
       "sameIntent": [
         "何ができるの？",
-        "使い方は？",
-        "どう使えばいい？",
         "ヘルプ",
         "例を見せて"
       ],
@@ -3353,9 +3362,22 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
       "mechanism"
     ],
     "stance": "deny",
+    "edges": [
+      {
+        "rel": "parallel",
+        "to": "greet-howreply-a"
+      }
+    ],
     "ja": {
-      "key": "パターン追加 コーパス増や 学習",
+      "key": "パターン追加 コーパス増や 学習 学習しない 学習してない 言語モデルみたい",
       "nat": "パターンを追加したりコーパスを増やしたり学習するの？",
+      "sameIntent": [
+        "学習するの？",
+        "学習してるの？",
+        "言語モデルみたいに学習してる？",
+        "学習しないの？",
+        "学習してないの？"
+      ],
       "value": "学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。",
       "spans": [
         {
@@ -4302,9 +4324,24 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
       "identity"
     ],
     "stance": "deny",
+    "edges": [
+      {
+        "rel": "contrasts",
+        "to": "greet-howreply-a"
+      },
+      {
+        "rel": "parallel",
+        "to": "var-add"
+      }
+    ],
     "ja": {
-      "key": "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ",
+      "key": "あなたは誰 何もの 何者 LM 言語モデル ですか お前誰 君は誰 だれ じゃない LLMじゃない",
       "nat": "あなたは誰？あなたは言語モデル（LLM）なの？",
+      "sameIntent": [
+        "言語モデルじゃないの？",
+        "LLMじゃないの？",
+        "お前言語モデルだろ"
+      ],
       "value": "NOT A LM。名前どおり言語モデルではない。会話パターンのチャンクKVだ。",
       "spans": [
         {
