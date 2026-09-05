@@ -63,8 +63,9 @@
 
 段階ごとの具体ルーブリックは、その段階の研究レビュー後に凍結し、本 SoT の該当節へ追記する。
 
-**自然さベースライン（pre-S2 固定）:**  
-[`fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json)  
+**自然さベースライン（pre-S3 固定・22件）:**  
+[`fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json)  
+（旧 pre-S2 の 5 件セットは履歴。S3 以降の回帰は pre-S3 を使う）  
 比較: `npm run eval:naturalness-vs-baseline`（手順は [`naturalness-llm-judge.md`](naturalness-llm-judge.md)）。
 
 ---
@@ -180,7 +181,7 @@
 | coherence | 直前ユーザー発話・文脈への噛み合い。逸脱減点 |
 | humanlikeness | 機械的否定・棒読みの少なさ（ただし雑談逸脱を過大評価しない） |
 
-比較プロトコル: 凍結ベースライン [`fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json) に対し `npm run eval:naturalness-vs-baseline`（A=新ライブ, B=凍結）。
+比較プロトコル: 凍結ベースライン [`fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json)（22件）に対し `npm run eval:naturalness-vs-baseline`（A=新ライブ, B=凍結）。S2 当時の評価は pre-S2（5件）スナップショット。
 
 #### [I] 実装（パイロット）
 
@@ -295,3 +296,4 @@
 | 2026-09-05 | 自然さ LLM-as-judge ハーネス整備（OpenRouter 無料モデル既定・pairwise debias） |
 | 2026-09-05 | **S1 完了:** Grosz & Sidner 三層対応表・静的/実行時凍結・`discourseLayerHints` |
 | 2026-09-05 | **S2 完了:** QUD/sameIntent/detailClaim パイロット、pre-S2 baseline 比 improved 1 / tied 4 / regressed 0 |
+| 2026-09-05 | 自然さベースラインを **22件（pre-S3）** に拡充。S3 以降の既定比較セットに切替 |
