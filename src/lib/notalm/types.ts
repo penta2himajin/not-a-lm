@@ -120,8 +120,12 @@ export type ChunkRecord = {
   speaker: Speaker;
   /** Language of key/value; used to route replies to the query's language */
   lang: Lang;
-  /** Language-neutral claim id shared across localized variants (for future cross-lingual work) */
+  /** Language-neutral claim id shared across localized variants */
   claim?: string;
+  /** S2: representative QUD string (audit / topic graph) */
+  qud?: string;
+  /** S2: claim id to prefer on proximal elaboration follow-ups */
+  detailClaim?: string;
   /**
    * Declarative positive claim(s) this chunk is about, used as NLI hypotheses
    * for presupposition detection in grounded generation (only on polarizable

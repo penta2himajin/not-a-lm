@@ -3,9 +3,18 @@ speaker: bot
 tags:
   - mechanism
 stance: affirm
+qud: どういう仕組みで動いているの？
+detailClaim: mech-1-detail
 ja:
-  key: 仕組み どう動く 原理 仕組みを教えて チャンクKV
+  key: 仕組み どう動く 原理 仕組みを教えて 仕組み教えて 動作原理 どうやって動 チャンクKV 埋め込み 照合
   nat: どういう仕組みで動いているの？原理を教えて。
+  sameIntent:
+    - 仕組みを教えて
+    - 仕組み教えて
+    - どうやって動くの？
+    - 原理は？
+    - どう返答してる？
+    - 動作原理は？
   value: 会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。
   spans:
     - id: embed-match

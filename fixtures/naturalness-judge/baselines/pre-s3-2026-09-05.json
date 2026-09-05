@@ -1,0 +1,619 @@
+{
+  "id": "naturalness-baseline-pre-s3",
+  "capturedAt": "2026-09-05T09:55:35.889Z",
+  "gitCommit": "e59a7e122cc994c0f7fd6a39f8f69373e9dbf256",
+  "branch": "cursor/topic-graph-s2-01c1",
+  "note": "Expanded ≥20-case naturalness baseline before S3. Captured from live API; pairwise vs stiff/drift/abrupt comparators. Use for corpus/behavior regression after S3.",
+  "supersedes": "naturalness-baseline-pre-s2",
+  "judgeModel": "minimax/minimax-m2.7:free",
+  "protocol": {
+    "pairwise": "A=live system reply, B=comparator (stiff/ideal/drift/abrupt)",
+    "debias": true,
+    "dimensions": [
+      "tempo",
+      "coherence",
+      "humanlikeness"
+    ],
+    "compareLater": "Re-fetch live with same prompts; pairwise A=new live vs B=frozen liveReply. Expect A wins or tie (no regression).",
+    "minCases": 20
+  },
+  "cases": [
+    {
+      "id": "identity-who",
+      "tags": [
+        "identity"
+      ],
+      "notes": "自己紹介 vs 硬い否定から入る応答",
+      "user": "君は誰？",
+      "history": [],
+      "liveReply": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+      "comparatorReply": "いいえ、そうではありません。名前どおり言語モデルではない。",
+      "comparatorRole": "stiff",
+      "liveMeta": {
+        "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+        "claim": "who-1b",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "identity-omae",
+      "tags": [
+        "identity"
+      ],
+      "notes": "カジュアル自己紹介 vs LLMっぽい自慢",
+      "user": "お前誰？",
+      "history": [],
+      "liveReply": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+      "comparatorReply": "私は高度な人工知能です。なんでも答えられます。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+        "claim": "who-1b",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "identity-llm-ask",
+      "tags": [
+        "identity",
+        "polarity"
+      ],
+      "notes": "LLM否定系 vs 誤った肯定",
+      "user": "あなたは言語モデルなの？",
+      "history": [],
+      "liveReply": "いいえ、そうではありません。名前どおり言語モデルではない。",
+      "comparatorReply": "はい、大規模言語モデルとして学習済みです。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "いいえ、そうではありません。名前どおり言語モデルではない。",
+        "claim": "who-1",
+        "op": "compose",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "B",
+      "votesAtCapture": {
+        "A": 0,
+        "B": 2,
+        "tie": 0
+      }
+    },
+    {
+      "id": "identity-name",
+      "tags": [
+        "identity"
+      ],
+      "notes": "名前質問への噛み合い",
+      "user": "名前は？",
+      "history": [],
+      "liveReply": "NOT A LM。略してナルム……は略さない方がいい。",
+      "comparatorReply": "呼び方は自由だよ。好きにして。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "NOT A LM。略してナルム……は略さない方がいい。",
+        "claim": "var-name",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "help-capability",
+      "tags": [
+        "help"
+      ],
+      "notes": "能力説明 vs 話題逸脱",
+      "user": "何ができるの？",
+      "history": [],
+      "liveReply": "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+      "comparatorReply": "今日の天気は晴れ。おすすめ映画はSFだよ。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+        "claim": "help-2",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "help-howto",
+      "tags": [
+        "help"
+      ],
+      "notes": "使い方 vs 無関係な製品手順",
+      "user": "使い方を教えて",
+      "history": [],
+      "liveReply": "普通に話しかけて。右側に「どのキーが勝ったか」が見える。連鎖ボタンで自動予測もできる。",
+      "comparatorReply": "設定画面からAPIキーを入れてモデルを選んでください。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "普通に話しかけて。右側に「どのキーが勝ったか」が見える。連鎖ボタンで自動予測もできる。",
+        "claim": "help-1",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "help-examples",
+      "tags": [
+        "help"
+      ],
+      "notes": "閉じた例示 vs 生成前提",
+      "user": "例文ある？",
+      "history": [],
+      "liveReply": "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+      "comparatorReply": "例文は生成するのでテーマを教えて。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+        "claim": "help-2",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "B",
+      "votesAtCapture": {
+        "A": 0,
+        "B": 2,
+        "tie": 0
+      }
+    },
+    {
+      "id": "mech-how",
+      "tags": [
+        "mechanism"
+      ],
+      "notes": "検索ベース説明 vs LLM説明",
+      "user": "どういう仕組みで動いているの？",
+      "history": [],
+      "liveReply": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。",
+      "comparatorReply": "内部で巨大なニューラルネットが次トークンを予測しています。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。",
+        "claim": "mech-1",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "tie",
+      "votesAtCapture": {
+        "A": 1,
+        "B": 1,
+        "tie": 0
+      }
+    },
+    {
+      "id": "mech-principle",
+      "tags": [
+        "mechanism"
+      ],
+      "notes": "原理説明 vs 投げやり",
+      "user": "動作原理は？",
+      "history": [],
+      "liveReply": "意味の近い文は近いベクトルになる。だから言い回しが違っても同じパターンに着地しやすい。",
+      "comparatorReply": "魔法です。",
+      "comparatorRole": "abrupt",
+      "liveMeta": {
+        "text": "意味の近い文は近いベクトルになる。だから言い回しが違っても同じパターンに着地しやすい。",
+        "claim": "mech-2",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "mech-prior-art",
+      "tags": [
+        "mechanism"
+      ],
+      "notes": "先行手法列挙 vs 空返事",
+      "user": "既存の似た手法は？",
+      "history": [],
+      "liveReply": "retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。",
+      "comparatorReply": "特にないと思う。",
+      "comparatorRole": "abrupt",
+      "liveMeta": {
+        "text": "retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。",
+        "claim": "mech-existing",
+        "op": "compose",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "mech-fuse-compound",
+      "tags": [
+        "mechanism",
+        "fuse"
+      ],
+      "notes": "複合 fuse vs 単語列",
+      "user": "動作原理と既存の似た手法は？",
+      "history": [],
+      "liveReply": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。既存の似た手法については、retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。",
+      "comparatorReply": "kNN-LM。埋め込み。RETRO。照合。",
+      "comparatorRole": "abrupt",
+      "liveMeta": {
+        "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。既存の似た手法については、retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。",
+        "claim": "mech-knn",
+        "op": "fuse",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "mech-not-lm-how",
+      "tags": [
+        "mechanism",
+        "fuse"
+      ],
+      "notes": "否定＋仕組みの複合",
+      "user": "言語モデルじゃないの？どうやって返答してる？",
+      "history": [],
+      "liveReply": "学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。どうやって返答してるについては、その value を返す。生成ゼロ。",
+      "comparatorReply": "どっちも当てはまると思うよ。",
+      "comparatorRole": "abrupt",
+      "liveMeta": {
+        "text": "学習はしない。チャンクを足すだけ。人間が書いたセリフが増えるほど賢く「見える」。どうやって返答してるについては、その value を返す。生成ゼロ。",
+        "claim": "help-2",
+        "op": "fuse",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "followup-detail",
+      "tags": [
+        "multiturn",
+        "elaboration"
+      ],
+      "notes": "詳しく追従 vs 話題逸脱",
+      "user": "詳しく",
+      "history": [
+        {
+          "role": "user",
+          "text": "仕組みを教えて"
+        },
+        {
+          "role": "bot",
+          "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。"
+        }
+      ],
+      "liveReply": "もう一段だけ分解する。履歴をベクトル化し、コーパス側のキー埋め込みと近いものを探す。勝ったチャンクの value をそのまま返す。次トークンの生成はしない。",
+      "comparatorReply": "趣味は鉄道と深夜ラジオ。今日の天気は晴れだよ。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "もう一段だけ分解する。履歴をベクトル化し、コーパス側のキー埋め込みと近いものを探す。勝ったチャンクの value をそのまま返す。次トークンの生成はしない。",
+        "claim": "mech-1-detail",
+        "op": "as-is",
+        "anaphora": "proximal"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "followup-what",
+      "tags": [
+        "multiturn",
+        "proximal"
+      ],
+      "notes": "短い追従 vs 哲学ボケ",
+      "user": "何が？",
+      "history": [
+        {
+          "role": "user",
+          "text": "君は誰？"
+        },
+        {
+          "role": "bot",
+          "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。"
+        }
+      ],
+      "liveReply": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+      "comparatorReply": "何がって、人生だよ。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+        "claim": "who-1b",
+        "op": "as-is",
+        "anaphora": "proximal"
+      },
+      "winnerAtCapture": "B",
+      "votesAtCapture": {
+        "A": 0,
+        "B": 2,
+        "tie": 0
+      }
+    },
+    {
+      "id": "followup-sore",
+      "tags": [
+        "multiturn",
+        "proximal"
+      ],
+      "notes": "指示詞追従 vs はぐらかし",
+      "user": "それってどういうこと？",
+      "history": [
+        {
+          "role": "user",
+          "text": "仕組みを教えて"
+        },
+        {
+          "role": "bot",
+          "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。"
+        }
+      ],
+      "liveReply": "職務内容と趣味が一致してるだけ。うらやましい？",
+      "comparatorReply": "気にしない気にしない。次の話題いこ。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "職務内容と趣味が一致してるだけ。うらやましい？",
+        "claim": "hobby-a",
+        "op": "as-is",
+        "anaphora": "proximal"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "followup-sakki",
+      "tags": [
+        "multiturn",
+        "non-proximal"
+      ],
+      "notes": "非近接参照 vs 無関係回想",
+      "user": "さっきの話って何だっけ？",
+      "history": [
+        {
+          "role": "user",
+          "text": "君は誰？"
+        },
+        {
+          "role": "bot",
+          "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。"
+        },
+        {
+          "role": "user",
+          "text": "仕組みを教えて"
+        },
+        {
+          "role": "bot",
+          "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。"
+        }
+      ],
+      "liveReply": "どれのことですか。たとえば最近だと、会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。／名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。。それ以外なら、どんなものだったか思い出せる範囲で教えて。",
+      "comparatorReply": "さっきラーメン食べた話だよ。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "どれのことですか。たとえば最近だと、会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。／名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。。それ以外なら、どんなものだったか思い出せる範囲で教えて。",
+        "claim": "mech-1",
+        "op": "clarify",
+        "anaphora": "non-proximal"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "followup-topic-shift",
+      "tags": [
+        "multiturn"
+      ],
+      "notes": "話題転換への追従（天気へ）vs 前話題に張り付き",
+      "user": "じゃあ天気はどう？",
+      "history": [
+        {
+          "role": "user",
+          "text": "仕組みを教えて"
+        },
+        {
+          "role": "bot",
+          "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。"
+        }
+      ],
+      "liveReply": "外の天気は知らない。でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。",
+      "comparatorReply": "仕組みの話の続きだけど、埋め込み次元は384だよ。",
+      "comparatorRole": "stiff",
+      "liveMeta": {
+        "text": "外の天気は知らない。でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。",
+        "claim": "weather-1",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "weather",
+      "tags": [
+        "weather"
+      ],
+      "notes": "コーパス天気/拒否 vs 外部API生成主張",
+      "user": "今日の天気は？",
+      "history": [],
+      "liveReply": "外の天気は知らない。でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。",
+      "comparatorReply": "気象庁APIに繋いで最新予報を生成します。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "外の天気は知らない。でもコーパスの中では「雨の日は家でチャンク整理」が定番パターンだ。",
+        "claim": "weather-1",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "B",
+      "votesAtCapture": {
+        "A": 0,
+        "B": 2,
+        "tie": 0
+      }
+    },
+    {
+      "id": "chain-demo",
+      "tags": [
+        "chain"
+      ],
+      "notes": "連鎖デモ vs 長文生成",
+      "user": "連鎖デモお願い",
+      "history": [],
+      "liveReply": "了解。こちらから次のユーザー発話も予測して、数ターン連鎖してみるね。",
+      "comparatorReply": "了解、長編小説を今から書くね。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "了解。こちらから次のユーザー発話も予測して、数ターン連鎖してみるね。",
+        "claim": "chain-start",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "greet",
+      "tags": [
+        "social"
+      ],
+      "notes": "挨拶 vs 事務的システム文",
+      "user": "こんにちは",
+      "history": [],
+      "liveReply": "やあ。",
+      "comparatorReply": "ご用件をベクトルデータベースに照会中です。少々お待ちください。",
+      "comparatorRole": "stiff",
+      "liveMeta": {
+        "text": "やあ。",
+        "claim": "greet-intro",
+        "op": "compose",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "thanks",
+      "tags": [
+        "social"
+      ],
+      "notes": "感謝への短い応答 vs 生成オファー",
+      "user": "ありがとう",
+      "history": [
+        {
+          "role": "user",
+          "text": "君は誰？"
+        },
+        {
+          "role": "bot",
+          "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。"
+        }
+      ],
+      "liveReply": "どういたしまして。スコアが高かったチャンクに礼を言ってくれ。",
+      "comparatorReply": "どういたしまして。追加のトークン生成も可能です。",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "どういたしまして。スコアが高かったチャンクに礼を言ってくれ。",
+        "claim": "var-thanks",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      }
+    },
+    {
+      "id": "ooc-recipe",
+      "tags": [
+        "ooc"
+      ],
+      "notes": "コーパス外依頼への拒否/制限 vs 長文レシピ生成",
+      "user": "カレーの作り方教えて",
+      "history": [],
+      "liveReply": "おすすめは「コサイン味噌ラーメン」。似た味の具が隣に来るスープだ。",
+      "comparatorReply": "まず玉ねぎを焦がすまで炒め、次にスパイスを…（長文レシピ）",
+      "comparatorRole": "drift",
+      "liveMeta": {
+        "text": "おすすめは「コサイン味噌ラーメン」。似た味の具が隣に来るスープだ。",
+        "claim": "food-1",
+        "op": "as-is",
+        "anaphora": "none"
+      },
+      "winnerAtCapture": "B",
+      "votesAtCapture": {
+        "A": 0,
+        "B": 2,
+        "tie": 0
+      }
+    }
+  ]
+}

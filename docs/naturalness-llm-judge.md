@@ -46,27 +46,38 @@ Fixture: [`fixtures/naturalness-judge/cases.json`](../fixtures/naturalness-judge
 4. 既定で **A/B を入れ替えた 2 パス**を取り、多数決で位置バイアスを緩和。
 5. `429` / JSON パース失敗時は無料フォールバックモデルへ順にリトライ。
 
-## ベースライン（pre-S2）
+## ベースライン
 
-コーパス改善（S2）前後比較用に、現行ライブ応答を凍結した。
+コーパス／挙動改善の前後比較用に、ライブ応答を凍結する。  
+**検証に使う現行ベースラインは pre-S3（22件）**。pre-S2（5件）は歴史スナップショットとして残す。
 
-| 項目 | 値 |
-|------|-----|
-| ID | `naturalness-baseline-pre-s2` |
-| ファイル | [`fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json) |
-| 取得日 | 2026-09-05 |
-| Judge | `nvidia/nemotron-3-super-120b-a12b:free` |
+| 項目 | pre-S3（現行） | pre-S2（履歴） |
+|------|----------------|----------------|
+| ID | `naturalness-baseline-pre-s3` | `naturalness-baseline-pre-s2` |
+| 件数 | **22** | 5 |
+| ファイル | [`fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json) | [`pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json) |
+| 取得日 | 2026-09-05 | 2026-09-05 |
 
-比較プロトコル（S2 [E]）:
+ケース定義: [`scripts/naturalness-baseline-cases.mjs`](../scripts/naturalness-baseline-cases.mjs)（≥20 必須）  
+再取得:
+
+```bash
+npm run capture:naturalness-baseline
+npm run capture:naturalness-baseline -- --skip-judge   # ライブ応答のみ
+```
+
+比較プロトコル（S3 以降の [E]）:
 
 1. 同じ `user` / `history` で現行 API から再取得。
 2. pairwise **A = 新ライブ**, **B = 凍結 `liveReply`**。
 3. 期待: A 勝ちまたは tie（劣化なし）。改善は A 勝ち件数で測る。
-4. あわせて fixture judge / 硬い比較器も再実行可。
+4. カバー: identity / help / mechanism / fuse / multi-turn / weather / chain / social / OOC。
 
 ```bash
 npm run eval:naturalness-vs-baseline
-npm run eval:naturalness-vs-baseline -- --out=/opt/cursor/artifacts/naturalness_vs_baseline_s2.json
+npm run eval:naturalness-vs-baseline -- --out=/opt/cursor/artifacts/naturalness_vs_baseline.json
+# 旧5件セットを明示指定する場合のみ:
+npm run eval:naturalness-vs-baseline -- --baseline=fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json
 ```
 
 ## 非目標

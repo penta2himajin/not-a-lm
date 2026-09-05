@@ -63,8 +63,9 @@
 
 段階ごとの具体ルーブリックは、その段階の研究レビュー後に凍結し、本 SoT の該当節へ追記する。
 
-**自然さベースライン（pre-S2 固定）:**  
-[`fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json)  
+**自然さベースライン（pre-S3 固定・22件）:**  
+[`fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json)  
+（旧 pre-S2 の 5 件セットは履歴。S3 以降の回帰は pre-S3 を使う）  
 比較: `npm run eval:naturalness-vs-baseline`（手順は [`naturalness-llm-judge.md`](naturalness-llm-judge.md)）。
 
 ---
@@ -100,7 +101,7 @@
 | 段階 | 主題 | 主な理論的足場 | 状態 |
 |------|------|----------------|------|
 | **S1** | 三層の設計固定（言語／意図／注意） | Grosz & Sidner | **完了**（[R][D][I][W]） |
-| **S2** | claim = QUD、閉じたパラフレーズ | QUD | 未着手 |
+| **S2** | claim = QUD、閉じたパラフレーズ | QUD | **完了**（[R][D][I][E][W]） |
 | **S3** | 静的辺語彙と核／衛星 | RST | 未着手 |
 | **S4** | 対話向け関係と浅い DAG | SDRT / STAC | 未着手 |
 | **S5** | 話題構造と修辞構造の分離・硬化 | 話題分割 × 修辞（UMLF 等） | 未着手 |
@@ -155,21 +156,53 @@
 
 **目的:** ノードの正体を「答えうる問い」に揃え、入口（言い回し）を閉じたパターンで増やす。
 
-**[R] で確認すること**
+**状態:** **完了**（2026-09-05）  
+**[R] 成果:** [`research-reports/topic-graph-s2-qud-paraphrase.md`](research-reports/topic-graph-s2-qud-paraphrase.md)
 
-- QUD 木と claim 設計の対応
-- 対話システムにおける intent / paraphrase canonicalization（生成なし手法）
+#### [D] 凍結：スキーマ
 
-**[D] で凍結すること**
+| フィールド | 置き場 | 意味 |
+|------------|--------|------|
+| `qud` | claim 直下 | 代表問い（監査・設計の正。検索必須ではない） |
+| `sameIntent` | 各言語 surface | **閉じた**言い回し配列。モデル生成禁止 |
+| `detailClaim` | claim 直下 | 「詳しく」等の elaboration 時にコピーする子 claim id |
 
-- claim メタデータ（例: 代表問い、同一意図パターン一覧）のスキーマ
-- `same-intent` の扱い（検索ボーナスのみか、正規化クエリか）
-- 自然さ judge の第1版ルーブリック（短対話）
+#### [D] 凍結：`same-intent` の扱い
 
-**完了条件**
+- **文書側インデックス拡張**のみ（`natKey` に連結。CE 用 `key` には混ぜない）。
+- クエリ正規化 LLM・実行時自由言い換えはしない。
+- グラフ辺ラベル `same-intent` は S2 では作らない（同一 claim 内の入口集合）。
 
-- スキーマと少数 claim へのパイロット適用
-- 接地チェック緑 + 自然さ pairwise がベースライン以上（または劣化なしを文書化）
+#### [D] 凍結：自然さ judge 第1版ルーブリック（短対話）
+
+| 項目 | 見るもの |
+|------|----------|
+| tempo | 冗長すぎない／ぶつ切りすぎない |
+| coherence | 直前ユーザー発話・文脈への噛み合い。逸脱減点 |
+| humanlikeness | 機械的否定・棒読みの少なさ（ただし雑談逸脱を過大評価しない） |
+
+比較プロトコル: 凍結ベースライン [`fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s3-2026-09-05.json)（22件）に対し `npm run eval:naturalness-vs-baseline`（A=新ライブ, B=凍結）。S2 当時の評価は pre-S2（5件）スナップショット。
+
+#### [I] 実装（パイロット）
+
+- `AuthorClaim` / flatten / `corpus:build` が `qud`・`sameIntent`・`detailClaim` を保持
+- elaboration pin が `detailClaim` を優先コピー（生成なし）
+- パイロット: `who-1b`, `help-1`/`help-2`, `mech-1` + 新規 `mech-1-detail`
+
+#### [E] 評価結果（2026-09-05）
+
+| 検査 | 結果 |
+|------|------|
+| `eval:g6b` | 20/20 |
+| naturalness fixture judge | expect 通過 |
+| vs pre-S2 baseline | **improved 1 / tied 4 / regressed 0** |
+
+寄与の要点: 「詳しく」追従が同一文再掲から `mech-1-detail` の一段深い説明へ。その他ケースは劣化なし。
+
+**完了条件（達成）**
+
+- [x] スキーマと少数 claim へのパイロット適用
+- [x] 接地系 g6b 緑 + 自然さ pairwise がベースライン以上（劣化なし＋追従で改善）
 
 **非目標:** モデルによる自由言い換え生成。
 
@@ -262,3 +295,5 @@
 | 2026-09-05 | 初版。五段階・研究先行ゲート・自然さ LLM judge／接地分離・配置方針 |
 | 2026-09-05 | 自然さ LLM-as-judge ハーネス整備（OpenRouter 無料モデル既定・pairwise debias） |
 | 2026-09-05 | **S1 完了:** Grosz & Sidner 三層対応表・静的/実行時凍結・`discourseLayerHints` |
+| 2026-09-05 | **S2 完了:** QUD/sameIntent/detailClaim パイロット、pre-S2 baseline 比 improved 1 / tied 4 / regressed 0 |
+| 2026-09-05 | 自然さベースラインを **22件（pre-S3）** に拡充。S3 以降の既定比較セットに切替 |

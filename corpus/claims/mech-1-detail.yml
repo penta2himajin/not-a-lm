@@ -1,0 +1,77 @@
+claim: mech-1-detail
+speaker: bot
+tags:
+  - mechanism
+  - elaboration
+qud: 仕組みをもう少し詳しく言うと？
+ja:
+  key: 詳しく もう少し詳しく 深掘り 詳細に もう一段
+  nat: もっと詳しく。もう一段だけ分解して。
+  value: もう一段だけ分解する。履歴をベクトル化し、コーパス側のキー埋め込みと近いものを探す。勝ったチャンクの value をそのまま返す。次トークンの生成はしない。
+  spans:
+    - id: step-embed
+      text: もう一段だけ分解する。履歴をベクトル化し、コーパス側のキー埋め込みと近いものを探す。
+      tags:
+        - mechanism
+        - embedding
+    - id: step-copy
+      text: 勝ったチャンクの value をそのまま返す。
+      tags:
+        - mechanism
+        - retrieval
+    - id: no-gen
+      text: 次トークンの生成はしない。
+      tags:
+        - mechanism
+        - constraint
+  sameIntent:
+    - 詳しくお願い
+    - もう少し詳しく
+    - もう一段分解して
+en:
+  key: more detail elaborate break it down
+  nat: Explain the mechanism in a bit more detail. Break it down.
+  value: One more level down. Vectorize the history, find the nearest key embedding in the corpus, and return that chunk's value as-is. No next-token generation.
+  spans:
+    - id: step-embed
+      text: One more level down. Vectorize the history, find the nearest key embedding in the corpus,
+      tags:
+        - mechanism
+        - embedding
+    - id: step-copy
+      text: and return that chunk's value as-is.
+      tags:
+        - mechanism
+        - retrieval
+    - id: no-gen
+      text: No next-token generation.
+      tags:
+        - mechanism
+        - constraint
+  sameIntent:
+    - more detail
+    - elaborate
+    - break it down
+zh:
+  key: 详细一点 展开说 再拆开
+  nat: 把机制再讲细一点。拆开说明。
+  value: 再拆一层。把历史向量化，在语料键嵌入里找最近的，原样返回该 chunk 的 value。不做下一 token 生成。
+  spans:
+    - id: step-embed
+      text: 再拆一层。把历史向量化，在语料键嵌入里找最近的，
+      tags:
+        - mechanism
+        - embedding
+    - id: step-copy
+      text: 原样返回该 chunk 的 value。
+      tags:
+        - mechanism
+        - retrieval
+    - id: no-gen
+      text: 不做下一 token 生成。
+      tags:
+        - mechanism
+        - constraint
+  sameIntent:
+    - 详细一点
+    - 展开说
