@@ -55,6 +55,11 @@
 3. Judge は本番 API に載せない（評価ハーネス／CI 任意ジョブ）。
 4. 小さな金セットで人間との一致を時々校正する。
 
+**実装（整備済み）:** OpenRouter 経由のオフライン pairwise judge。  
+手順・無料モデル既定値: [`naturalness-llm-judge.md`](naturalness-llm-judge.md)。  
+実行: `npm run eval:naturalness-judge`（要 `OPENROUTER_API_KEY`）。  
+既定モデルは無料枠 `nvidia/nemotron-3-super-120b-a12b:free`（`JUDGE_MODEL` で変更可）。
+
 段階ごとの具体ルーブリックは、その段階の研究レビュー後に凍結し、本 SoT の該当節へ追記する。
 
 ---
@@ -232,3 +237,4 @@
 | 日付 | 内容 |
 |------|------|
 | 2026-09-05 | 初版。五段階・研究先行ゲート・自然さ LLM judge／接地分離・配置方針 |
+| 2026-09-05 | 自然さ LLM-as-judge ハーネス整備（OpenRouter 無料モデル既定・pairwise debias） |

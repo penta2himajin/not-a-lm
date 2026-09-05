@@ -1,0 +1,44 @@
+[
+  {
+    "id": "who-natural-vs-stiff",
+    "lang": "ja",
+    "user": "君は誰？",
+    "replyA": "名前は NOT A LM。埋め込み近傍のセリフ辞書だ。",
+    "replyB": "いいえ、そうではありません。名前どおり言語モデルではない。",
+    "notes": "自己紹介として直接答える A と、否定から入る硬い B。期待は固定しない（スモーク用）。"
+  },
+  {
+    "id": "followup-pin-vs-drift",
+    "lang": "ja",
+    "context": [
+      { "role": "user", "text": "仕組みを教えて" },
+      {
+        "role": "bot",
+        "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が次のセリフ。"
+      }
+    ],
+    "user": "詳しく",
+    "replyA": "もう少し分解すると、まず履歴をベクトル化して、コーパス側のキー埋め込みと近いものを探す。勝ったチャンクの value をそのまま返す。生成はしない。",
+    "replyB": "趣味は鉄道と深夜ラジオ。今日の天気は晴れだよ。",
+    "expectWinner": "A",
+    "notes": "追従で仕組みを深掘りする A vs 話題逸脱の B。"
+  },
+  {
+    "id": "help-vs-hobby",
+    "lang": "ja",
+    "user": "何ができるの？",
+    "replyA": "質問に近いセリフをコーパスから探して返すよ。普通に話しかけてみて。右側にどのキーが勝ったかも見える。",
+    "replyB": "今日の天気は晴れ。おすすめの映画はSFだよ。",
+    "expectWinner": "A",
+    "notes": "能力・使い方に答える A vs 無関係な雑談 B。"
+  },
+  {
+    "id": "fuse-glue-vs-abrupt",
+    "lang": "ja",
+    "user": "動作原理と既存の似た手法は？",
+    "replyA": "会話履歴を埋め込み、キー側と照合する。既存の似た手法については、retrieval-only chatbot や kNN-LM、RETRO がある。",
+    "replyB": "kNN-LM。埋め込み。RETRO。照合。",
+    "expectWinner": "A",
+    "notes": "複合質問に対するつなぎのある応答 vs 単語列。"
+  }
+]
