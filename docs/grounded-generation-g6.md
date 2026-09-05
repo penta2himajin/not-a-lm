@@ -4,6 +4,18 @@ G5 までで **1 ターン**の grounded reply（宣言的 `OperationPlan` → r
 
 制約は不変: **コーパス／履歴スパンのコピー + 閉じた糊 + クエリ／履歴から抜いた topic**。トークン生成なし。
 
+## Grosz & Sidner 三層との対応（S1）
+
+話題グラフ作業 SoT の S1 で固定。詳細対応表: [`research-reports/topic-graph-s1-centering-mapping.md`](research-reports/topic-graph-s1-centering-mapping.md)。
+
+| 層 | G6 での意味 | 主な記号 |
+|----|-------------|----------|
+| **Linguistic** | 発話の分割・融合セグメント | `segmentCandidates` / `compoundSegments` / fuse |
+| **Intentional** | claim（proto-QUD）。明示 QUD 木は S2 | `chunk.claim` / `OperationPlan` / `ChainPlan` |
+| **Attentional** | **実行時のみ**の焦点（世界 KG ではない） | `TurnGrounding` / anaphora / proximal / continuity |
+
+監査: `trace.debug.discourseLayerHints`（linguistic / intentional / attentional）。
+
 ## ロードマップ番号（合意）
 
 | 番号 | 内容 |

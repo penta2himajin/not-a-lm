@@ -183,6 +183,7 @@
 ## 5. 本リポジトリ内の関連ドキュメント
 
 - **作業 SoT（段階・ゲート・評価方針）:** [`../topic-graph-work-sot.md`](../topic-graph-work-sot.md)
+- **S1 三層対応表:** [`topic-graph-s1-centering-mapping.md`](topic-graph-s1-centering-mapping.md)
 - 上位契約: [`../grounding-contract.md`](../grounding-contract.md)
 - 融合・分割: [`../grounded-generation.md`](../grounded-generation.md)
 - 多ターン接地: [`../grounded-generation-g6.md`](../grounded-generation-g6.md)

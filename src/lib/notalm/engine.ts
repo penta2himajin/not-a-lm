@@ -552,6 +552,28 @@ export class ChunkKVEngine {
 
     const buildDebugBase = (extra: Partial<TraceDebug> = {}): TraceDebug => {
       const notes = [...debugNotes, ...(extra.notes ?? [])];
+      const intentional: string[] = [];
+      if (proximalFocus?.claim) intentional.push(`focus-claim:${proximalFocus.claim}`);
+      if (continuity?.claim) intentional.push(`continuity-claim:${continuity.claim}`);
+      const attentional: string[] = [`anaphora:${anaphora}`];
+      if (proximalFocus) attentional.push("proximal-focus-ref");
+      if (continuity) attentional.push("continuity-applied");
+      else if (anaphora === "proximal") attentional.push("continuity-absent");
+      if (anaphora === "non-proximal") attentional.push("clarify-candidate");
+      const discourseLayerHints: NonNullable<TraceDebug["discourseLayerHints"]> = {
+        linguistic: [
+          ...compoundSegsResolved.map((s, i) => `seg${i}:${s.slice(0, 40)}`),
+          ...(extra.discourseLayerHints?.linguistic ?? []),
+        ],
+        intentional: [
+          ...intentional,
+          ...(extra.discourseLayerHints?.intentional ?? []),
+        ],
+        attentional: [
+          ...attentional,
+          ...(extra.discourseLayerHints?.attentional ?? []),
+        ],
+      };
       return {
         rawUser,
         planningUser,
@@ -573,6 +595,7 @@ export class ChunkKVEngine {
           ? { chunkId: continuity.chunkId, claim: continuity.claim }
           : undefined,
         ...extra,
+        discourseLayerHints,
         notes,
       };
     };
