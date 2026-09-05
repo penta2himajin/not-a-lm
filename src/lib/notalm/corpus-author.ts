@@ -42,6 +42,11 @@ export type AuthorClaim = {
    * (詳しく / more detail / 详细). Must exist in the corpus.
    */
   detailClaim?: string;
+  /**
+   * S3: static RST-ish informational edges (author-defined).
+   * rel ∈ elaborates | contrasts | parallel; to = other claim id.
+   */
+  edges?: { rel: "elaborates" | "contrasts" | "parallel"; to: string }[];
   /** At least one language required; missing langs are not indexed */
   ja?: AuthorSurface;
   en?: AuthorSurface;
@@ -185,6 +190,25 @@ export function finalizeClaim(claim: AuthorClaim): AuthorClaim {
   if (qud) out.qud = qud;
   const detail = claim.detailClaim?.trim();
   if (detail) out.detailClaim = detail;
+  if (claim.edges?.length) {
+    const edges = [];
+    const seen = new Set();
+    for (const e of claim.edges) {
+      const rel = e?.rel;
+      const to = e?.to?.trim();
+      if (
+        rel !== "elaborates" &&
+        rel !== "contrasts" &&
+        rel !== "parallel"
+      ) {
+        continue;
+      }
+      if (!to || to === claim.claim || seen.has(`${rel}→${to}`)) continue;
+      seen.add(`${rel}→${to}`);
+      edges.push({ rel, to });
+    }
+    if (edges.length) out.edges = edges;
+  }
   if (claim.ja) {
     out.ja = finalizeSurface(claim.ja, "ja");
     const si = cleanSameIntent(claim.ja.sameIntent);

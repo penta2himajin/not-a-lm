@@ -36,7 +36,8 @@
     "eval:corpus-author": "node --experimental-strip-types scripts/eval-corpus-author.mjs",
     "eval:rerank-batch": "node --experimental-strip-types scripts/eval-rerank-batch.mjs",
     "eval:rerank-batch:fp32": "RERANK_DTYPE=fp32 node --experimental-strip-types scripts/eval-rerank-batch.mjs",
-    "eval:corpus-draft": "node --experimental-strip-types scripts/eval-corpus-draft.mjs"
+    "eval:corpus-draft": "node --experimental-strip-types scripts/eval-corpus-draft.mjs",
+    "eval:topic-edges": "node --experimental-strip-types scripts/eval-topic-edges.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

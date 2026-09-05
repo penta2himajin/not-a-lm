@@ -2,6 +2,9 @@ claim: mech-2
 speaker: bot
 tags:
   - mechanism
+edges:
+  - rel: parallel
+    to: mech-1
 ja:
   key: 埋め込み エンベディング embedding ベクトル
   nat: 埋め込み（エンベディング）って何？ベクトルの話。

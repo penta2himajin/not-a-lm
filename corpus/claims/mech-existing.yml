@@ -2,6 +2,9 @@ claim: mech-existing
 speaker: bot
 tags:
   - prior-art
+edges:
+  - rel: parallel
+    to: mech-1
 ja:
   key: 既存 似た仕組み ある 前例
   nat: 似たような既存の仕組みや前例はある？

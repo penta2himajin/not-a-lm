@@ -1411,6 +1411,12 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "tags": [
       "help"
     ],
+    "edges": [
+      {
+        "rel": "parallel",
+        "to": "help-2"
+      }
+    ],
     "ja": {
       "key": "使い方 ヘルプ どう使えば 操作方法",
       "nat": "使い方を教えて。どう使えばいい？",
@@ -1518,6 +1524,16 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
       "help"
     ],
     "qud": "何ができるの？",
+    "edges": [
+      {
+        "rel": "parallel",
+        "to": "help-1"
+      },
+      {
+        "rel": "contrasts",
+        "to": "limit-1"
+      }
+    ],
     "ja": {
       "key": "何ができる 例文 サンプル 何話せば できること",
       "nat": "例文やサンプルは？何を話せばいい？",
@@ -1804,6 +1820,12 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "speaker": "bot",
     "tags": [
       "limit"
+    ],
+    "edges": [
+      {
+        "rel": "contrasts",
+        "to": "help-2"
+      }
     ],
     "ja": {
       "key": "知らない わからない 答えられない 無理",
@@ -2152,6 +2174,20 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "stance": "affirm",
     "qud": "どういう仕組みで動いているの？",
     "detailClaim": "mech-1-detail",
+    "edges": [
+      {
+        "rel": "elaborates",
+        "to": "mech-1-detail"
+      },
+      {
+        "rel": "parallel",
+        "to": "mech-existing"
+      },
+      {
+        "rel": "parallel",
+        "to": "mech-2"
+      }
+    ],
     "ja": {
       "key": "仕組み どう動く 原理 仕組みを教えて 仕組み教えて 動作原理 どうやって動 チャンクKV 埋め込み 照合",
       "nat": "どういう仕組みで動いているの？原理を教えて。",
@@ -2253,6 +2289,12 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "speaker": "bot",
     "tags": [
       "mechanism"
+    ],
+    "edges": [
+      {
+        "rel": "parallel",
+        "to": "mech-1"
+      }
     ],
     "ja": {
       "key": "埋め込み エンベディング embedding ベクトル",
@@ -2472,6 +2514,12 @@ export const GENERATED_CLAIMS: AuthorClaim[] = [
     "speaker": "bot",
     "tags": [
       "prior-art"
+    ],
+    "edges": [
+      {
+        "rel": "parallel",
+        "to": "mech-1"
+      }
     ],
     "ja": {
       "key": "既存 似た仕組み ある 前例",

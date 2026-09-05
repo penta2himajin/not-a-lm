@@ -3,6 +3,11 @@ speaker: bot
 tags:
   - help
 qud: 何ができるの？
+edges:
+  - rel: parallel
+    to: help-1
+  - rel: contrasts
+    to: limit-1
 ja:
   key: 何ができる 例文 サンプル 何話せば できること
   nat: 例文やサンプルは？何を話せばいい？

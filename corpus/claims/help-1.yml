@@ -2,6 +2,9 @@ claim: help-1
 speaker: bot
 tags:
   - help
+edges:
+  - rel: parallel
+    to: help-2
 ja:
   key: 使い方 ヘルプ どう使えば 操作方法
   nat: 使い方を教えて。どう使えばいい？

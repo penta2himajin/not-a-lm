@@ -126,6 +126,8 @@ export type ChunkRecord = {
   qud?: string;
   /** S2: claim id to prefer on proximal elaboration follow-ups */
   detailClaim?: string;
+  /** S3: static informational edges authored on the claim */
+  edges?: { rel: "elaborates" | "contrasts" | "parallel"; to: string }[];
   /**
    * Declarative positive claim(s) this chunk is about, used as NLI hypotheses
    * for presupposition detection in grounded generation (only on polarizable

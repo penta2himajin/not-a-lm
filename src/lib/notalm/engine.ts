@@ -1,4 +1,13 @@
-import { CHUNK_CORPUS } from "./corpus";
+import { CHUNK_CORPUS, CORPUS_CLAIMS } from "./corpus";
+import {
+  buildClaimEdgeIndex,
+  elaboratesSatellite,
+  fusePairBonus,
+  orderPartsByNuclearity,
+  relationBetween,
+  retrievalEdgeBonus,
+  type ClaimEdgeIndex,
+} from "./topic-edges";
 import {
   DENSE_MODEL_ID,
   cosine,
@@ -135,6 +144,7 @@ export class ChunkKVEngine {
   private spanIndex: SpanIndexEntry[] = [];
   private backend: EmbedBackend = "hash";
   private usedIds = new Set<string>();
+  private edgeIndex: ClaimEdgeIndex = buildClaimEdgeIndex(CORPUS_CLAIMS);
   private initPromise: Promise<void> | null = null;
 
   get status(): EngineStatus {
@@ -242,11 +252,17 @@ export class ChunkKVEngine {
       // Hard filter: reply in the same language as the query
       if (lang && chunk.lang !== lang) continue;
       const raw = cosine(queryVec, chunk.embedding);
-      const { score } = adjustScoreForContinuity(
+      const adjusted = adjustScoreForContinuity(
         raw,
         chunk,
         this.usedIds,
         continuity,
+      );
+      let score = adjusted.score;
+      score += retrievalEdgeBonus(
+        this.edgeIndex,
+        continuity?.claim,
+        chunk.claim,
       );
       scored.push({
         chunk: {
@@ -376,6 +392,35 @@ export class ChunkKVEngine {
     for (let i = 0; i < segments.length; i++) {
       for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
     }
+    // S3: soft bonus when a candidate claim is statically edged to another
+    // candidate that scores well on a different segment (prefer authored pairs).
+    for (let i = 0; i < segments.length; i++) {
+      for (let j = 0; j < cands.length; j++) {
+        const cj = cands[j].chunk.claim;
+        if (!cj) continue;
+        let bestLink = 0;
+        for (let i2 = 0; i2 < segments.length; i2++) {
+          if (i2 === i) continue;
+          for (let j2 = 0; j2 < cands.length; j2++) {
+            if (j2 === j) continue;
+            const bonus = fusePairBonus(
+              this.edgeIndex,
+              cj,
+              cands[j2].chunk.claim,
+            );
+            if (bonus > 0 && rr[i2][j2] >= FUSE_MIN) {
+              bestLink = Math.max(bestLink, bonus);
+            }
+          }
+        }
+        if (bestLink > 0) rr[i][j] += bestLink;
+      }
+    }
+    // rebuild pairs with boosted scores
+    pairs.length = 0;
+    for (let i = 0; i < segments.length; i++) {
+      for (let j = 0; j < cands.length; j++) pairs.push({ i, j, s: rr[i][j] });
+    }
     pairs.sort((a, b) => b.s - a.s);
     const usedSeg = new Set<number>();
     const usedCand = new Set<number>();
@@ -451,11 +496,15 @@ export class ChunkKVEngine {
 
     if (!bestMatch) return null;
 
-    const planned = await planFuseParts(bestMatch.parts, lang);
+    const ordered = orderPartsByNuclearity(bestMatch.parts, this.edgeIndex);
+    const planned = await planFuseParts(ordered.parts, lang);
     if (!planned) return null;
+    if (ordered.notes.length) {
+      planned.plan.reasons = [...ordered.notes, ...planned.plan.reasons];
+    }
     return {
       plan: planned.plan,
-      parts: bestMatch.parts,
+      parts: ordered.parts,
       segments: bestSegments,
       nliLabel: planned.nliLabel,
       nliScore: planned.nliScore,
@@ -555,6 +604,9 @@ export class ChunkKVEngine {
       const intentional: string[] = [];
       if (proximalFocus?.claim) intentional.push(`focus-claim:${proximalFocus.claim}`);
       if (continuity?.claim) intentional.push(`continuity-claim:${continuity.claim}`);
+      for (const n of notes) {
+        if (n.startsWith("s3:")) intentional.push(n);
+      }
       const attentional: string[] = [`anaphora:${anaphora}`];
       if (proximalFocus) attentional.push("proximal-focus-ref");
       if (continuity) attentional.push("continuity-applied");
@@ -753,9 +805,11 @@ export class ChunkKVEngine {
         (c) => c.id === priorGroundingEarly.chunkId,
       );
       if (priorRow) {
-        // S2: prefer authored detailClaim (copy-only) when present.
+        // S2/S3: prefer authored detailClaim, else elaborates satellite (copy-only).
         let pinRow = priorRow;
-        const detailId = priorRow.detailClaim?.trim();
+        const detailId =
+          priorRow.detailClaim?.trim() ||
+          elaboratesSatellite(this.edgeIndex, priorRow.claim);
         if (detailId) {
           const detailRow = this.index.find(
             (c) =>
@@ -941,12 +995,20 @@ export class ChunkKVEngine {
               nliEntail: fused.nliScore,
             }),
           });
-          fusedMeta = {
-            parts: fused.parts,
-            segments: fused.segments,
-            nliLabel: fused.nliLabel,
-            nliScore: fused.nliScore,
-          };
+          const edgeNotes: string[] = [];
+            if (fused.parts.length >= 2) {
+              const ca = fused.parts[0].chunk.claim;
+              const cb = fused.parts[1].chunk.claim;
+              const rel = relationBetween(this.edgeIndex, ca, cb);
+              if (rel) edgeNotes.push(`s3:static-edge:${rel}:${ca}↔${cb}`);
+            }
+            for (const n of edgeNotes) debugNotes.push(n);
+            fusedMeta = {
+              parts: fused.parts,
+              segments: fused.segments,
+              nliLabel: fused.nliLabel,
+              nliScore: fused.nliScore,
+            };
           compoundSegsResolved = fused.segments;
         } else {
           debugNotes.push("fuse:null");

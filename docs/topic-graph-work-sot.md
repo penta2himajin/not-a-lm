@@ -102,7 +102,7 @@
 |------|------|----------------|------|
 | **S1** | 三層の設計固定（言語／意図／注意） | Grosz & Sidner | **完了**（[R][D][I][W]） |
 | **S2** | claim = QUD、閉じたパラフレーズ | QUD | **完了**（[R][D][I][E][W]） |
-| **S3** | 静的辺語彙と核／衛星 | RST | 未着手 |
+| **S3** | 静的辺語彙と核／衛星 | RST | **進行中**（[R][D][I]） |
 | **S4** | 対話向け関係と浅い DAG | SDRT / STAC | 未着手 |
 | **S5** | 話題構造と修辞構造の分離・硬化 | 話題分割 × 修辞（UMLF 等） | 未着手 |
 
@@ -212,22 +212,55 @@
 
 **目的:** claim 間に少数の情報辺を著者定義し、融合の full/partial と核／衛星を対応づける。
 
-**[R] で確認すること**
+**状態:** 進行中（2026-09-05）  
+**[R] 成果:** [`research-reports/topic-graph-s3-rst-edges.md`](research-reports/topic-graph-s3-rst-edges.md)
 
-- RST 関係の最小集合（対話ボット向けに削る）
-- nuclearity と現行 fuse compose 方針の対応
-- Moore & Pollack：情報辺だけでは follow-up に足りない、という限界（S4 への橋）
+#### [D] 凍結：辺ラベル
 
-**[D] で凍結すること**
+| ラベル | nuclearity | 意味 |
+|--------|------------|------|
+| `elaborates` | 単核（from=核, to=衛星） | 詳細化。S2 `detailClaim` のグラフ形 |
+| `contrasts` | 多核 | 対比・できる／できない等の並置 |
+| `parallel` | 多核 | 同格の並列トピック（複合 fuse） |
 
-- 辺ラベル初期集合（推奨出発点: `elaborates | contrasts | parallel`）
-- コーパス上の辺の書き方
-- retrieval / fuse への効かせ方（ボーナス、候補制約、表示用のどれか）
+**非目標（S3）:** `follow-up` / QAP 等の対話辺（→ S4）。注意スタック置換。自由生成。
 
-**完了条件**
+#### [D] 凍結：コーパス表記
 
-- 辺付きパイロットコーパスと、融合・対比系ケースの eval
-- 自然さ judge で「話題のつなぎ」項目を追加済み
+```yaml
+edges:
+  - rel: elaborates   # | contrasts | parallel
+    to: other-claim-id
+```
+
+- claim 直下。`parallel` / `contrasts` は索引時に無向化。`elaborates` は有向。
+- S2 `detailClaim` は糖衣として残す（proximal elaboration）。対応する `elaborates` 辺を推奨。
+
+#### [D] 凍結：retrieval / fuse への効かせ方
+
+| 経路 | 効かせ方 |
+|------|----------|
+| fuse 二部マッチ | 辺で結ばれた claim ペアに CE スコア軟ボーナス（ハードフィルタしない） |
+| fuse 並べ替え | `elaborates` 核を先頭（full）、衛星を後段（partial） |
+| retrieval | continuity claim の辺隣接に小さな加算 |
+| 監査 | `debugNotes` / `discourseLayerHints.intentional` に `s3:…` |
+
+#### [D] 凍結：自然さ judge「話題のつなぎ」
+
+- 新ディメンションは増やさない（スキーマ互換）。
+- `coherence` の明示下位項目として「複合・対比での話題のつなぎ」をプロンプトに追加済み。
+
+#### [I] 実装（パイロット）
+
+- `topic-edges.ts` + `AuthorClaim.edges` / flatten / `corpus:build`
+- fuse ボーナス・nuclearity 並べ替え・retrieval 隣接ボーナス・elaboration 衛星フォールバック
+- パイロット辺: `mech-1`↔`mech-1-detail`/`mech-existing`/`mech-2`, `help-1`↔`help-2`, `help-2`↔`limit-1`
+
+#### [E] / 完了条件
+
+- [ ] 辺付きパイロットコーパスと、融合・対比系ケースの eval（`eval:topic-edges`）
+- [ ] 自然さ judge で「話題のつなぎ」項目を追加済み
+- [ ] `eval:naturalness-vs-baseline`（pre-S3・22件）で劣化なし
 
 ---
 
@@ -297,3 +330,4 @@
 | 2026-09-05 | **S1 完了:** Grosz & Sidner 三層対応表・静的/実行時凍結・`discourseLayerHints` |
 | 2026-09-05 | **S2 完了:** QUD/sameIntent/detailClaim パイロット、pre-S2 baseline 比 improved 1 / tied 4 / regressed 0 |
 | 2026-09-05 | 自然さベースラインを **22件（pre-S3）** に拡充。S3 以降の既定比較セットに切替 |
+| 2026-09-05 | **S3 着手:** RST 最小辺・nuclearity 凍結、静的辺パイロット実装 |
