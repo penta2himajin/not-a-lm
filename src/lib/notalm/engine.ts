@@ -19,7 +19,8 @@ import {
   buildTurnGrounding,
   classifyAnaphora,
   continuityFromPrior,
-  injectProximal,
+  isElaborationProximal,
+  proximalFocusRef,
   lastBotGrounding,
   planClarifyRecent,
   recentBotGroundings,
@@ -39,14 +40,20 @@ import {
   planSingleChunk,
   primaryComposePlan,
   renderOperationPlan,
+  scorePlanCandidate,
   selectBestPlan,
 } from "./plan";
+import {
+  previewCompoundSegments,
+  segmentCandidates,
+} from "./segment";
 import {
   buildSpanIndexManifest,
   KEY_POOL,
   mergeDualRetrieval,
   searchSpanIndex,
   SPAN_AUTHOR_MIN_COS,
+  topicRescueClaims,
   type SpanIndexEntry,
 } from "./span-index";
 import type {
@@ -60,8 +67,22 @@ import type {
   MatchHit,
   OperationPlan,
   PlanCandidate,
+  TraceDebug,
   TraceStep,
 } from "./types";
+
+function markMs(t0: number): number {
+  return Math.round(performance.now() - t0);
+}
+
+function logTurnDebug(payload: Record<string, unknown>): void {
+  // Always emit one JSON line so cloud logs + user reports stay aligned.
+  try {
+    console.info("[notalm:turn]", JSON.stringify(payload));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** G6d audit blob attached to a turn executed from a ChainPlan. */
 export type ChainTraceMeta = NonNullable<TraceStep["chain"]>;
@@ -87,6 +108,8 @@ const GATE_CANDIDATES = 3;
  * from out-of-corpus (~0) far better than natural keys do.
  */
 const GATE_MIN_SCORE = 0.03;
+/** CE reroute: swap chosen when a gate candidate wins by at least this margin. */
+const GATE_REROUTE_MARGIN = 0.25;
 /**
  * Cosine "rescue" against reranker false-refusals: if the gate would refuse but
  * the ranking top-1's raw bi-encoder cosine is at least this high, the nearest
@@ -102,35 +125,6 @@ const RESCUE_COS = 0.7;
  * High threshold so fusion only fires for genuinely compound/broad questions.
  */
 const FUSE_MIN = 0.5;
-/** Split a compound query into segments on conjunction markers. */
-function segmentQuery(text: string, lang: Lang): string[] {
-  const sep =
-    lang === "en"
-      ? /\s+and\s+|,/i
-      : /[、，]|と|や|および|また|和|与|以及|还有/;
-  return text
-    .split(sep)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-/** Trim trailing request phrases/particles so an extracted segment reads as a topic. */
-function cleanSegment(seg: string, lang: Lang): string {
-  let s = seg.trim();
-  if (lang === "ja") {
-    s = s
-      .replace(/(を)?(教えて|おしえて)$/u, "")
-      .replace(/について$/u, "")
-      .replace(/[はをのとや、。．？！\s]+$/u, "");
-  } else if (lang === "zh") {
-    s = s.replace(/(是什么|呢|吗)?[？。！，、\s]*$/u, "");
-  } else {
-    s = s
-      .replace(/^(tell me about|what about|and)\s+/i, "")
-      .replace(/[?.!\s]+$/u, "");
-  }
-  return s.trim();
-}
 
 /**
  * Fluent topic connector / stripLeadingFiller / polarity openers live in plan.ts
@@ -275,71 +269,104 @@ export class ChunkKVEngine {
     return scored.slice(0, limit);
   }
 
+  private indexedChunkRecord(
+    row: ChunkRecord & { embedding: Float32Array },
+  ): ChunkRecord {
+    const { embedding: _e, ...chunk } = row;
+    return chunk;
+  }
+
   /**
-   * Stage 2 (gate only): score the top bi-encoder candidates' KEYWORD keys with
-   * the cross-encoder and return the max as a confidence signal. Ranking is not
-   * changed — the bi-encoder over natural keys already ranks best (the reranker
-   * does not improve ranking on this corpus); the cross-encoder is used only to
-   * decide whether anything is a close enough match. Also annotates each scored
-   * hit with its rerankScore for the trace.
+   * Stage 2 (gate): score keyword keys with the cross-encoder. Optionally
+   * reroute `chosen` when a topic-rescue candidate (e.g. help-1 on「何ができる」)
+   * clearly beats the bi-encoder top-1 on CE.
    */
   private async gateConfidence(
     query: string,
     keyHits: MatchHit[],
-    chosen?: MatchHit,
-  ): Promise<number> {
-    const top = keyHits.slice(0, GATE_CANDIDATES);
-    const candidates = [...top];
-    if (
-      chosen &&
-      !candidates.some((h) => h.chunk.id === chosen.chunk.id)
-    ) {
-      candidates.push(chosen);
+    chosen: MatchHit,
+    lang: Lang,
+    opts: { allowReroute?: boolean } = {},
+  ): Promise<{ topScore: number; chosen: MatchHit; rerouted: boolean }> {
+    const candidates: MatchHit[] = keyHits.slice(0, GATE_CANDIDATES).map((h) => ({
+      ...h,
+    }));
+    const seen = new Set(candidates.map((h) => h.chunk.id));
+
+    const addCandidate = (hit: MatchHit) => {
+      if (seen.has(hit.chunk.id)) return;
+      candidates.push(hit);
+      seen.add(hit.chunk.id);
+    };
+
+    addCandidate({ ...chosen });
+
+    for (const claim of topicRescueClaims(query)) {
+      const row = this.index.find(
+        (c) => c.claim === claim && c.lang === lang && c.speaker === "bot",
+      );
+      if (!row) continue;
+      addCandidate({
+        chunk: this.indexedChunkRecord(row),
+        score: 0,
+      });
     }
+
     const scores = await rerankScores(
       query,
       candidates.map((h) => h.chunk.key),
     );
-    candidates.forEach((h, i) => (h.rerankScore = scores[i]));
-    top.forEach((h) => {
+    let bestIdx = 0;
+    let bestScore = scores[0] ?? 0;
+    candidates.forEach((h, i) => {
+      h.rerankScore = scores[i];
+      if ((scores[i] ?? 0) > bestScore) {
+        bestScore = scores[i] ?? 0;
+        bestIdx = i;
+      }
+    });
+
+    keyHits.slice(0, GATE_CANDIDATES).forEach((h) => {
       const idx = candidates.findIndex((c) => c.chunk.id === h.chunk.id);
       if (idx >= 0) h.rerankScore = scores[idx];
     });
-    return scores.length ? Math.max(...scores) : 0;
+
+    const chosenIdx = candidates.findIndex((c) => c.chunk.id === chosen.chunk.id);
+    const chosenScore = chosenIdx >= 0 ? (scores[chosenIdx] ?? 0) : 0;
+    let rerouted = false;
+    const allowReroute = opts.allowReroute !== false;
+    if (
+      allowReroute &&
+      bestScore >= GATE_MIN_SCORE &&
+      bestIdx !== chosenIdx &&
+      bestScore >= chosenScore + GATE_REROUTE_MARGIN
+    ) {
+      chosen = {
+        ...candidates[bestIdx],
+        score: candidates[bestIdx].score || chosen.score,
+      };
+      rerouted = true;
+    } else if (chosenIdx >= 0) {
+      chosen = { ...chosen, rerankScore: chosenScore };
+    }
+
+    return { topScore: bestScore, chosen, rerouted };
   }
 
-  /** Number of distinct meaningful segments in a (possibly compound) query. */
+  /** Distinct segments chosen for fusion (sync preview; rescored in fuseCompound). */
   private compoundSegments(query: string, lang: Lang): string[] {
-    return [
-      ...new Set(
-        segmentQuery(query, lang)
-          .map((s) => cleanSegment(s, lang))
-          .filter((s) => s.length >= 2),
-      ),
-    ];
+    return previewCompoundSegments(query, lang);
   }
 
-  /**
-   * Fusion matching: segment → distinct chunks. Returns OperationPlan via
-   * planFuseParts (G5), or null if fusion should not fire.
-   * Also returns per-part rerank scores for G5d plan scoring.
-   */
-  private async fuseCompound(
-    query: string,
-    queryVec: Float32Array,
-    lang: Lang,
-    continuity?: ContinuityHint,
+  /** Bipartite segment→chunk matching for one partition candidate. */
+  private async fuseMatchPartition(
+    segments: string[],
+    cands: MatchHit[],
   ): Promise<{
-    plan: OperationPlan;
     parts: { seg: string; chunk: ChunkRecord; score: number }[];
-    nliLabel?: string;
-    nliScore?: number;
+    totalScore: number;
   } | null> {
-    const segments = this.compoundSegments(query, lang);
-    if (segments.length < 2) return null;
-
-    const cands = this.search(queryVec, "bot", lang, 12, continuity);
-    if (cands.length < 2) return null;
+    if (segments.length < 2 || cands.length < 2) return null;
 
     const rr: number[][] = [];
     for (let i = 0; i < segments.length; i++) {
@@ -374,10 +401,65 @@ export class ChunkKVEngine {
       });
     }
     if (parts.length < 2) return null;
+    if (new Set(parts.map((p) => p.chunk.id)).size < 2) return null;
 
-    const planned = await planFuseParts(parts, lang);
+    const totalScore = parts.reduce((sum, p) => sum + p.score, 0);
+    return { parts, totalScore };
+  }
+
+  /**
+   * Fusion matching: segment → distinct chunks. Returns OperationPlan via
+   * planFuseParts (G5), or null if fusion should not fire.
+   * Also returns per-part rerank scores for G5d plan scoring.
+   */
+  private async fuseCompound(
+    query: string,
+    queryVec: Float32Array,
+    lang: Lang,
+    continuity?: ContinuityHint,
+  ): Promise<{
+    plan: OperationPlan;
+    parts: { seg: string; chunk: ChunkRecord; score: number }[];
+    segments: string[];
+    nliLabel?: string;
+    nliScore?: number;
+  } | null> {
+    const cands = this.search(queryVec, "bot", lang, 12, continuity);
+    if (cands.length < 2) return null;
+
+    const partitions = segmentCandidates(query, lang);
+    let bestMatch: {
+      parts: { seg: string; chunk: ChunkRecord; score: number }[];
+      totalScore: number;
+    } | null = null;
+    let bestSegments: string[] = [];
+
+    for (const segments of partitions) {
+      if (segments.length < 2) continue;
+      const matched = await this.fuseMatchPartition(segments, cands);
+      if (!matched) continue;
+      if (
+        !bestMatch ||
+        matched.totalScore > bestMatch.totalScore ||
+        (matched.totalScore === bestMatch.totalScore &&
+          segments.length < bestSegments.length)
+      ) {
+        bestMatch = matched;
+        bestSegments = segments;
+      }
+    }
+
+    if (!bestMatch) return null;
+
+    const planned = await planFuseParts(bestMatch.parts, lang);
     if (!planned) return null;
-    return { plan: planned.plan, parts, nliLabel: planned.nliLabel, nliScore: planned.nliScore };
+    return {
+      plan: planned.plan,
+      parts: bestMatch.parts,
+      segments: bestSegments,
+      nliLabel: planned.nliLabel,
+      nliScore: planned.nliScore,
+    };
   }
 
   /** The graceful "no close match" chunk for a language (reply-mode refusal). */
@@ -399,6 +481,10 @@ export class ChunkKVEngine {
     }
 
     const t0 = performance.now();
+    let tMark = t0;
+    const timingMs: NonNullable<TraceStep["timingMs"]> = {};
+    const debugNotes: string[] = [];
+
     const queryLang = latestUser?.trim()
       ? detectLang(latestUser)
       : detectLangFromHistory(history);
@@ -412,38 +498,88 @@ export class ChunkKVEngine {
     // G6b: 「さっきの」with only one prior bot turn → treat as proximal.
     if (anaphora === "non-proximal" && recentGroundings.length <= 1) {
       anaphora = recentGroundings.length === 1 ? "proximal" : "none";
+      debugNotes.push(
+        anaphora === "proximal"
+          ? "anaphora:non-proximal→proximal(single-prior)"
+          : "anaphora:non-proximal→none(no-prior)",
+      );
     }
 
-    // G6c: stick to prior chunk/claim despite usedIds (bot replies only).
+    // G6c: continuity only for proximal follow-ups (topic shift must not stick).
     const continuity: ContinuityHint | undefined =
-      preferSpeaker === "bot"
+      preferSpeaker === "bot" && anaphora === "proximal"
         ? continuityFromPrior(priorGroundingEarly)
         : undefined;
-
-    // G6b-proximal: expand planning/retrieval anchor with prior excerpt copy.
-    let planningUser = rawUser;
-    const g6bReasons: string[] = [];
-    if (
-      anaphora === "proximal" &&
-      priorGroundingEarly &&
-      opts.generate &&
-      preferSpeaker === "bot"
-    ) {
-      const inj = injectProximal(rawUser, priorGroundingEarly);
-      planningUser = inj.effectiveQuery;
-      g6bReasons.push(...inj.reasons);
+    if (preferSpeaker === "bot" && anaphora !== "proximal" && priorGroundingEarly) {
+      debugNotes.push("g6c:skipped(non-proximal)");
     }
+
+    // G6b-proximal: focus refs for compose — do NOT concatenate into the
+    // retrieval/gate query (that caused topic-lock on "それって RAG…").
+    const g6bReasons: string[] = [];
+    const proximalFocus =
+      anaphora === "proximal" && preferSpeaker === "bot"
+        ? proximalFocusRef(priorGroundingEarly)
+        : null;
+    if (proximalFocus) g6bReasons.push(...proximalFocus.reasons);
+
+    // Always use the raw user text for retrieval + gate (contract: single path,
+    // no query pollution). History bias stays in composeQueryVector.
+    const planningUser = rawUser;
+    timingMs.context = markMs(tMark);
+    tMark = performance.now();
 
     const composed = await composeQueryVector(
       history,
       planningUser || latestUser,
       this.backend,
     );
+    timingMs.queryEmbed = markMs(tMark);
+    tMark = performance.now();
+
+    // Bot replies always run grounded planning (contract). `generate: false` is
+    // ignored on the main path; kept on the wire for older clients only.
+    const useGrounded = preferSpeaker === "bot";
+    if (preferSpeaker === "bot" && opts.generate === false) {
+      debugNotes.push("generate:false-ignored(contract-always-ground)");
+    }
+
+    const compoundSegsEarly = this.compoundSegments(
+      planningUser || rawUser,
+      queryLang,
+    );
+    let compoundSegsResolved = compoundSegsEarly;
+
+    const buildDebugBase = (extra: Partial<TraceDebug> = {}): TraceDebug => {
+      const notes = [...debugNotes, ...(extra.notes ?? [])];
+      return {
+        rawUser,
+        planningUser,
+        gateQuery: planningUser || composed.anchorText || rawUser || "",
+        preferSpeaker,
+        useGrounded,
+        anaphora,
+        compoundSegments: compoundSegsResolved,
+        proximalFocus: proximalFocus
+          ? {
+              chunkId: proximalFocus.chunkId,
+              claim: proximalFocus.claim,
+              spanId: proximalFocus.spanId,
+              excerptPreview: proximalFocus.excerpt?.slice(0, 80),
+            }
+          : undefined,
+        continuityApplied: Boolean(continuity),
+        continuity: continuity
+          ? { chunkId: continuity.chunkId, claim: continuity.claim }
+          : undefined,
+        ...extra,
+        notes,
+      };
+    };
 
     // G6b-clarify: short-circuit before retrieve/gate (avoid OOC refuse on さっきの).
     if (
-      opts.generate &&
-      preferSpeaker === "bot" &&
+      useGrounded &&
       anaphora === "non-proximal" &&
       recentGroundings.length >= 2
     ) {
@@ -478,6 +614,19 @@ export class ChunkKVEngine {
           g.excerptTexts.slice(0, 1),
         ),
       });
+      timingMs.total = markMs(t0);
+      const debug = buildDebugBase({
+        notes: ["path:clarify-short-circuit"],
+        winnerPlanId: "clarify",
+      });
+      logTurnDebug({
+        path: "clarify",
+        lang: queryLang,
+        anaphora,
+        latencyMs: timingMs.total,
+        timingMs,
+        chosen: anchorChunk.id,
+      });
       return {
         message: {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -500,12 +649,15 @@ export class ChunkKVEngine {
           querySummary: composed.summary,
           hits: [hit],
           chosen: hit,
-          latencyMs: Math.round(performance.now() - t0),
+          latencyMs: timingMs.total ?? markMs(t0),
+          timingMs,
+          debug,
         },
       };
     }
 
     // Stage 1 (ranking): bi-encoder over natural keys (+ dual-index span merge).
+    tMark = performance.now();
     const searchLimit = this.spanIndex.length > 0 ? KEY_POOL : TOP_K;
     let hits = this.search(
       composed.vector,
@@ -559,9 +711,33 @@ export class ChunkKVEngine {
       matchedSpanText = dual.matchedSpanText;
       spanScore = dual.spanScore;
     }
+    timingMs.retrieve = markMs(tMark);
+    tMark = performance.now();
 
     let chosen = hits[0];
     if (!chosen) throw new Error("チャンクが空です");
+
+    // G6b-elaboration: 「何が」「詳しく」etc. continue the prior bot turn — keyword
+    // gate/reroute cannot interpret elliptical follow-ups and will drift (e.g. greet).
+    let elaborationPin = false;
+    if (
+      preferSpeaker === "bot" &&
+      anaphora === "proximal" &&
+      isElaborationProximal(rawUser, queryLang) &&
+      priorGroundingEarly
+    ) {
+      const priorRow = this.index.find(
+        (c) => c.id === priorGroundingEarly.chunkId,
+      );
+      if (priorRow) {
+        chosen = {
+          chunk: this.indexedChunkRecord(priorRow),
+          score: Math.max(chosen.score, 1),
+        };
+        elaborationPin = true;
+        debugNotes.push(`proximal:elaboration-pin=${priorRow.claim}`);
+      }
+    }
 
     // Raw bi-encoder cosine of the ranking top-1 (no reuse penalty) — the
     // "how close is the nearest corpus element" signal, used only to rescue
@@ -581,24 +757,44 @@ export class ChunkKVEngine {
     let topRerankScore: number | undefined;
     let lowConfidence = false;
     let rescued = false;
-    const spanGateBypass =
+    let gateRerouted = false;
+    let spanGateBypass =
       retrievalSource === "span" &&
       matchedSpanKind === "author" &&
       (spanScore ?? 0) >= SPAN_AUTHOR_MIN_COS;
 
-    if (isRerankerReady() && gateQuery && preferSpeaker === "bot") {
+    if (isRerankerReady() && gateQuery && preferSpeaker === "bot" && !elaborationPin) {
       try {
         // Gate on pre-merge key pool + merged winner (span rescue may sit outside key top-K).
-        topRerankScore = await this.gateConfidence(
+        const gate = await this.gateConfidence(
           gateQuery,
           keyHitsForGate,
           chosen,
+          queryLang,
+          { allowReroute: anaphora !== "proximal" },
         );
+        topRerankScore = gate.topScore;
+        chosen = gate.chosen;
+        gateRerouted = gate.rerouted;
+        if (gateRerouted) {
+          debugNotes.push(`gate:reroute=${chosen.chunk.claim}`);
+          spanGateBypass = false;
+          retrievalSource = "natKey";
+        }
         gated = true;
       } catch {
         /* gate unavailable: fall through without refusing */
+        debugNotes.push("gate:error-skipped");
       }
     }
+    timingMs.gate = markMs(tMark);
+    tMark = performance.now();
+
+    const gateTop = keyHitsForGate.slice(0, GATE_CANDIDATES).map((h) => ({
+      id: h.chunk.id,
+      claim: h.chunk.claim,
+      rerank: h.rerankScore,
+    }));
 
     // Confidence gate (reply-mode only): if the best keyword-key score is below
     // threshold, nothing in the corpus is a close match — refuse gracefully with
@@ -660,29 +856,36 @@ export class ChunkKVEngine {
     let fusedWith: string | undefined;
     let fuseParts: FusePartTrace[] | undefined;
     let fusedCompose: boolean | undefined;
+    let planCandidateDebug: TraceDebug["planCandidates"];
+    let winnerPlanId: string | undefined;
 
-    if (opts.generate && preferSpeaker === "bot" && !lowConfidence) {
+    if (useGrounded && !lowConfidence) {
       const chunkById = new Map(this.index.map((c) => [c.id, c]));
       const getChunk = (id: string) => chunkById.get(id);
 
+      const tPol = performance.now();
       const polarity = await peekPolarity(gateQuery, chosen.chunk);
+      timingMs.polarity = markMs(tPol);
       nliLabel = polarity.nliLabel;
       nliScore = polarity.nliScore;
 
       const candidates: PlanCandidate[] = [];
       let fusedMeta: {
         parts: { seg: string; chunk: ChunkRecord; score: number }[];
+        segments: string[];
         nliLabel?: string;
         nliScore?: number;
       } | null = null;
 
       if (isRerankerReady()) {
+        const tFuse = performance.now();
         const fused = await this.fuseCompound(
           gateQuery,
           composed.vector,
           chosen.chunk.lang,
           continuity,
         );
+        timingMs.fuse = markMs(tFuse);
         if (fused) {
           const meanRel =
             fused.parts.reduce((a, p) => a + p.score, 0) / fused.parts.length;
@@ -696,39 +899,55 @@ export class ChunkKVEngine {
           });
           fusedMeta = {
             parts: fused.parts,
+            segments: fused.segments,
             nliLabel: fused.nliLabel,
             nliScore: fused.nliScore,
           };
+          compoundSegsResolved = fused.segments;
+        } else {
+          debugNotes.push("fuse:null");
         }
       }
 
-      const proximalFocus =
-        anaphora === "proximal" &&
-        priorGroundingEarly &&
-        priorGroundingEarly.chunkId === chosen.chunk.id
-          ? priorGroundingEarly.kept?.[0]
-          : undefined;
+      const sameChunkProximal =
+        !elaborationPin &&
+        Boolean(proximalFocus) &&
+        Boolean(priorGroundingEarly) &&
+        priorGroundingEarly!.chunkId === chosen.chunk.id;
+      if (proximalFocus && !sameChunkProximal && !elaborationPin) {
+        debugNotes.push("proximal-focus:skipped(different-chunk)");
+      }
 
-      const single = await planSingleChunk({
-        query: gateQuery,
-        chunk: chosen.chunk,
-        lang: chosen.chunk.lang,
-        focusSpanId:
-          proximalFocus?.spanId ??
-          (retrievalSource === "span" && matchedSpanKind === "author"
-            ? matchedSpanId
-            : undefined),
-        focusKeySpanText:
-          anaphora === "proximal" && priorGroundingEarly?.excerptTexts[0]
-            ? priorGroundingEarly.excerptTexts[0]
-            : retrievalSource === "span" && matchedSpanKind === "key-span"
-              ? matchedSpanText
+      const tSingle = performance.now();
+      const single = elaborationPin
+        ? {
+            plan: {
+              steps: [
+                {
+                  kind: "body" as const,
+                  chunkId: chosen.chunk.id,
+                },
+              ],
+              reasons: ["elaboration:full-keep", ...g6bReasons],
+            },
+            nliLabel: polarity.nliLabel,
+            nliScore: polarity.nliScore,
+          }
+        : await planSingleChunk({
+            query: gateQuery,
+            chunk: chosen.chunk,
+            lang: chosen.chunk.lang,
+            // Elaboration follow-ups handled above; reference proximal may pass focus.
+            focusSpanId: sameChunkProximal ? proximalFocus?.spanId : undefined,
+            focusKeySpanText: sameChunkProximal
+              ? proximalFocus?.excerpt
               : undefined,
-        polarity,
-      });
+            polarity,
+          });
+      timingMs.single = markMs(tSingle);
       if (single) {
         let singleRel = topRerankScore ?? Math.max(0, chosen.score);
-        // G6c: prefer continuing the prior claim when ranking plans.
+        // G6c: prefer continuing the prior claim when ranking plans (proximal only).
         if (
           continuity?.claim &&
           chosen.chunk.claim === continuity.claim
@@ -749,8 +968,16 @@ export class ChunkKVEngine {
         });
       }
 
+      const tSel = performance.now();
+      planCandidateDebug = candidates.map((c) => ({
+        id: c.id,
+        score: scorePlanCandidate(c),
+        relevance: c.signals.relevance,
+        reasons: c.plan.reasons.slice(0, 8),
+      }));
       const selection = selectBestPlan(candidates);
       if (selection) {
+        winnerPlanId = selection.winner.id;
         operationPlan = selection.winner.plan;
         if (g6bReasons.length) {
           operationPlan = {
@@ -780,9 +1007,14 @@ export class ChunkKVEngine {
           GROUNDED_OPENERS,
         );
         replyText = rendered;
-        // Legacy: generated only when the reply was modified (not plain as-is).
-        if (operation !== "as-is") generated = true;
+        // Contract: always planned. Mark generated unless steps are pure full body.
+        generated = operation !== "as-is";
       }
+      timingMs.selectRender = markMs(tSel);
+    } else if (lowConfidence) {
+      debugNotes.push("plan:skipped(lowConfidence)");
+    } else if (!useGrounded) {
+      debugNotes.push("plan:skipped(!useGrounded)");
     }
 
     const queryText = composed.summary;
@@ -801,6 +1033,34 @@ export class ChunkKVEngine {
       composePlan,
       fuseParts,
       getChunk: (id) => chunkByIdForGround.get(id),
+    });
+
+    timingMs.total = markMs(t0);
+    const debug = buildDebugBase({
+      spanGateBypass,
+      gateTop,
+      planCandidates: planCandidateDebug,
+      winnerPlanId,
+    });
+    logTurnDebug({
+      path: lowConfidence ? "refuse" : operation ?? "raw",
+      lang: queryLang,
+      anaphora,
+      continuityApplied: Boolean(continuity),
+      chosen: chosen.chunk.id,
+      claim: chosen.chunk.claim,
+      op: operation,
+      winnerPlanId,
+      topRerank: topRerankScore,
+      topCosine,
+      lowConfidence,
+      rescued,
+      latencyMs: timingMs.total,
+      timingMs,
+      notes: debug.notes,
+      proximalFocus: debug.proximalFocus,
+      compoundSegments: debug.compoundSegments,
+      planCandidates: planCandidateDebug,
     });
 
     return {
@@ -868,7 +1128,9 @@ export class ChunkKVEngine {
         })),
         hits,
         chosen,
-        latencyMs: Math.round(performance.now() - t0),
+        latencyMs: timingMs.total ?? markMs(t0),
+        timingMs,
+        debug,
       },
     };
   }

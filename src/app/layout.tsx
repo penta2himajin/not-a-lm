@@ -29,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="ja"
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>

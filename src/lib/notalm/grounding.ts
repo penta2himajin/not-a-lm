@@ -27,6 +27,19 @@ export type OperationLabel =
 
 export type AnaphoraClass = "none" | "proximal" | "non-proximal";
 
+/** Short follow-ups that ask for more detail on the immediately prior bot turn. */
+export function isElaborationProximal(query: string, lang: Lang): boolean {
+  const q = query.trim();
+  if (!q) return false;
+  if (lang === "ja") {
+    return /^(?:何が|なにが|詳しく|どういうこと)(?:[？?。!！]|$)/u.test(q);
+  }
+  if (lang === "zh") {
+    return /^(?:什么|怎么说|详细(?:一点|些)?)(?:[？?。!！]|$)/u.test(q);
+  }
+  return /^(?:what|how so|more detail|elaborate)(?:[?.!]|$)/i.test(q);
+}
+
 /** Closed clarify opener (no generation). */
 export const CLARIFY_OPEN: Record<Lang, string> = {
   ja: "どれのことですか。たとえば最近だと、",
@@ -71,7 +84,11 @@ export function classifyAnaphora(query: string, lang: Lang): AnaphoraClass {
     ) {
       return "non-proximal";
     }
+    // Short follow-ups that point at the last bot utterance.
     if (/(?:それ|その|これ|この|上記)/.test(q)) return "proximal";
+    if (/^(?:何が|なにが|どういうこと|詳しく)(?:[？?。!！]|$)/.test(q)) {
+      return "proximal";
+    }
     return "none";
   }
 
@@ -109,10 +126,36 @@ export function injectProximal(
     };
   }
   return {
+    // Legacy helper: concatenates excerpt into the query string.
+    // Engine no longer uses this for retrieval (focus-ref only); kept for
+    // unit tests / callers that still want the old expansion.
     effectiveQuery: `${excerpt} ${query}`.trim(),
     excerpt,
     reasons: [
       "g6b:proximal",
+      `g6b:ref=${prior.claim ?? prior.chunkId}`,
+    ],
+  };
+}
+
+/** Focus hint from prior grounding without polluting the retrieval query. */
+export function proximalFocusRef(prior?: TurnGrounding): {
+  spanId?: string;
+  excerpt?: string;
+  chunkId?: string;
+  claim?: string;
+  reasons: string[];
+} | null {
+  if (!prior?.chunkId) return null;
+  const excerpt = (prior.excerptTexts[0] ?? "").trim();
+  const spanId = prior.kept?.[0]?.spanId;
+  return {
+    chunkId: prior.chunkId,
+    claim: prior.claim,
+    spanId,
+    excerpt: excerpt || undefined,
+    reasons: [
+      "g6b:proximal-focus",
       `g6b:ref=${prior.claim ?? prior.chunkId}`,
     ],
   };

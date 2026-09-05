@@ -284,6 +284,7 @@ export async function planSingleChunk(
       prefix: composePrefix,
       focusSpanId,
       focusKeySpanText,
+      defaultMode: "full",
     };
     if (query) {
       composeCtx.spanRankings = await rankSpansForCompose(query, chunk.spans);
@@ -340,7 +341,16 @@ export async function planSingleChunk(
     };
   }
 
-  return null;
+  // Contract: always emit a plan (full KEEP). No privileged unplanned dump.
+  reasons.push("full-keep");
+  return {
+    plan: {
+      steps: [{ kind: "body", chunkId: chunk.id }],
+      reasons,
+    },
+    nliLabel,
+    nliScore,
+  };
 }
 
 /**
@@ -381,6 +391,7 @@ export async function planFuseParts(
       chunk,
       lang,
       polarity.prefix,
+      i === 0 ? "full" : "partial",
     );
     if (plan) {
       reasons.push(`fuse[${i}]:compose`);
@@ -419,12 +430,14 @@ async function composePartBodyPlan(
   chunk: ChunkRecord,
   lang: Lang,
   prefix?: "negate-correct" | "affirm-confirm",
+  defaultMode: ComposeContext["defaultMode"] = "partial",
 ): Promise<{ plan: ComposePlan | null }> {
   if (!chunk.spans?.length) return { plan: null };
   const spanRankings = await rankSpansForCompose(segmentQuery, chunk.spans);
   const spanNliRankings = await rankSpansByNli(segmentQuery, chunk.spans);
   const plan = planComposeG4a(segmentQuery, chunk, {
     prefix,
+    defaultMode,
     spanRankings,
     spanNliRankings,
   });

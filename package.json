@@ -24,6 +24,8 @@
     "eval:dual-index:engine": "node scripts/eval-dual-index-engine.mjs",
     "eval:fusion-g4": "node --experimental-strip-types scripts/eval-fusion-g4.mjs",
     "eval:fusion-g4:engine": "node --experimental-strip-types scripts/eval-fusion-g4.mjs --api",
+    "eval:segment": "node --experimental-strip-types scripts/eval-segment.mjs",
+    "eval:segment:engine": "node --experimental-strip-types scripts/eval-segment.mjs --api",
     "eval:corpus-spans": "node --experimental-strip-types scripts/eval-corpus-spans.mjs",
     "corpus:migrate": "node --experimental-strip-types scripts/corpus-migrate.mjs",
     "corpus:build": "node --experimental-strip-types scripts/corpus-build.mjs",

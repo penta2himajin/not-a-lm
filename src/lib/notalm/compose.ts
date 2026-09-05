@@ -44,6 +44,9 @@ const TAG_QUERY_HINTS: Record<string, RegExp[]> = {
   greeting: [/こんにちは/, /hello/i, /你好/, /はじめまして/],
 };
 
+/** full: narrow only on polarity / explicit focus (tags, dual-index). partial: also G4b/G4c. */
+export type ComposeDefaultMode = "full" | "partial";
+
 export type ComposeContext = {
   /** From G2 NLI when grounded generation detected polarity */
   prefix?: "negate-correct" | "affirm-confirm";
@@ -51,6 +54,11 @@ export type ComposeContext = {
   focusSpanId?: string;
   /** From dual-index retrieval: auto key-span substring (copy-only) */
   focusKeySpanText?: string;
+  /**
+   * full (default): single-chunk / fuse-primary — keep whole value unless polarity
+   * or explicit focus narrows. partial: fuse-secondary — allow G4b/G4c auto focus.
+   */
+  defaultMode?: ComposeDefaultMode;
   /** G4b: span id → query cosine (engine/fusion precomputes) */
   spanRankings?: { spanId: string; score: number }[];
   /** G4c: span id → NLI entailment vs span.nliHypothesis */
@@ -127,6 +135,9 @@ export function planComposeG4a(
   const spans = chunk.spans;
   if (!spans?.length) return null;
 
+  const defaultMode = ctx.defaultMode ?? "full";
+  const allowAutoNarrow = defaultMode === "partial";
+
   let kept: SpanRecord[] = spans;
 
   // Rule 1 — polarity: false presupposition on deny chunk → correction spans only
@@ -201,6 +212,7 @@ export function planComposeG4a(
 
   // Rule 2b — G4b: embedding focus when tags did not narrow to a proper subset
   if (
+    allowAutoNarrow &&
     ctx.spanRankings?.length &&
     kept.length === spans.length &&
     ctx.prefix !== "negate-correct" &&
@@ -235,6 +247,7 @@ export function planComposeG4a(
 
   // Rule 2c — G4c: NLI focus when tags + G4b did not narrow (spans with nliHypothesis)
   if (
+    allowAutoNarrow &&
     ctx.spanNliRankings?.length &&
     kept.length === spans.length &&
     ctx.prefix !== "negate-correct" &&
@@ -360,7 +373,10 @@ export async function composePartBody(
   if (!chunk.spans?.length) {
     return { text: chunk.value, plan: null };
   }
-  const fullCtx: ComposeContext = { ...ctx };
+  const fullCtx: ComposeContext = {
+    defaultMode: "partial",
+    ...ctx,
+  };
   if (!fullCtx.spanRankings?.length) {
     fullCtx.spanRankings = await rankSpansForCompose(
       segmentQuery,
