@@ -1,0 +1,153 @@
+/**
+ * Compare current live replies to a frozen naturalness baseline.
+ *
+ * Protocol:
+ *   A = current live reply (same prompts as baseline)
+ *   B = frozen baseline.liveReply
+ * Pairwise judge with position debias.
+ *
+ * Expectation after corpus improvements: A wins or ties (no regression).
+ *
+ * Usage:
+ *   NOTALM_URL=http://127.0.0.1:43123 npm run eval:naturalness-vs-baseline
+ *   npm run eval:naturalness-vs-baseline -- --baseline=fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json
+ */
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { judgePairwise } from "../src/lib/notalm/naturalness-judge.ts";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = join(__dirname, "..");
+const BASE = process.env.NOTALM_URL ?? "http://127.0.0.1:43123";
+
+const baselineArg = process.argv.find((a) => a.startsWith("--baseline="));
+const baselinePath = resolve(
+  root,
+  baselineArg?.slice("--baseline=".length) ??
+    "fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json",
+);
+const outArg = process.argv.find((a) => a.startsWith("--out="));
+const outPath = resolve(
+  outArg?.slice("--out=".length) ??
+    "/opt/cursor/artifacts/naturalness_vs_baseline.json",
+);
+
+async function chat(userText, history = [], resetSession = true) {
+  const r = await fetch(`${BASE}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ userText, history, generate: true, resetSession }),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(JSON.stringify(data));
+  return data;
+}
+
+function toHistory(turns) {
+  return (turns ?? []).map((t, i) => ({
+    id: `h${i}`,
+    role: t.role === "bot" ? "bot" : "user",
+    text: t.text,
+  }));
+}
+
+const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+const report = {
+  baselineId: baseline.id,
+  baselinePath,
+  judgeModel: null,
+  comparedAt: new Date().toISOString(),
+  cases: [],
+  summary: { improved: 0, tied: 0, regressed: 0, skipped: 0 },
+};
+
+console.log(
+  `baseline=${baseline.id} cases=${baseline.cases.length} url=${BASE}`,
+);
+
+for (const c of baseline.cases) {
+  if (!c.user || !c.liveReply) {
+    console.log(`[${c.id}] skip (missing user/liveReply)`);
+    report.summary.skipped++;
+    continue;
+  }
+  process.stdout.write(`[${c.id}] fetching live… `);
+  const hist = toHistory(c.history);
+  // If follow-up, seed history with baseline prior bot text when provided.
+  const res = await chat(c.user, hist, hist.length === 0);
+  const live = res.message?.text ?? "";
+  const meta = {
+    claim: res.message?.grounding?.claim ?? res.trace?.chosen?.chunk?.claim,
+    op: res.trace?.operation ?? res.trace?.op,
+    anaphora: res.trace?.anaphora,
+  };
+  console.log(`live="${live.slice(0, 60)}"`);
+
+  if (live.trim() === c.liveReply.trim()) {
+    console.log(`  unchanged vs baseline → treat as tie (skip judge)`);
+    report.cases.push({
+      id: c.id,
+      user: c.user,
+      baselineReply: c.liveReply,
+      liveReply: live,
+      liveMeta: meta,
+      winner: "tie",
+      reason: "byte-identical",
+      votes: { A: 0, B: 0, tie: 1 },
+    });
+    report.summary.tied++;
+    continue;
+  }
+
+  const agg = await judgePairwise(
+    {
+      id: `vs-baseline:${c.id}`,
+      lang: "ja",
+      context: (c.history ?? []).map((t) => ({
+        role: t.role === "bot" ? "bot" : "user",
+        text: t.text,
+      })),
+      user: c.user,
+      replyA: live,
+      replyB: c.liveReply,
+      notes: "A=current live, B=frozen pre-S2 baseline",
+    },
+    { debias: true },
+  );
+  report.judgeModel = agg.model;
+  // A win = improved (or at least preferred now); B win = regression
+  if (agg.winner === "A") report.summary.improved++;
+  else if (agg.winner === "B") report.summary.regressed++;
+  else report.summary.tied++;
+
+  console.log(
+    `  winner=${agg.winner} votes(A=${agg.votes.A} B=${agg.votes.B} tie=${agg.votes.tie})`,
+  );
+  for (const p of agg.passes) {
+    console.log(
+      `  pass swap=${p.positionSwapped} -> ${p.winner}: ${p.rationale}`,
+    );
+  }
+  report.cases.push({
+    id: c.id,
+    user: c.user,
+    baselineReply: c.liveReply,
+    liveReply: live,
+    liveMeta: meta,
+    winner: agg.winner,
+    votes: agg.votes,
+    rationales: agg.passes.map((p) => ({
+      swap: p.positionSwapped,
+      winner: p.winner,
+      rationale: p.rationale,
+    })),
+  });
+}
+
+mkdirSync(dirname(outPath), { recursive: true });
+writeFileSync(outPath, JSON.stringify(report, null, 2) + "\n");
+console.log("\n=== SUMMARY (A=current, B=baseline) ===");
+console.log(JSON.stringify(report.summary, null, 2));
+console.log(`wrote ${outPath}`);
+if (report.summary.regressed > 0) process.exitCode = 1;

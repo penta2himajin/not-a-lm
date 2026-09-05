@@ -27,6 +27,7 @@
     "eval:segment": "node --experimental-strip-types scripts/eval-segment.mjs",
     "eval:segment:engine": "node --experimental-strip-types scripts/eval-segment.mjs --api",
     "eval:naturalness-judge": "node --experimental-strip-types scripts/eval-naturalness-judge.mjs",
+    "eval:naturalness-vs-baseline": "node --experimental-strip-types scripts/eval-naturalness-vs-baseline.mjs",
     "eval:corpus-spans": "node --experimental-strip-types scripts/eval-corpus-spans.mjs",
     "corpus:migrate": "node --experimental-strip-types scripts/corpus-migrate.mjs",
     "corpus:build": "node --experimental-strip-types scripts/corpus-build.mjs",

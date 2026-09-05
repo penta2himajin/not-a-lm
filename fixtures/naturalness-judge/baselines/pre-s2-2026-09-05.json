@@ -1,0 +1,140 @@
+{
+  "id": "naturalness-baseline-pre-s2",
+  "capturedAt": "2026-09-05T09:00:00Z",
+  "gitCommit": "ca1f918491e90c866119cfa62d420ef6dfdff7f5",
+  "branch": "cursor/topic-graph-s1-01c1",
+  "note": "Pre-S2 baseline. Freeze live replies + pairwise outcomes before claim/paraphrase corpus work. S1 docs/hints only; reply quality reflects post-merge mainline.",
+  "judgeModel": "nvidia/nemotron-3-super-120b-a12b:free",
+  "protocol": {
+    "pairwise": "A=live system reply, B=baseline comparator (stiff/ideal/drift)",
+    "debias": true,
+    "dimensions": [
+      "tempo",
+      "coherence",
+      "humanlikeness"
+    ],
+    "compareAfterS2": "Re-fetch live replies with same prompts; pairwise A=new live vs B=frozen baseline.liveReply. Expect A wins or tie (no regression). Also re-run stiff comparators."
+  },
+  "cases": [
+    {
+      "id": "live-vs-stiff-identity",
+      "notes": "live vs classic stiff negate-compose",
+      "user": "君は誰？",
+      "history": [],
+      "liveReply": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+      "comparatorReply": "いいえ、そうではありません。名前どおり言語モデルではない。",
+      "comparatorRole": "stiff_or_ideal_or_drift",
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      },
+      "liveMeta": {
+        "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+        "claim": "who-1b",
+        "op": "as-is",
+        "anaphora": "none"
+      }
+    },
+    {
+      "id": "live-vs-ideal-identity",
+      "notes": "live vs ideal natural intro (A=live B=ideal)",
+      "user": "君は誰？",
+      "history": [],
+      "liveReply": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+      "comparatorReply": "名前は NOT A LM。埋め込み近傍のセリフ辞書だ。",
+      "comparatorRole": "stiff_or_ideal_or_drift",
+      "winnerAtCapture": "tie",
+      "votesAtCapture": {
+        "A": 0,
+        "B": 1,
+        "tie": 1
+      },
+      "liveMeta": {
+        "text": "名前は NOT A LM。略さなくていい。中身は埋め込み近傍のセリフ辞書だ。",
+        "claim": "who-1b",
+        "op": "as-is",
+        "anaphora": "none"
+      }
+    },
+    {
+      "id": "live-vs-drift-help",
+      "notes": "live vs off-topic",
+      "user": "何ができるの？",
+      "history": [],
+      "liveReply": "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+      "comparatorReply": "今日の天気は晴れ。おすすめの映画はSFだよ。",
+      "comparatorRole": "stiff_or_ideal_or_drift",
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      },
+      "liveMeta": {
+        "text": "試してみて: 「お前誰？」「仕組み教えて」「天気どう？」「連鎖デモお願い」",
+        "claim": "help-2",
+        "op": "as-is",
+        "anaphora": "none"
+      }
+    },
+    {
+      "id": "live-vs-abrupt-fuse",
+      "notes": "live fuse vs abrupt keywords",
+      "user": "動作原理と既存の似た手法は？",
+      "history": [],
+      "liveReply": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。既存の似た手法については、retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。",
+      "comparatorReply": "kNN-LM。埋め込み。RETRO。照合。",
+      "comparatorRole": "stiff_or_ideal_or_drift",
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      },
+      "liveMeta": {
+        "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。既存の似た手法については、retrieval-only chatbot、response selection、Memory Networks、kNN-LM、RETRO。ここはその極端な「生成なし版」。",
+        "claim": "mech-existing",
+        "op": "fuse",
+        "anaphora": "none"
+      }
+    },
+    {
+      "id": "live-vs-drift-followup",
+      "notes": "live follow-up vs topic drift",
+      "user": "詳しく",
+      "history": [
+        {
+          "role": "user",
+          "text": "仕組みを教えて"
+        },
+        {
+          "role": "bot",
+          "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。"
+        }
+      ],
+      "liveReply": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。",
+      "comparatorReply": "趣味は鉄道と深夜ラジオ。今日の天気は晴れだよ。",
+      "comparatorRole": "stiff_or_ideal_or_drift",
+      "winnerAtCapture": "A",
+      "votesAtCapture": {
+        "A": 2,
+        "B": 0,
+        "tie": 0
+      },
+      "liveMeta": {
+        "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。",
+        "claim": "mech-1",
+        "op": "as-is",
+        "anaphora": "proximal",
+        "prior": {
+          "text": "会話履歴を埋め込み、キー側の埋め込みと照合。一番近いチャンクの value が「次のセリフ」。",
+          "claim": "mech-1",
+          "op": "as-is",
+          "anaphora": "none"
+        }
+      }
+    }
+  ]
+}

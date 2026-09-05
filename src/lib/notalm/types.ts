@@ -310,6 +310,15 @@ export type TraceDebug = {
   }[];
   winnerPlanId?: string;
   notes: string[];
+  /**
+   * S1 / Grosz & Sidner audit labels (linguistic | intentional | attentional).
+   * Does not change reply behavior; world KG is never implied.
+   */
+  discourseLayerHints?: {
+    linguistic: string[];
+    intentional: string[];
+    attentional: string[];
+  };
 };
 
 export type ChatMessage = {

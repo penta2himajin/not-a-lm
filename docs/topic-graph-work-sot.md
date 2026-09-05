@@ -3,7 +3,8 @@
 **Status:** Source of Truth（作業方針・段階ゲート）  
 **Updated:** 2026-09-05  
 **上位契約:** [`grounding-contract.md`](grounding-contract.md)  
-**調査根拠（読み物）:** [`research-reports/topic-graph-related-work.md`](research-reports/topic-graph-related-work.md)
+**調査根拠（読み物）:** [`research-reports/topic-graph-related-work.md`](research-reports/topic-graph-related-work.md)  
+**S1 対応表:** [`research-reports/topic-graph-s1-centering-mapping.md`](research-reports/topic-graph-s1-centering-mapping.md)
 
 この文書は、話題グラフ寄りの改善を **5 段階**で進めるための方針と作業指示である。  
 実装の細部は各段階の「研究レビュー → 詳細凍結」で決め、ここにゲートと非目標だけを固定する。
@@ -62,6 +63,10 @@
 
 段階ごとの具体ルーブリックは、その段階の研究レビュー後に凍結し、本 SoT の該当節へ追記する。
 
+**自然さベースライン（pre-S2 固定）:**  
+[`fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json`](../fixtures/naturalness-judge/baselines/pre-s2-2026-09-05.json)  
+比較: `npm run eval:naturalness-vs-baseline`（手順は [`naturalness-llm-judge.md`](naturalness-llm-judge.md)）。
+
 ---
 
 ## 3. 各段階の共通手順（必須）
@@ -94,7 +99,7 @@
 
 | 段階 | 主題 | 主な理論的足場 | 状態 |
 |------|------|----------------|------|
-| **S1** | 三層の設計固定（言語／意図／注意） | Grosz & Sidner | 未着手 |
+| **S1** | 三層の設計固定（言語／意図／注意） | Grosz & Sidner | **完了**（[R][D][I][W]） |
 | **S2** | claim = QUD、閉じたパラフレーズ | QUD | 未着手 |
 | **S3** | 静的辺語彙と核／衛星 | RST | 未着手 |
 | **S4** | 対話向け関係と浅い DAG | SDRT / STAC | 未着手 |
@@ -106,25 +111,43 @@
 
 **目的:** 「話題グラフ」を実装する前に、現行システムのどこが静的辺・どこが注意スタック・どこが意図（QUD）かを言語化する。
 
-**[R] で確認すること**
+**状態:** 完了（2026-09-05）  
+**[R] 成果:** [`research-reports/topic-graph-s1-centering-mapping.md`](research-reports/topic-graph-s1-centering-mapping.md)
 
-- Grosz & Sidner の三層と、現行 G6 grounding / anaphora / fuse の対応表
-- 近年の non-linear dialogue / discourse tree 管理で、生成なしでも使える着想
+#### 明文（必須・変更禁止に近い）
 
-**[D] で凍結すること**
+- **世界 Knowledge Graph は作らない。** ノードは claim / QUD（答えうる問い）に限る。
+- **注意（Attentional state）は実行時スタック**である。コーパス JSON に焦点スタックを永続化しない。現状近似は `TurnGrounding` + anaphora / proximal / continuity。
+- **静的辺（修辞・対話関係）と注意スタックを同一構造にマージしない**（Context-Agent と同型の注意）。
 
-- 静的データ（コーパス）に置くもの vs 実行時だけ持つもの
-- S2 以降で触ってよいファイル境界
+#### [D] 凍結：静的 vs 実行時
 
-**完了条件**
+| 置き場 | 置くもの | 置かないもの |
+|--------|----------|--------------|
+| **静的（コーパス / YAML）** | chunk・claim・natKey・spans・（S3〜）修辞辺・（S4）対話辺・（S2）閉じたパラフレーズ | 焦点スタック、anaphora 判定結果、continuity フラグ、ユーザー履歴そのもの |
+| **実行時のみ** | `TurnGrounding`、`anaphora`、`proximalFocus`、`continuity`、segment パーティション、`OperationPlan`、trace の層ヒント | 世界実体の推論グラフ |
 
-- 対応表が SoT または research-reports に残っている
-- 「KG を作らない」「注意は実行時スタック」が明文である
+#### [D] 凍結：S2 以降のファイル境界
 
-**実装の目安（詳細は [D] 後）**
+| 層 / 関心 | 主に触ってよい | 不用意に混ぜない |
+|-----------|----------------|------------------|
+| **Linguistic（分割）** | `segment.ts`, fuse 経路（`engine.ts` の fusion）, 分割関連 docs | claim メタ・修辞辺スキーマ |
+| **Intentional（QUD / claim）** | コーパス claim メタ（S2）、`plan.ts` / G5d スコア連携、`chain-plan.ts` | `grounding.ts` の照応規則を QUD 木に置換すること |
+| **Attentional（注意）** | `grounding.ts`, `types.ts` の `TurnGrounding` / `TraceStep`, `engine.ts` の G6 経路 | コーパスへの焦点永続化、意味類似だけで枝をマージ |
+| **静的辺（S3/S4）** | コーパス辺スキーマ + retrieval/fuse ボーナス（[D] 後） | `classifyAnaphora` の置換 |
+| **評価** | `naturalness-judge.ts` / eval スクリプト（自然さ）と接地トレースは **分離維持** | judge プロンプトへの接地採点混入 |
 
-- コード変更は最小（ドキュメントとトレーサビリティ中心でも可）
-- 必要なら trace に層ラベルを足す程度
+#### [I] 実装（S1 最小）
+
+- research-reports 対応表 + 本節の凍結文
+- `TraceDebug.discourseLayerHints` に linguistic / intentional / attentional の監査ラベル（本番行動は変えない）
+- `grounded-generation-g6.md` に三層ポインタ
+
+**完了条件（達成）**
+
+- [x] 対応表が research-reports にある
+- [x] 「KG を作らない」「注意は実行時スタック」が明文
+- [x] 静的 vs 実行時とファイル境界が本節に凍結
 
 ---
 
@@ -238,3 +261,4 @@
 |------|------|
 | 2026-09-05 | 初版。五段階・研究先行ゲート・自然さ LLM judge／接地分離・配置方針 |
 | 2026-09-05 | 自然さ LLM-as-judge ハーネス整備（OpenRouter 無料モデル既定・pairwise debias） |
+| 2026-09-05 | **S1 完了:** Grosz & Sidner 三層対応表・静的/実行時凍結・`discourseLayerHints` |
