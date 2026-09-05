@@ -182,21 +182,25 @@
 
 ## 5. 本リポジトリ内の関連ドキュメント
 
-- 上位契約: [`docs/grounding-contract.md`](../grounding-contract.md)
-- 融合・分割: [`docs/grounded-generation.md`](../grounded-generation.md)
-- 多ターン接地: [`docs/grounded-generation-g6.md`](../grounded-generation-g6.md)
+- **作業 SoT（段階・ゲート・評価方針）:** [`../topic-graph-work-sot.md`](../topic-graph-work-sot.md)
+- 上位契約: [`../grounding-contract.md`](../grounding-contract.md)
+- 融合・分割: [`../grounded-generation.md`](../grounded-generation.md)
+- 多ターン接地: [`../grounded-generation-g6.md`](../grounded-generation-g6.md)
 - 埋め込み / リランカ / NLI 選定:  
-  [`docs/embedding-model-selection.md`](../embedding-model-selection.md),  
-  [`docs/reranker-model-selection.md`](../reranker-model-selection.md),  
-  [`docs/nli-model-selection.md`](../nli-model-selection.md)
+  [`../embedding-model-selection.md`](../embedding-model-selection.md),  
+  [`../reranker-model-selection.md`](../reranker-model-selection.md),  
+  [`../nli-model-selection.md`](../nli-model-selection.md)
 
 ---
 
 ## 6. 未決・次の相談メモ
 
-- 辺をコーパス JSON にどう書くか（著者編集 vs 半自動提案）
-- 実行時の効かせ方（retrieval ボーナス / fuse 候補制約 / follow-up 提案）
-- **人手レビュー負荷**に対し、LLM-as-judge やルール＋既存 NLI/CE のハイブリッドで品質ゲートを自動化できるか（別途相談）
+作業プログラムへ移行済み（[`../topic-graph-work-sot.md`](../topic-graph-work-sot.md)）。残る詳細は各段階の [R][D] で凍結する。
+
+- 辺をコーパス JSON にどう書くか（著者編集 vs 半自動提案）→ S3/S4
+- 実行時の効かせ方（retrieval ボーナス / fuse 候補制約 / follow-up 提案）→ S3/S4
+- 自然さ LLM-as-judge のルーブリック第1版 → S2 [D]
+- 接地ゲートの機械チェック項目の拡充 → 評価方針どおり SoT §2 で分離維持
 
 ---
 
